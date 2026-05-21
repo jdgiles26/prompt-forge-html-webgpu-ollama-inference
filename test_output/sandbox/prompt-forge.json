@@ -1,0 +1,14 @@
+{
+  "forged_at": "2026-05-21T13:03:36.179Z",
+  "mode": "project",
+  "backend": "ollama",
+  "model": "",
+  "template": null,
+  "params": {
+    "temperature": 0.3,
+    "maxTokens": 3000,
+    "numCtx": 8192
+  },
+  "task": "Build a Python token counter with TDD. Inputs: UTF-8 files. Outputs: dict[token,count].",
+  "file_count": 12
+}

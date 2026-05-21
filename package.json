@@ -1,0 +1,22 @@
+{
+  "name": "prompt-forge-html-webgpu-ollama-inference",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test":          "node test_features.js && node test_e2e_project.js && node test_zip_runs_tdd.js",
+    "test:features": "node test_features.js",
+    "test:e2e":      "node test_e2e_project.js",
+    "test:zip":      "node test_zip_runs_tdd.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

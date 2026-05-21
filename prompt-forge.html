@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROMPT FORGE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg:        #080c0f;
+    --surface:   #0d1318;
+    --panel:     #111820;
+    --border:    #1e2d3a;
+    --accent:    #00c8ff;
+    --amber:     #ffb800;
+    --red:       #ff3b3b;
+    --green:     #00ff88;
+    --dim:       #3a5060;
+    --text:      #c8dde8;
+    --muted:     #4a6878;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Rajdhani', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    overflow: hidden;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg,
+      transparent, transparent 2px,
+      rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .shell { display: grid; grid-template-rows: 52px 1fr; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative; overflow: hidden;
+  }
+  header::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, rgba(0,200,255,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .logo {
+    font-family: var(--mono); font-size: 18px;
+    color: var(--accent); letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(0,200,255,0.5);
+  }
+  .logo span { color: var(--amber); }
+  .tagline { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 2px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+  }
+  .status-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dim); transition: background 0.3s;
+  }
+  .status-pill.live .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-pill.busy .dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: blink 1s infinite; }
+  .status-pill.err  .dot { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  main {
+    display: grid;
+    grid-template-columns: var(--left, 1fr) 5px var(--right, 1fr);
+    overflow: hidden;
+  }
+  .splitter {
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .splitter:hover, .splitter.dragging { background: var(--accent); }
+  .splitter::after {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 2px; height: 30px;
+    background: var(--dim); border-radius: 1px;
+    transition: background 0.15s;
+  }
+  .splitter:hover::after, .splitter.dragging::after { background: var(--bg); }
+
+  .panel {
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .panel-label {
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--accent);
+  }
+  .panel-meta {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+  }
+
+  .input-area {
+    flex: 1;
+    display: flex; flex-direction: column;
+    padding: 12px; gap: 10px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .input-area::-webkit-scrollbar { width: 4px; }
+  .input-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  textarea {
+    min-height: 180px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    padding: 14px;
+    resize: vertical; outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus { border-color: var(--accent); }
+
+  .controls { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+
+  /* sections */
+  .section {
+    border: 1px solid var(--border); border-radius: 3px;
+    background: rgba(0,0,0,0.15);
+  }
+  .section-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+    color: var(--muted); text-transform: uppercase;
+    border-bottom: 1px solid transparent;
+  }
+  .section-head:hover { color: var(--text); }
+  .section.open .section-head { border-bottom-color: var(--border); color: var(--accent); }
+  .section-chev { margin-left: auto; font-size: 10px; transition: transform 0.2s; }
+  .section.open .section-chev { transform: rotate(90deg); }
+  .section-body { display: none; padding: 10px; gap: 8px; flex-direction: column; }
+  .section.open .section-body { display: flex; }
+
+  .backend-toggle, .mode-toggle {
+    display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
+  }
+  .backend-btn, .mode-btn {
+    flex: 1; padding: 8px;
+    background: transparent; border: none;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+    cursor: pointer; transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .backend-btn + .backend-btn,
+  .mode-btn + .mode-btn { border-left: 1px solid var(--border); }
+  .backend-btn.active, .mode-btn.active {
+    background: rgba(0,200,255,0.12); color: var(--accent);
+  }
+  .backend-btn:hover:not(.active),
+  .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.03); color: var(--text); }
+
+  .backend-config { display: none; flex-direction: column; gap: 6px; }
+  .backend-config.visible { display: flex; }
+
+  select, input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 7px 10px;
+    outline: none; appearance: none; cursor: pointer;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  select option { background: var(--panel); }
+  select optgroup { color: var(--amber); font-style: normal; }
+
+  .row { display: flex; gap: 6px; }
+  .row.tight { gap: 4px; }
+
+  label.field {
+    display: flex; flex-direction: column; gap: 3px;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .slider-row {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--text);
+  }
+  .slider-row input[type="range"] {
+    flex: 1; -webkit-appearance: none; appearance: none;
+    background: var(--border); height: 3px; border-radius: 2px; outline: none;
+    cursor: pointer; padding: 0;
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,200,255,0.5);
+  }
+  .slider-row .val { font-family: var(--mono); font-size: 11px; color: var(--accent); min-width: 42px; text-align: right; }
+  .slider-row .lbl { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; min-width: 80px; }
+
+  .btn {
+    padding: 9px 18px;
+    border: 1px solid; border-radius: 3px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px;
+    cursor: pointer; transition: all 0.15s;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .btn-primary {
+    flex: 1;
+    background: rgba(0,200,255,0.1);
+    border-color: var(--accent); color: var(--accent);
+  }
+  .btn-primary:hover { background: rgba(0,200,255,0.2); box-shadow: 0 0 16px rgba(0,200,255,0.2); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border); color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--dim); color: var(--text); }
+  .btn-amber {
+    background: rgba(255,184,0,0.08);
+    border-color: var(--amber); color: var(--amber);
+  }
+  .btn-amber:hover { background: rgba(255,184,0,0.18); }
+  .btn-small { padding: 5px 10px; font-size: 10px; }
+
+  .model-progress { display: none; flex-direction: column; gap: 4px; }
+  .model-progress.visible { display: flex; }
+  .progress-label { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .progress-bar {
+    height: 3px; background: var(--border); border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    transition: width 0.3s;
+  }
+
+  .output-area {
+    flex: 1; overflow-y: auto;
+    padding: 14px 16px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    color: var(--text);
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .output-area::-webkit-scrollbar { width: 4px; }
+  .output-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .output-placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 10px; color: var(--dim);
+  }
+  .output-placeholder .icon { font-size: 32px; opacity: 0.4; }
+  .output-placeholder p { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+
+  .output-content { white-space: pre-wrap; word-break: break-word; }
+
+  /* markdown tint (applied post-stream) */
+  .output-content .md-h1 { color: var(--accent); font-size: 14px; font-weight: 600; display: block; margin: 6px 0 2px; }
+  .output-content .md-h2 { color: var(--amber); font-weight: 600; display: block; margin: 6px 0 2px; }
+  .output-content .md-h3 { color: #7ecfff; display: block; margin: 4px 0 2px; }
+  .output-content .md-code { background: rgba(0,200,255,0.06); color: var(--green); padding: 0 4px; border-radius: 2px; }
+  .output-content .md-fence { display: block; background: rgba(0,0,0,0.35); border-left: 2px solid var(--accent); padding: 6px 10px; color: var(--green); margin: 4px 0; }
+  .output-content .md-file { color: var(--amber); font-weight: 600; display: block; margin: 8px 0 2px; }
+  .output-content .md-bold { color: #e4f1f8; font-weight: 600; }
+
+  /* file tree (project-mode viewer) */
+  .file-viewer { display: none; height: 100%; grid-template-columns: 220px 1fr; }
+  .file-viewer.visible { display: grid; }
+  .file-tree {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    background: var(--surface);
+    padding: 8px 0;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .file-tree::-webkit-scrollbar { width: 4px; }
+  .file-tree::-webkit-scrollbar-thumb { background: var(--border); }
+  .file-tree-item {
+    padding: 5px 12px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    word-break: break-all;
+  }
+  .file-tree-item:hover { background: rgba(0,200,255,0.05); color: var(--text); }
+  .file-tree-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,200,255,0.08); }
+  .file-tree-size { display: block; font-size: 9px; color: var(--dim); margin-top: 1px; }
+  .file-content {
+    overflow-y: auto;
+    padding: 14px 16px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    white-space: pre-wrap; word-break: break-word;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .file-content::-webkit-scrollbar { width: 4px; }
+  .file-content::-webkit-scrollbar-thumb { background: var(--border); }
+  .file-content-header {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--accent); letter-spacing: 2px;
+    margin-bottom: 8px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .output-view-toggle {
+    display: none;
+    border: 1px solid var(--border); border-radius: 3px;
+    overflow: hidden;
+  }
+  .output-view-toggle.visible { display: flex; }
+  .output-view-toggle button {
+    padding: 4px 10px;
+    background: transparent; border: none;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+    cursor: pointer; text-transform: uppercase;
+  }
+  .output-view-toggle button.active { background: rgba(0,200,255,0.12); color: var(--accent); }
+  .output-view-toggle button + button { border-left: 1px solid var(--border); }
+
+  .history-item { position: relative; }
+  .history-del {
+    position: absolute; top: 6px; right: 6px;
+    background: transparent; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted);
+    font-family: var(--mono); font-size: 10px;
+    width: 22px; height: 22px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .history-del:hover { color: var(--red); border-color: var(--red); }
+
+  .ctx-warning {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--amber);
+    padding: 4px 8px;
+    border-left: 2px solid var(--amber);
+    background: rgba(255,184,0,0.05);
+    display: none;
+  }
+  .ctx-warning.visible { display: block; }
+
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    margin: 0 2px;
+  }
+
+  .output-actions {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0; background: var(--surface);
+  }
+  .char-count {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .corner {
+    position: absolute; width: 10px; height: 10px;
+    border-color: var(--accent); border-style: solid;
+    opacity: 0.4;
+  }
+  .corner-tl { top: 0; left: 0; border-width: 1px 0 0 1px; }
+  .corner-tr { top: 0; right: 0; border-width: 1px 1px 0 0; }
+
+  .err-msg {
+    color: var(--red); font-family: var(--mono); font-size: 11px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255,59,59,0.3); border-radius: 3px;
+    background: rgba(255,59,59,0.06);
+    display: none; white-space: pre-wrap;
+  }
+  .err-msg.visible { display: block; }
+
+  .toast {
+    position: fixed; bottom: 16px; right: 16px;
+    padding: 10px 16px;
+    background: var(--panel); border: 1px solid var(--accent); border-radius: 3px;
+    color: var(--accent);
+    font-family: var(--mono); font-size: 12px;
+    box-shadow: 0 0 20px rgba(0,200,255,0.3);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none; z-index: 10001;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+
+  /* modal */
+  .modal {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 10000;
+  }
+  .modal.visible { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px;
+    width: min(720px, 92vw); max-height: 80vh;
+    display: flex; flex-direction: column;
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-title {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--accent); letter-spacing: 2px; text-transform: uppercase;
+  }
+  .modal-close {
+    margin-left: auto;
+    background: transparent; border: none;
+    color: var(--muted); cursor: pointer;
+    font-family: var(--mono); font-size: 16px;
+  }
+  .modal-close:hover { color: var(--red); }
+  .modal-body { padding: 14px; overflow-y: auto; }
+
+  .history-item {
+    padding: 10px;
+    border: 1px solid var(--border); border-radius: 3px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .history-item:hover { border-color: var(--accent); background: rgba(0,200,255,0.04); }
+  .history-meta {
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    display: flex; gap: 10px; margin-bottom: 4px;
+  }
+  .history-task {
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .validate-report {
+    font-family: var(--mono); font-size: 11px; line-height: 1.7;
+  }
+  .validate-report .ok  { color: var(--green); }
+  .validate-report .bad { color: var(--red); }
+  .validate-report .warn { color: var(--amber); }
+  .validate-report .section-name { color: var(--accent); }
+
+  .system-prompt-editor {
+    width: 100%; min-height: 220px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 11px; line-height: 1.5;
+    padding: 10px; outline: none; resize: vertical;
+  }
+
+  details summary { cursor: pointer; outline: none; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="corner corner-tl"></div>
+    <div class="logo">PROMPT<span>FORGE</span></div>
+    <div class="tagline">Agentic Workflow Compiler // TDD + Guardrails + Packages</div>
+    <div class="header-right">
+      <div class="status-pill" id="tokrate" style="display:none">
+        <div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>
+        <span id="tokrateText">0 tok/s</span>
+      </div>
+      <button class="btn btn-ghost btn-small" onclick="openHelp()" title="Keyboard shortcuts (?)">? HELP</button>
+      <button class="btn btn-ghost btn-small" onclick="exportWorkspace()" title="Export everything (settings, history, custom prompt) as .json">↑ EXPORT</button>
+      <button class="btn btn-ghost btn-small" onclick="document.getElementById('importFile').click()" title="Import workspace .json">↓ IMPORT</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importWorkspace(event)" />
+      <button class="btn btn-ghost btn-small" onclick="openHistory()">⌖ HISTORY</button>
+      <div class="status-pill" id="statusPill">
+        <div class="dot"></div>
+        <span id="statusText">IDLE</span>
+      </div>
+    </div>
+    <div class="corner corner-tr"></div>
+  </header>
+
+  <main>
+
+    <!-- LEFT -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-label">// Raw Task Input</div>
+        <div class="panel-meta" id="inputCount">0 chars · ~0 tok</div>
+      </div>
+      <div class="input-area">
+        <textarea
+          id="taskInput"
+          placeholder="Paste your raw task, message, or requirement here...&#10;&#10;Describe what needs to be built, upgraded, fixed, or refactored. Include any relevant context: hardware targets, detection objectives, file paths, existing working code, broken code, etc.&#10;&#10;PROMPT FORGE will transform this into a structured Claude Code system prompt with agentic workflow, TDD scaffold, guardrails, and done criteria. Switch to COMPLETE PROJECT mode to package the whole repo (before/after code + tests) into a downloadable .zip."
+          spellcheck="false"
+        ></textarea>
+
+        <div class="controls">
+
+          <!-- MODE -->
+          <div class="section open" id="sec-mode">
+            <div class="section-head" onclick="toggleSection('sec-mode')">
+              <span>MODE</span>
+              <span id="modeBadge" style="color:var(--accent);font-size:10px;letter-spacing:1px;">SINGLE PROMPT</span>
+              <span class="section-chev">›</span>
+            </div>
+            <div class="section-body">
+              <div class="mode-toggle">
+                <button class="mode-btn active" id="modeSingle" onclick="setMode('single')">▸ Single Prompt</button>
+                <button class="mode-btn" id="modeProject" onclick="setMode('project')">▣ Complete Project Pkg</button>
+              </div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;" id="modeHelp">
+                Outputs one structured system prompt for Claude Code. Copy / save .md.
+              </div>
+            </div>
+          </div>
+
+          <!-- TEMPLATE -->
+          <div class="section" id="sec-template">
+            <div class="section-head" onclick="toggleSection('sec-template')">
+              <span>TEMPLATE</span>
+              <span id="templateBadge" style="color:var(--muted);font-size:10px;">none</span>
+              <span class="section-chev">›</span>
+            </div>
+            <div class="section-body">
+              <select id="templateSel" onchange="onTemplateChange()">
+                <option value="">— None (vanilla forge) —</option>
+                <option value="refactor">Surgical Refactor (preserve API, replace internals)</option>
+                <option value="greenfield">Greenfield Build (new repo, full scaffold)</option>
+                <option value="bugfix">Bug Fix (root cause + regression test)</option>
+                <option value="performance">Performance (profile, hotspot, measure)</option>
+                <option value="security">Security Audit (OWASP, threat model)</option>
+                <option value="migration">Migration (versioned upgrade with rollback)</option>
+                <option value="datapipeline">Data Pipeline (ETL, schema, idempotency)</option>
+                <option value="ml">ML / Inference (model swap, eval harness)</option>
+                <option value="embedded">Embedded / Edge (memory + power budget)</option>
+                <option value="api">API Service (contracts, OpenAPI, auth)</option>
+              </select>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;" id="templateHelp">
+                Pre-loads task-type-specific guardrails and DONE-WHEN criteria.
+              </div>
+            </div>
+          </div>
+
+          <!-- BACKEND -->
+          <div class="section open" id="sec-backend">
+            <div class="section-head" onclick="toggleSection('sec-backend')">
+              <span>INFERENCE BACKEND</span>
+              <span id="backendBadge" style="color:var(--accent);font-size:10px;">OLLAMA</span>
+              <span class="section-chev">›</span>
+            </div>
+            <div class="section-body">
+              <div class="backend-toggle">
+                <button class="backend-btn active" id="btnOllama" onclick="setBackend('ollama')">⚡ Ollama (Local)</button>
+                <button class="backend-btn" id="btnBrowser" onclick="setBackend('browser')">🧠 Browser AI (WebGPU)</button>
+              </div>
+
+              <div class="backend-config visible" id="ollamaConfig">
+                <div class="row">
+                  <select id="ollamaModel">
+                    <option value="">— fetching models... —</option>
+                  </select>
+                  <button class="btn btn-ghost btn-small" onclick="fetchOllamaModels()" title="Refresh models">↻</button>
+                </div>
+                <input type="text" id="ollamaUrl" value="http://localhost:11434" placeholder="Ollama base URL" />
+              </div>
+
+              <div class="backend-config" id="browserConfig">
+                <select id="browserModel">
+                  <option value="onnx-community/Qwen2.5-Coder-1.5B-Instruct" selected>Qwen2.5-Coder 1.5B · ~900MB (recommended)</option>
+                  <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B · ~300MB (fast)</option>
+                  <option value="HuggingFaceTB/SmolLM2-1.7B-Instruct">SmolLM2 1.7B · ~1GB</option>
+                </select>
+                <div class="model-progress" id="modelProgress">
+                  <div class="progress-label" id="progressLabel">Downloading model...</div>
+                  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PARAMS -->
+          <div class="section" id="sec-params">
+            <div class="section-head" onclick="toggleSection('sec-params')">
+              <span>GENERATION PARAMS</span>
+              <span id="paramsBadge" style="color:var(--muted);font-size:10px;">T=0.3 · 3000 tok</span>
+              <span class="section-chev">›</span>
+            </div>
+            <div class="section-body">
+              <div class="slider-row">
+                <span class="lbl">Temp</span>
+                <input type="range" id="temperature" min="0" max="1" step="0.05" value="0.3" oninput="updateParamsBadge()" />
+                <span class="val" id="tempVal">0.30</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Max tokens</span>
+                <input type="range" id="maxTokens" min="500" max="8000" step="100" value="3000" oninput="updateParamsBadge()" />
+                <span class="val" id="maxVal">3000</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Ctx (Ollama)</span>
+                <input type="range" id="numCtx" min="2048" max="32768" step="1024" value="8192" oninput="updateParamsBadge()" />
+                <span class="val" id="ctxVal">8192</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SYSTEM PROMPT EDITOR -->
+          <div class="section" id="sec-system">
+            <div class="section-head" onclick="toggleSection('sec-system')">
+              <span>META-PROMPT (edit base)</span>
+              <span id="systemBadge" style="color:var(--muted);font-size:10px;">default</span>
+              <span class="section-chev">›</span>
+            </div>
+            <div class="section-body">
+              <textarea class="system-prompt-editor" id="systemPromptEditor" spellcheck="false"></textarea>
+              <div class="row">
+                <button class="btn btn-ghost btn-small" onclick="resetSystemPrompt()">↺ Reset to default</button>
+                <button class="btn btn-ghost btn-small" onclick="saveSystemPrompt()">💾 Save (local)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="err-msg" id="errMsg"></div>
+
+          <div class="ctx-warning" id="ctxWarning"></div>
+
+          <div class="row">
+            <button class="btn btn-primary" id="forgeBtn" onclick="forge()">▶ FORGE PROMPT</button>
+            <button class="btn btn-amber" id="stopBtn" onclick="stopGeneration()" style="display:none">■ STOP</button>
+            <button class="btn btn-ghost" id="regenBtn" onclick="regenerate()" title="Re-run with the same task (does not mutate input)" disabled>⟲ REGEN</button>
+            <button class="btn btn-ghost" id="refineBtn" onclick="refine()" title="Re-forge using prior output as additional context" disabled>↻ REFINE</button>
+            <button class="btn btn-ghost" onclick="clearAll()">✕ CLEAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPLITTER -->
+    <div class="splitter" id="splitter" title="Drag to resize · double-click to reset"></div>
+
+    <!-- RIGHT -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-label">// Agentic Claude Code Prompt</div>
+        <div class="output-view-toggle" id="viewToggle">
+          <button class="active" id="viewRaw" onclick="setOutputView('raw')">RAW</button>
+          <button id="viewFiles" onclick="setOutputView('files')">FILES</button>
+        </div>
+        <div class="panel-meta" id="outputCount">0 chars · ~0 tok</div>
+      </div>
+      <div class="output-area" id="outputArea">
+        <div class="output-placeholder" id="outputPlaceholder">
+          <div class="icon">◈</div>
+          <p>Output appears here</p>
+        </div>
+        <div class="output-content" id="outputContent" style="display:none"></div>
+        <div class="file-viewer" id="fileViewer">
+          <div class="file-tree" id="fileTree"></div>
+          <div class="file-content" id="fileContent"></div>
+        </div>
+      </div>
+      <div class="output-actions">
+        <button class="btn btn-ghost btn-small" onclick="copyOutput()" id="copyBtn">⎘ COPY</button>
+        <button class="btn btn-ghost btn-small" onclick="downloadMd()">↓ .MD</button>
+        <button class="btn btn-ghost btn-small" onclick="downloadJson()">↓ .JSON</button>
+        <button class="btn btn-amber btn-small" id="zipBtn" onclick="downloadZip()" style="display:none">▣ DOWNLOAD .ZIP</button>
+        <button class="btn btn-ghost btn-small" onclick="validateOutput()">✓ VALIDATE</button>
+        <div class="char-count">
+          <span id="outputCharCount"></span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal" id="historyModal" onclick="if(event.target===this)closeHistory()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">⌖ Prompt History (last 25)</div>
+      <button class="btn btn-ghost btn-small" onclick="clearHistory()">CLEAR ALL</button>
+      <button class="modal-close" onclick="closeHistory()">✕</button>
+    </div>
+    <div class="modal-body" id="historyBody"></div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal" id="helpModal" onclick="if(event.target===this)closeHelp()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">? Keyboard Shortcuts &amp; Tips</div>
+      <button class="modal-close" onclick="closeHelp()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:var(--mono);font-size:12px;line-height:1.9;color:var(--text);">
+        <div><kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd> — Forge prompt</div>
+        <div><kbd>⌘/Ctrl</kbd>+<kbd>.</kbd> — Stop generation</div>
+        <div><kbd>⌘/Ctrl</kbd>+<kbd>K</kbd> — Clear all</div>
+        <div><kbd>⌘/Ctrl</kbd>+<kbd>S</kbd> — Save .md</div>
+        <div><kbd>⌘/Ctrl</kbd>+<kbd>H</kbd> — Open history</div>
+        <div><kbd>?</kbd> — Show this help</div>
+        <div><kbd>Esc</kbd> — Close any modal</div>
+        <div style="margin-top:14px;color:var(--muted);font-size:11px;line-height:1.7;">
+          <div style="color:var(--accent);margin-bottom:6px;">TIPS</div>
+          · Switch to <b>COMPLETE PROJECT</b> mode for a downloadable .zip with before/after code + failing TDD tests.<br>
+          · The <b>FILES</b> view (top-right) appears in project mode — click any file to inspect it before downloading the zip.<br>
+          · <b>Refine</b> appends prior output to your task; <b>Regen</b> re-runs the original task untouched.<br>
+          · Use the <b>splitter</b> between panels to resize; double-click it to reset to 50/50.<br>
+          · For models &gt; 4GB use Ollama. For air-gapped use SmolLM2 135M (≈80MB).<br>
+          · <b>Validate</b> audits required sections + flags every [CONFIRM WITH USER] placeholder.<br>
+          · Custom HF model ID accepts any text-generation ONNX model on Hugging Face.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VALIDATE MODAL -->
+<div class="modal" id="validateModal" onclick="if(event.target===this)closeValidate()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="modal-title">✓ Output Validation</div>
+      <button class="modal-close" onclick="closeValidate()">✕</button>
+    </div>
+    <div class="modal-body" id="validateBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SYSTEM PROMPTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+const SYSTEM_PROMPT_SINGLE = `You are an expert agentic AI workflow architect specializing in Claude Code system prompts.
+
+Your ONLY job: Transform the user's raw task description into a fully structured, production-grade Claude Code system prompt.
+
+Follow this EXACT skeleton. Fill every section from what the user provided. Derive missing fields from context. Never leave a section empty — if a field is not mentioned, write [CONFIRM WITH USER: <specific question>].
+
+OUTPUT FORMAT — output ONLY the prompt below. No preamble. No "Here is your prompt". No triple-backtick wrapper around the full output.
+
+---
+# [Concise Task Title] — Claude Code System Prompt
+
+## ROLE
+[One sentence. What role Claude Code plays. e.g. "Senior ML systems engineer performing a surgical production-grade refactor." No greenfield. No scaffold. Read, audit, replace.]
+
+## VERSION MAP
+[Include ONLY if multiple repos/codebases/versions are mentioned. Format as table:]
+| Name | Path | Status |
+|---|---|---|
+| WORKING SOURCE | [path] | ✅ Real, working — build from this |
+| FAILED/REFERENCE | [path] | ❌ Status |
+| YOUR TARGET | [path] | 🔨 What gets built/modified |
+[If single repo, replace with: "Single repo. Target: [path]"]
+
+## HARDWARE / ENVIRONMENT TARGET
+[Exact hardware, OS, runtimes, versions. If GPU: note unified vs discrete memory. If cloud: region, instance type. Mark TBD if not specified.]
+
+## OBJECTIVE — EXACT
+[What to build, detect, produce. Zero ambiguity. Specific inputs → specific outputs. Use table for targets if applicable. Include thresholds, wire priorities, payload schemas if mentioned.]
+
+## WHAT TO BUILD
+[Concrete ordered list. Each item: feature name, one-sentence description of EXACT implementation approach. Be specific: library names, API calls, flags, thresholds.]
+
+## WHAT NOT TO BUILD
+[Explicitly out-of-scope. Each item: name — one-line reason it's excluded from this build.]
+
+## DELETE / REMOVE
+[Files, functions, classes to delete. Format: path/or/function()  # reason]
+
+## PRESERVE — DO NOT TOUCH
+[Working code, routes, contracts that must not change. One per line.]
+
+## NEW FILES TO CREATE
+[filename or path    # one-line purpose]
+
+## EXECUTION ORDER — TDD, NO SKIPPING STEPS
+
+### Step 1 — Audit
+Read the full codebase. Log every broken call, every CPU-bound op, every fake stub, every dead code path as inline comments. Write zero implementation code in this step.
+
+### Step 2 — Write Tests First
+File: test_[task_name].py
+ALL TESTS MUST FAIL BEFORE IMPLEMENTATION. ALL MUST PASS AFTER. NO EXCEPTIONS.
+
+[List 8–12 specific test cases derived from the objective. Format:
+test_[descriptive_name]    [exact assertion in plain English]]
+
+### Step 3 — Implement in This Order
+[Numbered list of files to create or modify, in dependency order]
+
+### Step 4 — Validate
+\`\`\`bash
+pytest test_[task_name].py -v
+\`\`\`
+All tests green before declaring done.
+
+### Step 5 — Deliver
+Complete files only. No truncation. No \`# ... rest of file\`. No TODO comments. No mock returns. No placeholders.
+
+## GUARDRAILS — HARD STOPS
+[6–10 STOP conditions derived from the specific failure modes and anti-patterns of THIS task. Format:
+- **STOP** if [specific condition] — [what to do instead or why it is banned]]
+
+## DONE WHEN
+[8–12 numbered, binary, verifiable success criteria. Each one is either done or it is not.]
+---
+
+Rules you MUST follow:
+1. Output ONLY the formatted prompt. Nothing before it. Nothing after it.
+2. Every section must be filled with task-specific content. Generic filler is failure.
+3. Test cases must name the actual functions, APIs, behaviors from the user's task — not generic placeholders.
+4. Guardrails must reflect the actual anti-patterns and failure modes of this specific task.
+5. DONE WHEN criteria must be binary and verifiable, not subjective.`;
+
+
+const SYSTEM_PROMPT_PROJECT = `You are an expert agentic AI workflow architect. Your job: emit a COMPLETE downloadable project package from the user's raw task.
+
+You must output a multi-file payload. Each file is wrapped by markers EXACTLY like this:
+
+=== FILE: <relative/path> ===
+<file contents>
+=== END FILE ===
+
+Do NOT wrap the whole payload in code fences. Do NOT add any prose before, between, or after the file blocks. The first character of your output must be "=" of the first marker. The last line must be "=== END FILE ===".
+
+Emit ALL of the following files, in this order. Fill every section with task-specific, non-generic content derived from the user's input. Where a value is genuinely unknown, write [CONFIRM WITH USER: <specific question>].
+
+=== FILE: README.md ===
+# <Concise Project Title>
+
+One-paragraph description of what this project does and why it exists.
+
+## Stack
+- Language(s), framework(s), runtime versions
+- Hardware / environment target
+
+## Quick start
+\`\`\`bash
+make install
+make test
+make run
+\`\`\`
+
+## Structure
+Brief tree of the directories below.
+
+## Status
+Single-line: green/yellow/red + what blocks shipping.
+=== END FILE ===
+
+=== FILE: CLAUDE.md ===
+# <Project Name> — Claude Code System Prompt
+
+## ROLE
+[One sentence — the role Claude Code plays on this codebase.]
+
+## VERSION MAP
+[Table of working source, reference, target paths — or "Single repo. Target: ./" if simple.]
+
+## HARDWARE / ENVIRONMENT TARGET
+[Exact hardware, OS, runtimes, versions.]
+
+## OBJECTIVE — EXACT
+[Specific inputs → specific outputs. Thresholds. Schemas.]
+
+## WHAT TO BUILD
+[Ordered concrete list.]
+
+## WHAT NOT TO BUILD
+[Out-of-scope items with one-line reasons.]
+
+## DELETE / REMOVE
+[Paths/symbols to delete with reasons.]
+
+## PRESERVE — DO NOT TOUCH
+[Working contracts that must not change.]
+
+## NEW FILES TO CREATE
+[path  # purpose]
+
+## EXECUTION ORDER — TDD, NO SKIPPING STEPS
+### Step 1 — Audit
+Read every file under src/before/. Log broken calls, CPU-bound ops, stubs, dead paths as inline comments. Zero implementation code in this step.
+
+### Step 2 — Tests already exist
+File: tests/test_main.py — pre-written, currently RED. All must turn GREEN with no edits to assertions.
+
+### Step 3 — Implement under src/after/
+In dependency order. No edits to tests. No mock returns.
+
+### Step 4 — Validate
+\`\`\`bash
+make test
+\`\`\`
+
+### Step 5 — Deliver
+Complete files. No TODO. No truncation. No placeholders.
+
+## GUARDRAILS — HARD STOPS
+[6–10 STOP conditions specific to this task.]
+
+## DONE WHEN
+[8–12 binary verifiable criteria — mirrors DONE.md.]
+=== END FILE ===
+
+=== FILE: AGENTS.md ===
+# Agent Workflow
+
+## Roles
+- **Architect** — owns CLAUDE.md, never edits code.
+- **Implementer** — edits only src/after/, tests/conftest.py if absolutely needed.
+- **Reviewer** — runs make test, make lint, fills DONE.md checkboxes.
+
+## Handoffs
+1. Architect → Implementer: CLAUDE.md frozen.
+2. Implementer → Reviewer: all tests green locally.
+3. Reviewer → Done: DONE.md fully checked.
+
+## Communication contract
+- Every PR description names: which DONE.md items it closes, which tests changed (should be none), which guardrails were tested against.
+=== END FILE ===
+
+=== FILE: DONE.md ===
+# Done Criteria
+
+[8–12 task-specific binary checkboxes. Format:]
+- [ ] <specific verifiable thing>
+=== END FILE ===
+
+=== FILE: Makefile ===
+.PHONY: install test lint run clean
+
+install:
+\t<install command for detected stack>
+
+test:
+\t<test command — must run tests/ directory>
+
+lint:
+\t<lint command for detected stack>
+
+run:
+\t<run command>
+
+clean:
+\trm -rf __pycache__ .pytest_cache node_modules dist build
+=== END FILE ===
+
+=== FILE: .gitignore ===
+[Reasonable gitignore for the detected stack.]
+=== END FILE ===
+
+=== FILE: src/before/main.<ext> ===
+[The CURRENT or BROKEN code as described by the user. If user described a refactor, put the old/broken version here. If greenfield, put a minimal failing stub that demonstrates the gap. Add inline comments marking what is wrong / what must change.]
+=== END FILE ===
+
+=== FILE: src/after/main.<ext> ===
+[The TARGET shape — function/class signatures and module structure that the implementer must fill. Bodies are \`raise NotImplementedError("...")\` or equivalent. Public surface must match what tests import.]
+=== END FILE ===
+
+=== FILE: tests/test_main.<ext> ===
+[8–12 specific, named, task-derived tests. They import from src.after. They MUST currently fail (because src/after has NotImplementedError). They MUST be the exact pass-criteria for done. No generic placeholders.]
+=== END FILE ===
+
+=== FILE: tests/conftest.<ext> ===
+[Minimal fixtures only if needed. Otherwise an empty file with a one-line comment.]
+=== END FILE ===
+
+=== FILE: requirements.txt ===
+[Pinned dependencies — or package.json content for JS projects; choose the file appropriate to the detected stack. If JS, name this file "package.json" instead and emit valid JSON.]
+=== END FILE ===
+
+Hard rules:
+1. EVERY file marker must appear, in order. No omissions.
+2. Choose file extensions (<ext>) based on the user's stack. Python → .py. TypeScript → .ts. Rust → .rs. Etc.
+3. If the user's task implies JS/TS, replace requirements.txt with package.json containing valid JSON.
+4. Tests must currently FAIL against src/after (stubs) and PASS once filled. This is the TDD contract.
+5. src/before vs src/after must be meaningfully different — before = current/broken, after = target shape.
+6. No prose outside the FILE blocks. No backtick fences around the whole payload.
+7. Output starts with "=== FILE: README.md ===" as its first characters.`;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// STATE
+// ═════════════════════════════════════════════════════════════════════════════
+
+let backend     = 'ollama';
+let mode        = 'single';        // 'single' | 'project'
+let pipeline    = null;
+let modelLoaded = false;
+let loadedModelId = null;
+let streaming   = false;
+let transformersMod = null;
+
+const LS = {
+  HISTORY:    'pf.history.v1',
+  SYS_PROMPT: 'pf.sysprompt.v1',
+  DRAFT:      'pf.draft.v1',
+  PREFS:      'pf.prefs.v1',
+};
+
+let abortCtl     = null;       // AbortController for in-flight Ollama fetch
+let stopRequested = false;     // soft cancel for browser pipeline
+let tokCount     = 0;
+let genStartTs   = 0;
+let tokRateTimer = null;
+let lastOutput   = '';         // for Refine
+
+// ── DOM REFS
+const taskInput      = document.getElementById('taskInput');
+const outputArea     = document.getElementById('outputArea');
+const outputContent  = document.getElementById('outputContent');
+const outputPlaceholder = document.getElementById('outputPlaceholder');
+const forgeBtn       = document.getElementById('forgeBtn');
+const statusPill     = document.getElementById('statusPill');
+const statusText     = document.getElementById('statusText');
+const errMsg         = document.getElementById('errMsg');
+const inputCount     = document.getElementById('inputCount');
+const outputCount    = document.getElementById('outputCount');
+const outputCharCount= document.getElementById('outputCharCount');
+const modelProgress  = document.getElementById('modelProgress');
+const progressLabel  = document.getElementById('progressLabel');
+const progressFill   = document.getElementById('progressFill');
+const ollamaConfig   = document.getElementById('ollamaConfig');
+const browserConfig  = document.getElementById('browserConfig');
+const systemPromptEditor = document.getElementById('systemPromptEditor');
+const zipBtn         = document.getElementById('zipBtn');
+const toastEl        = document.getElementById('toast');
+const stopBtn        = document.getElementById('stopBtn');
+const refineBtn      = document.getElementById('refineBtn');
+const tokratePill    = document.getElementById('tokrate');
+const tokrateText    = document.getElementById('tokrateText');
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═════════════════════════════════════════════════════════════════════════════
+
+function setStatus(state, label) {
+  statusPill.className = 'status-pill ' + state;
+  statusText.textContent = label;
+}
+function showErr(msg) { errMsg.textContent = msg; errMsg.classList.add('visible'); }
+function clearErr()   { errMsg.classList.remove('visible'); }
+
+function approxTokens(s) { return Math.ceil((s || '').length / 4); }
+
+function toast(msg, ms=1600) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove('visible'), ms);
+}
+
+function updateInputMeter() {
+  const n = taskInput.value.length;
+  inputCount.textContent = n.toLocaleString() + ' chars · ~' + approxTokens(taskInput.value).toLocaleString() + ' tok';
+}
+function updateOutputMeter() {
+  const t = outputContent.dataset.raw ?? outputContent.textContent;
+  const n = t.length;
+  outputCount.textContent = n.toLocaleString() + ' chars · ~' + approxTokens(t).toLocaleString() + ' tok';
+  outputCharCount.textContent = n.toLocaleString() + ' chars';
+}
+
+taskInput.addEventListener('input', updateInputMeter);
+
+window.toggleSection = function(id) {
+  document.getElementById(id).classList.toggle('open');
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODE
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.setMode = function(m) {
+  mode = m;
+  document.getElementById('modeSingle').classList.toggle('active', m === 'single');
+  document.getElementById('modeProject').classList.toggle('active', m === 'project');
+  document.getElementById('modeBadge').textContent = m === 'single' ? 'SINGLE PROMPT' : 'COMPLETE PROJECT';
+  document.getElementById('modeHelp').textContent = m === 'single'
+    ? 'Outputs one structured system prompt for Claude Code. Copy / save .md.'
+    : 'Outputs a complete multi-file project (README, CLAUDE.md, AGENTS.md, src/before, src/after, tests, Makefile, DONE.md). Download as .zip.';
+  zipBtn.style.display = m === 'project' ? '' : 'none';
+  // refresh editor if it's still showing default
+  if (systemPromptEditor.dataset.dirty !== '1') {
+    systemPromptEditor.value = baseSystemPrompt();
+  }
+};
+
+function baseSystemPrompt() {
+  let p = mode === 'project' ? SYSTEM_PROMPT_PROJECT : SYSTEM_PROMPT_SINGLE;
+  const tpl = document.getElementById('templateSel').value;
+  if (tpl) p = TEMPLATE_PREFIX[tpl] + '\n\n' + p;
+  return p;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TEMPLATE PRESETS
+// ═════════════════════════════════════════════════════════════════════════════
+
+const TEMPLATE_PREFIX = {
+  refactor: `TASK CATEGORY: SURGICAL REFACTOR.
+- Preserve all public APIs, route paths, exit codes, and stdout contracts unless the user explicitly authorized changes.
+- Reuse existing names where semantics are unchanged. New names only for new concepts.
+- Tests are immutable. Implementation must move under them.
+- Forbid greenfield scaffolding, framework swaps, or dependency upgrades unless explicitly requested.`,
+
+  greenfield: `TASK CATEGORY: GREENFIELD BUILD.
+- No legacy preservation. Optimize for a clean dependency graph and minimum surface area.
+- Pick the simplest stack that meets the constraints; justify any added dependency in one line.
+- README + Makefile + tests must exist on day one. Treat onboarding (\`make install && make test\`) as a first-class deliverable.`,
+
+  bugfix: `TASK CATEGORY: BUG FIX.
+- First task is reproducing the bug as a failing test. No fix may land without that test.
+- Diagnose root cause; do not patch symptoms. If a symptom-only patch is unavoidable, log the deferred root cause in DONE.md.
+- Smallest correct diff wins. No refactors disguised as fixes.`,
+
+  performance: `TASK CATEGORY: PERFORMANCE.
+- Measure before changing. Attach a benchmark (perf/bench_*.{py,ts,rs}) and a baseline number to every claim.
+- "Faster" without a measured delta is failure. Targets must be quantified (latency p50/p95, throughput, RSS).
+- Forbid micro-optimizations that pessimize readability without a measured win >10%.`,
+
+  security: `TASK CATEGORY: SECURITY.
+- Threat-model first: list assets, trust boundaries, attacker capabilities.
+- Map findings to OWASP Top 10 categories and CWE IDs where applicable.
+- Every fix paired with a regression test that proves the exploit class is closed.
+- Never paste secrets, tokens, or PII into output, logs, or test fixtures.`,
+
+  migration: `TASK CATEGORY: MIGRATION / UPGRADE.
+- Produce a forward and a rollback plan. Both must be one shell command each.
+- Migration must be idempotent. Re-running it on a migrated system is a no-op.
+- Document data-shape changes with before/after schema and a backfill strategy.`,
+
+  datapipeline: `TASK CATEGORY: DATA PIPELINE.
+- Idempotency, ordering, schema evolution, and partial-failure recovery are first-class concerns.
+- Specify exactly-once vs at-least-once semantics and the dedup key.
+- Add a backfill mode and a dry-run mode. Tests must cover replay safety.`,
+
+  ml: `TASK CATEGORY: ML / INFERENCE.
+- Pin model name, weights hash, runtime, and device.
+- Add an eval harness with at least one quantitative metric and a held-out fixture set.
+- Forbid silent fallback to CPU when GPU was requested — fail loudly.
+- Quantization choices must be justified with a measured accuracy delta.`,
+
+  embedded: `TASK CATEGORY: EMBEDDED / EDGE.
+- State the memory budget (RAM, flash), power budget, and worst-case latency up front.
+- No dynamic allocation in hot paths unless explicitly authorized.
+- All blocking I/O must be either DMA-driven or behind an explicit yield.`,
+
+  api: `TASK CATEGORY: API SERVICE.
+- OpenAPI / schema is the source of truth. Code is generated from or validated against it.
+- Auth, rate-limit, and error-shape contracts must be documented and tested.
+- Every endpoint has: happy-path test, validation-error test, and authz-failure test.`,
+};
+
+window.onTemplateChange = function() {
+  const sel = document.getElementById('templateSel');
+  const label = sel.options[sel.selectedIndex].text;
+  document.getElementById('templateBadge').textContent = sel.value ? label.split(' (')[0] : 'none';
+  document.getElementById('templateBadge').style.color = sel.value ? 'var(--accent)' : 'var(--muted)';
+  if (systemPromptEditor.dataset.dirty !== '1') {
+    systemPromptEditor.value = baseSystemPrompt();
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SYSTEM PROMPT EDITOR
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.resetSystemPrompt = function() {
+  systemPromptEditor.value = baseSystemPrompt();
+  systemPromptEditor.dataset.dirty = '0';
+  document.getElementById('systemBadge').textContent = 'default';
+  document.getElementById('systemBadge').style.color = 'var(--muted)';
+  localStorage.removeItem(LS.SYS_PROMPT);
+  toast('Reset to default');
+};
+
+window.saveSystemPrompt = function() {
+  localStorage.setItem(LS.SYS_PROMPT, systemPromptEditor.value);
+  systemPromptEditor.dataset.dirty = '1';
+  document.getElementById('systemBadge').textContent = 'custom (saved)';
+  document.getElementById('systemBadge').style.color = 'var(--amber)';
+  toast('Custom meta-prompt saved');
+};
+
+systemPromptEditor.addEventListener('input', () => {
+  systemPromptEditor.dataset.dirty = '1';
+  document.getElementById('systemBadge').textContent = 'custom (unsaved)';
+  document.getElementById('systemBadge').style.color = 'var(--amber)';
+});
+
+function getActiveSystemPrompt() {
+  return systemPromptEditor.value || baseSystemPrompt();
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PARAMS
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.updateParamsBadge = function() {
+  const t = parseFloat(document.getElementById('temperature').value);
+  const m = parseInt(document.getElementById('maxTokens').value, 10);
+  const c = parseInt(document.getElementById('numCtx').value, 10);
+  document.getElementById('tempVal').textContent = t.toFixed(2);
+  document.getElementById('maxVal').textContent  = m;
+  document.getElementById('ctxVal').textContent  = c;
+  document.getElementById('paramsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c}`;
+};
+
+function getParams() {
+  return {
+    temperature: parseFloat(document.getElementById('temperature').value),
+    maxTokens:   parseInt(document.getElementById('maxTokens').value, 10),
+    numCtx:      parseInt(document.getElementById('numCtx').value, 10),
+  };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BACKEND TOGGLE
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.setBackend = function(b) {
+  backend = b;
+  document.getElementById('btnOllama').classList.toggle('active', b === 'ollama');
+  document.getElementById('btnBrowser').classList.toggle('active', b === 'browser');
+  ollamaConfig.classList.toggle('visible', b === 'ollama');
+  browserConfig.classList.toggle('visible', b === 'browser');
+  document.getElementById('backendBadge').textContent = b === 'ollama' ? 'OLLAMA' : 'WEBGPU';
+  clearErr();
+  if (b === 'browser' && !('gpu' in navigator)) {
+    showErr('⚠ WebGPU not detected. Use Chrome 113+ or Edge 113+.');
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OLLAMA
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.fetchOllamaModels = async function() {
+  const base = document.getElementById('ollamaUrl').value.trim();
+  const sel  = document.getElementById('ollamaModel');
+  clearErr();
+  try {
+    const res  = await fetch(base + '/api/tags', { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const models = (data.models || []).sort((a,b) => a.name.localeCompare(b.name));
+    sel.innerHTML = models.length
+      ? models.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
+      : '<option value="">— no models found —</option>';
+    setStatus('live', 'OLLAMA OK');
+  } catch (e) {
+    sel.innerHTML = '<option value="">— cannot reach Ollama —</option>';
+    setStatus('err', 'OLLAMA OFFLINE');
+    if (window.location.protocol === 'file:') {
+      showErr('Cannot reach Ollama. Opening this file via file:// sends Origin: null, which Ollama blocks by default.\nFix: restart Ollama with OLLAMA_ORIGINS="*"\n  macOS app: launchctl setenv OLLAMA_ORIGINS "*"  then quit & relaunch the Ollama app.\n  CLI: OLLAMA_ORIGINS="*" ollama serve');
+    } else {
+      showErr('Cannot reach Ollama at ' + base + '. Is `ollama serve` running?');
+    }
+  }
+};
+
+async function runOllama(userText) {
+  const base  = document.getElementById('ollamaUrl').value.trim();
+  const model = document.getElementById('ollamaModel').value;
+  if (!model) { showErr('Select an Ollama model first.'); return; }
+
+  const { temperature, maxTokens, numCtx } = getParams();
+  setStatus('busy', 'GENERATING');
+  startOutput();
+
+  const body = JSON.stringify({
+    model,
+    system: getActiveSystemPrompt(),
+    prompt: userText,
+    stream: true,
+    options: {
+      temperature,
+      num_ctx: numCtx,
+      num_predict: maxTokens,
+    }
+  });
+
+  abortCtl = new AbortController();
+  let res;
+  try {
+    res = await fetch(base + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: abortCtl.signal,
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    if (window.location.protocol === 'file:') {
+      throw new Error('Cannot reach Ollama. file:// origin is blocked by default. Restart Ollama with OLLAMA_ORIGINS="*" (macOS: launchctl setenv OLLAMA_ORIGINS "*" then relaunch the Ollama app).');
+    }
+    throw new Error('Cannot reach Ollama at ' + base + '. Is `ollama serve` running?');
+  }
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+
+  const reader = res.body.getReader();
+  const dec    = new TextDecoder();
+  let buf = '';
+  try {
+    while (true) {
+      if (stopRequested) { try { await reader.cancel(); } catch {} return; }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        const s = line.trim();
+        if (!s) continue;
+        try {
+          const obj = JSON.parse(s);
+          if (obj.response) appendOutput(obj.response);
+          if (obj.done) return;
+        } catch {}
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') throw e;
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BROWSER (Transformers.js / WebGPU)
+// ═════════════════════════════════════════════════════════════════════════════
+
+async function loadTransformers() {
+  if (!transformersMod) {
+    transformersMod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2/dist/transformers.min.js');
+  }
+  return transformersMod;
+}
+
+async function runBrowser(userText) {
+  if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
+
+  const modelId = document.getElementById('browserModel').value;
+  setStatus('busy', 'LOADING MODEL');
+
+  const { pipeline: createPipeline, env } = await loadTransformers();
+  env.allowLocalModels  = false;
+  env.allowRemoteModels = true;
+
+  if (!modelLoaded || loadedModelId !== modelId) {
+    modelLoaded = false;
+    pipeline = null;
+    modelProgress.classList.add('visible');
+    progressLabel.textContent = 'Initializing...';
+    progressFill.style.width = '0%';
+
+    pipeline = await createPipeline('text-generation', modelId, {
+      device: 'webgpu',
+      dtype:  'q4',
+      progress_callback: (p) => {
+        if (p.status === 'progress' || p.status === 'downloading') {
+          const pct = p.progress ? Math.round(p.progress) :
+                      (p.total ? Math.round((p.loaded / p.total) * 100) : 0);
+          progressLabel.textContent = `Downloading ${p.file || ''} ${pct}%`;
+          progressFill.style.width = pct + '%';
+        } else if (p.status === 'loading' || p.status === 'ready') {
+          progressLabel.textContent = 'Loading into WebGPU...';
+          progressFill.style.width = '95%';
+        } else if (p.status === 'done') {
+          progressFill.style.width = '100%';
+        }
+      }
+    });
+    loadedModelId = modelId;
+    modelLoaded = true;
+    modelProgress.classList.remove('visible');
+  }
+
+  setStatus('busy', 'GENERATING');
+  startOutput();
+
+  const { temperature, maxTokens } = getParams();
+  const messages = [
+    { role: 'system', content: getActiveSystemPrompt() },
+    { role: 'user',   content: userText },
+  ];
+
+  const result = await pipeline(messages, {
+    max_new_tokens: maxTokens,
+    temperature,
+    do_sample: temperature > 0.01,
+    streamer: {
+      put(tokens) {
+        if (stopRequested) throw new Error('__stopped__');
+        const text = tokens[0]?.generated_text?.at(-1)?.content ?? '';
+        if (text) appendOutput(text);
+      },
+      end() {}
+    }
+  });
+
+  if (!getRawOutput().trim()) {
+    // fallback: extract final assistant text
+    let full = '';
+    try {
+      full = result[0]?.generated_text?.at(-1)?.content ?? '';
+    } catch {}
+    if (full) showOutput(full);
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// OUTPUT helpers
+// ═════════════════════════════════════════════════════════════════════════════
+
+// During streaming we append to a single Text node child (O(1) per append)
+// instead of reassigning textContent (O(n) per append → O(n²) total).
+let outputTextNode = null;
+let scrollPending = false;
+
+function ensureTextNode() {
+  if (!outputContent.firstChild || outputContent.firstChild.nodeType !== 3) {
+    outputContent.innerHTML = '';
+    outputTextNode = document.createTextNode('');
+    outputContent.appendChild(outputTextNode);
+  } else {
+    outputTextNode = outputContent.firstChild;
+  }
+}
+
+function startOutput() {
+  outputPlaceholder.style.display = 'none';
+  outputContent.style.display     = 'block';
+  outputContent.innerHTML         = '';
+  outputContent.dataset.raw       = '';
+  outputTextNode = document.createTextNode('');
+  outputContent.appendChild(outputTextNode);
+  updateOutputMeter();
+}
+function showOutput(text) {
+  outputPlaceholder.style.display = 'none';
+  outputContent.style.display     = 'block';
+  outputContent.dataset.raw       = text;
+  outputContent.innerHTML         = '';
+  outputTextNode = document.createTextNode(text);
+  outputContent.appendChild(outputTextNode);
+  updateOutputMeter();
+}
+function appendOutput(chunk) {
+  ensureTextNode();
+  outputTextNode.appendData(chunk);
+  outputContent.dataset.raw = (outputContent.dataset.raw || '') + chunk;
+  if (!scrollPending) {
+    scrollPending = true;
+    requestAnimationFrame(() => {
+      scrollPending = false;
+      outputArea.scrollTop = outputArea.scrollHeight;
+      updateOutputMeter();
+    });
+  }
+  tokCount += approxTokens(chunk);
+}
+
+function startTokRate() {
+  tokCount = 0;
+  genStartTs = performance.now();
+  tokratePill.style.display = '';
+  tokrateText.textContent = '0 tok/s';
+  clearInterval(tokRateTimer);
+  tokRateTimer = setInterval(() => {
+    const elapsed = (performance.now() - genStartTs) / 1000;
+    if (elapsed < 0.2) return;
+    const rate = tokCount / elapsed;
+    tokrateText.textContent = rate.toFixed(1) + ' tok/s · ' + tokCount + ' tok';
+  }, 250);
+}
+function stopTokRate() {
+  clearInterval(tokRateTimer);
+  tokRateTimer = null;
+  setTimeout(() => { tokratePill.style.display = 'none'; }, 3000);
+}
+
+window.stopGeneration = function() {
+  stopRequested = true;
+  if (abortCtl) { try { abortCtl.abort(); } catch {} }
+  toast('Stop requested');
+};
+
+
+// Draft autosave (debounced)
+const saveDraft = debounce(() => {
+  try { localStorage.setItem(LS.DRAFT, taskInput.value); } catch {}
+}, 250);
+taskInput.addEventListener('input', saveDraft);
+
+// Context overflow warning
+const ctxWarn = document.getElementById('ctxWarning');
+function checkCtxOverflow() {
+  if (backend !== 'ollama') { ctxWarn.classList.remove('visible'); return; }
+  const inputTok  = approxTokens(taskInput.value) + approxTokens(getActiveSystemPrompt());
+  const { maxTokens, numCtx } = getParams();
+  const needed = inputTok + maxTokens;
+  if (needed > numCtx) {
+    ctxWarn.textContent = `⚠ Input (~${inputTok} tok) + max-output (${maxTokens} tok) ≈ ${needed} tok > num_ctx (${numCtx}). Raise Ctx in PARAMS or Ollama will truncate.`;
+    ctxWarn.classList.add('visible');
+  } else {
+    ctxWarn.classList.remove('visible');
+  }
+}
+const checkCtxOverflowDebounced = debounce(checkCtxOverflow, 200);
+taskInput.addEventListener('input', checkCtxOverflowDebounced);
+document.getElementById('maxTokens').addEventListener('input', checkCtxOverflow);
+document.getElementById('numCtx').addEventListener('input', checkCtxOverflow);
+
+// Refine — re-forge using prior output as additional context
+window.refine = function() {
+  if (!lastOutput) { toast('Nothing to refine'); return; }
+  const orig = taskInput.value.trim();
+  const refined =
+    `${orig}\n\n---\nPREVIOUS FORGE OUTPUT (refine this — keep what works, fix what's weak, fill any [CONFIRM WITH USER] placeholders if you reasonably can):\n\n${lastOutput}`;
+  taskInput.value = refined;
+  updateInputMeter();
+  forge();
+};
+
+// Workspace export / import
+window.exportWorkspace = function() {
+  const payload = {
+    exported_at: new Date().toISOString(),
+    version: 1,
+    history:      loadHistory(),
+    system_prompt: localStorage.getItem(LS.SYS_PROMPT) || null,
+    draft:        localStorage.getItem(LS.DRAFT) || null,
+    prefs: {
+      mode,
+      backend,
+      template: document.getElementById('templateSel').value,
+      browser_model: document.getElementById('browserModel').value,
+      ollama_url: document.getElementById('ollamaUrl').value,
+      ollama_model: document.getElementById('ollamaModel').value,
+      temperature: document.getElementById('temperature').value,
+      maxTokens: document.getElementById('maxTokens').value,
+      numCtx: document.getElementById('numCtx').value,
+    },
+  };
+  saveBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+           'prompt-forge-workspace.json');
+  toast('Workspace exported');
+};
+
+window.importWorkspace = async function(ev) {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (Array.isArray(data.history)) localStorage.setItem(LS.HISTORY, JSON.stringify(data.history));
+    if (data.system_prompt) {
+      localStorage.setItem(LS.SYS_PROMPT, data.system_prompt);
+      systemPromptEditor.value = data.system_prompt;
+      systemPromptEditor.dataset.dirty = '1';
+      document.getElementById('systemBadge').textContent = 'custom (imported)';
+      document.getElementById('systemBadge').style.color = 'var(--amber)';
+    }
+    if (data.draft) {
+      localStorage.setItem(LS.DRAFT, data.draft);
+      if (!taskInput.value) taskInput.value = data.draft;
+    }
+    const p = data.prefs || {};
+    if (p.mode)            setMode(p.mode);
+    if (p.backend)         setBackend(p.backend);
+    if (p.template != null) { document.getElementById('templateSel').value = p.template; onTemplateChange(); }
+    if (p.browser_model)   document.getElementById('browserModel').value = p.browser_model;
+    if (p.ollama_url)      document.getElementById('ollamaUrl').value = p.ollama_url;
+    if (p.temperature != null) document.getElementById('temperature').value = p.temperature;
+    if (p.maxTokens != null)   document.getElementById('maxTokens').value = p.maxTokens;
+    if (p.numCtx != null)      document.getElementById('numCtx').value = p.numCtx;
+    updateInputMeter();
+    updateParamsBadge();
+    toast('Workspace imported');
+  } catch (e) {
+    showErr('Import failed: ' + e.message);
+  } finally {
+    ev.target.value = '';
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FORGE
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.forge = async function() {
+  const userText = taskInput.value.trim();
+  if (!userText) { showErr('Paste a task description first.'); return; }
+  if (streaming) return;
+
+  clearErr();
+  streaming = true;
+  stopRequested = false;
+  forgeBtn.disabled = true;
+  forgeBtn.textContent = '⏳ FORGING...';
+  stopBtn.style.display = '';
+  refineBtn.disabled = true;
+  startTokRate();
+
+  const startTs = Date.now();
+  try {
+    if (backend === 'ollama') await runOllama(userText);
+    else                       await runBrowser(userText);
+    setStatus('live', stopRequested ? 'STOPPED' : 'COMPLETE');
+    lastOutput = getRawOutput();
+    lastTaskText = userText;
+    refineBtn.disabled = !lastOutput;
+    regenBtn.disabled  = !lastTaskText;
+    if (lastOutput) {
+      applyTint();
+      updateViewToggleVisibility();
+    }
+    saveHistory({
+      ts: Date.now(),
+      mode,
+      backend,
+      model: backend === 'ollama'
+        ? document.getElementById('ollamaModel').value
+        : document.getElementById('browserModel').value,
+      template: document.getElementById('templateSel').value || null,
+      durMs: Date.now() - startTs,
+      task: userText,
+      output: getRawOutput(),
+    });
+  } catch (e) {
+    setStatus('err', 'ERROR');
+    showErr('Error: ' + (e.message || String(e)));
+    console.error(e);
+  } finally {
+    streaming = false;
+    stopRequested = false;
+    abortCtl = null;
+    forgeBtn.disabled = false;
+    forgeBtn.textContent = '▶ FORGE PROMPT';
+    stopBtn.style.display = 'none';
+    stopTokRate();
+  }
+};
+
+// Track last forged task (for Regen)
+let lastTaskText = '';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// REGENERATE
+// ═════════════════════════════════════════════════════════════════════════════
+
+const regenBtn = document.getElementById('regenBtn');
+
+window.regenerate = function() {
+  if (!lastTaskText) { toast('Nothing to regenerate'); return; }
+  taskInput.value = lastTaskText;
+  updateInputMeter();
+  forge();
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MARKDOWN TINT (applied post-stream)
+// ═════════════════════════════════════════════════════════════════════════════
+
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+
+function tintMarkdown(text) {
+  const lines = text.split('\n');
+  const out = [];
+  let inFence = false;
+  let fenceBuf = [];
+
+  const flushFence = () => {
+    if (fenceBuf.length) {
+      out.push('<span class="md-fence">' + escapeHtml(fenceBuf.join('\n')) + '</span>');
+      fenceBuf = [];
+    }
+  };
+
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      if (inFence) { flushFence(); inFence = false; }
+      else         { inFence = true; }
+      continue;
+    }
+    if (inFence) { fenceBuf.push(line); continue; }
+
+    if (/^===\s*(FILE|END FILE):/.test(line)) {
+      out.push('<span class="md-file">' + escapeHtml(line) + '</span>');
+      continue;
+    }
+    let m;
+    if ((m = line.match(/^###\s+(.*)$/))) { out.push('<span class="md-h3">### ' + escapeHtml(m[1]) + '</span>'); continue; }
+    if ((m = line.match(/^##\s+(.*)$/)))  { out.push('<span class="md-h2">## '  + escapeHtml(m[1]) + '</span>'); continue; }
+    if ((m = line.match(/^#\s+(.*)$/)))   { out.push('<span class="md-h1"># '   + escapeHtml(m[1]) + '</span>'); continue; }
+
+    // inline: `code` and **bold**
+    let escaped = escapeHtml(line)
+      .replace(/`([^`]+)`/g, '<span class="md-code">$1</span>')
+      .replace(/\*\*([^*]+)\*\*/g, '<span class="md-bold">$1</span>');
+    out.push(escaped);
+  }
+  if (inFence) flushFence();
+  return out.join('\n');
+}
+
+function applyTint() {
+  const raw = outputContent.dataset.raw || outputContent.textContent;
+  outputContent.dataset.raw = raw;
+  outputContent.innerHTML = tintMarkdown(raw);
+}
+
+// Override copy to use raw text (innerHTML lost in textContent of tinted)
+function getRawOutput() {
+  return outputContent.dataset.raw || outputContent.textContent;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PROJECT FILE VIEWER
+// ═════════════════════════════════════════════════════════════════════════════
+
+const fileViewer  = document.getElementById('fileViewer');
+const fileTree    = document.getElementById('fileTree');
+const fileContent = document.getElementById('fileContent');
+const viewToggle  = document.getElementById('viewToggle');
+const viewRawBtn  = document.getElementById('viewRaw');
+const viewFilesBtn= document.getElementById('viewFiles');
+
+let currentView = 'raw';
+let cachedFiles = [];
+
+window.setOutputView = function(v) {
+  currentView = v;
+  viewRawBtn.classList.toggle('active', v === 'raw');
+  viewFilesBtn.classList.toggle('active', v === 'files');
+  if (v === 'files') {
+    outputContent.style.display = 'none';
+    outputPlaceholder.style.display = 'none';
+    renderFileTree();
+    fileViewer.classList.add('visible');
+  } else {
+    fileViewer.classList.remove('visible');
+    outputContent.style.display = 'block';
+  }
+};
+
+function renderFileTree() {
+  const raw = getRawOutput();
+  cachedFiles = parseProjectFiles(raw);
+  if (!cachedFiles.length) {
+    fileTree.innerHTML = '<div style="padding:14px;color:var(--muted);font-family:var(--mono);font-size:11px;">No FILE blocks found yet.</div>';
+    fileContent.innerHTML = '';
+    return;
+  }
+  fileTree.innerHTML = cachedFiles.map((f, i) => {
+    const size = f.body.length;
+    const sz = size > 1024 ? (size/1024).toFixed(1) + ' KB' : size + ' B';
+    return `<div class="file-tree-item${i===0?' active':''}" data-i="${i}" onclick="selectFile(${i})">
+              ${escapeHtml(f.path)}
+              <span class="file-tree-size">${sz} · ${f.body.split('\n').length} lines</span>
+            </div>`;
+  }).join('');
+  selectFile(0);
+}
+
+window.selectFile = function(i) {
+  const f = cachedFiles[i];
+  if (!f) return;
+  document.querySelectorAll('.file-tree-item').forEach((el, j) => el.classList.toggle('active', j === i));
+  fileContent.innerHTML =
+    '<div class="file-content-header">// ' + escapeHtml(f.path) + '</div>' +
+    escapeHtml(f.body);
+};
+
+function updateViewToggleVisibility() {
+  // Show file view toggle only if mode is project AND we have parseable files
+  const hasFiles = mode === 'project' && parseProjectFiles(getRawOutput()).length > 0;
+  viewToggle.classList.toggle('visible', hasFiles);
+  if (!hasFiles && currentView === 'files') setOutputView('raw');
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SPLITTER
+// ═════════════════════════════════════════════════════════════════════════════
+
+(function initSplitter() {
+  const splitter = document.getElementById('splitter');
+  const main = document.querySelector('main');
+  let dragging = false;
+
+  splitter.addEventListener('mousedown', (e) => {
+    dragging = true;
+    splitter.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+  });
+
+  splitter.addEventListener('dblclick', () => {
+    main.style.setProperty('--left', '1fr');
+    main.style.setProperty('--right', '1fr');
+    localStorage.removeItem('pf.split');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const rect = main.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - rect.left, 240), rect.width - 240);
+    const leftPct = (x / rect.width) * 100;
+    main.style.setProperty('--left',  leftPct + '%');
+    main.style.setProperty('--right', (100 - leftPct) + '%');
+    try { localStorage.setItem('pf.split', String(leftPct)); } catch {}
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove('dragging');
+    document.body.style.cursor = '';
+  });
+
+  const saved = parseFloat(localStorage.getItem('pf.split') || '');
+  if (!isNaN(saved) && saved > 5 && saved < 95) {
+    main.style.setProperty('--left',  saved + '%');
+    main.style.setProperty('--right', (100 - saved) + '%');
+  }
+})();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HELP MODAL
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.openHelp  = () => document.getElementById('helpModal').classList.add('visible');
+window.closeHelp = () => document.getElementById('helpModal').classList.remove('visible');
+
+// ═════════════════════════════════════════════════════════════════════════════
+// COPY / EXPORT
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.copyOutput = async function() {
+  const text = getRawOutput();
+  if (!text) return;
+  await navigator.clipboard.writeText(text);
+  const btn = document.getElementById('copyBtn');
+  const old = btn.textContent;
+  btn.textContent = '✓ COPIED';
+  setTimeout(() => { btn.textContent = old; }, 1500);
+};
+
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+window.downloadMd = function() {
+  const text = getRawOutput();
+  if (!text) return;
+  saveBlob(new Blob([text], { type: 'text/markdown' }), 'agentic-prompt.md');
+};
+
+window.downloadJson = function() {
+  const text = getRawOutput();
+  if (!text) return;
+  const payload = {
+    forged_at: new Date().toISOString(),
+    mode,
+    backend,
+    model: backend === 'ollama'
+      ? document.getElementById('ollamaModel').value
+      : document.getElementById('browserModel').value,
+    template: document.getElementById('templateSel').value || null,
+    params: getParams(),
+    task: taskInput.value,
+    output: text,
+    sections: mode === 'project' ? parseProjectFiles(text) : extractSections(text),
+  };
+  saveBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
+           'agentic-prompt.json');
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PROJECT FILE PARSER + ZIP
+// ═════════════════════════════════════════════════════════════════════════════
+
+function parseProjectFiles(text) {
+  const normalized = (text || '').replace(/\r\n/g, '\n');
+  const files = [];
+  const re = /^===\s*FILE:\s*(.+?)\s*===\s*$([\s\S]*?)^===\s*END FILE\s*===\s*$/gm;
+  let m;
+  while ((m = re.exec(normalized)) !== null) {
+    const path = m[1].trim();
+    let body = m[2];
+    if (body.startsWith('\n')) body = body.slice(1);
+    if (body.endsWith('\n'))   body = body.slice(0, -1);
+    files.push({ path, body });
+  }
+  return files;
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+let jszipMod = null;
+async function loadJSZip() {
+  if (jszipMod) return jszipMod;
+  // dynamic import a UMD via Function trick; jsdelivr serves an ESM build for jszip too
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load JSZip from CDN — check your network.'));
+    document.head.appendChild(s);
+  });
+  if (!window.JSZip) throw new Error('JSZip did not register on window.');
+  jszipMod = window.JSZip;
+  return jszipMod;
+}
+
+window.downloadZip = async function() {
+  const text = getRawOutput();
+  if (!text) return;
+  const files = parseProjectFiles(text);
+  if (!files.length) {
+    showErr('No `=== FILE: ... ===` blocks found in output. Are you sure mode was COMPLETE PROJECT and generation finished?');
+    return;
+  }
+  try {
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+    for (const f of files) zip.file(f.path, f.body);
+    zip.file('prompt-forge.json', JSON.stringify({
+      forged_at: new Date().toISOString(),
+      mode, backend,
+      model: backend === 'ollama'
+        ? document.getElementById('ollamaModel').value
+        : document.getElementById('browserModel').value,
+      template: document.getElementById('templateSel').value || null,
+      params: getParams(),
+      task: taskInput.value,
+      file_count: files.length,
+    }, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const safeName = (taskInput.value.trim().split('\n')[0] || 'project')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'project';
+    saveBlob(blob, `${safeName}.zip`);
+    toast(`Packaged ${files.length} files`);
+  } catch (e) {
+    showErr('ZIP error: ' + e.message);
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// VALIDATION
+// ═════════════════════════════════════════════════════════════════════════════
+
+const REQUIRED_SECTIONS_SINGLE = [
+  'ROLE', 'HARDWARE / ENVIRONMENT TARGET', 'OBJECTIVE — EXACT',
+  'WHAT TO BUILD', 'WHAT NOT TO BUILD', 'DELETE / REMOVE',
+  'PRESERVE — DO NOT TOUCH', 'NEW FILES TO CREATE',
+  'EXECUTION ORDER — TDD, NO SKIPPING STEPS',
+  'GUARDRAILS — HARD STOPS', 'DONE WHEN',
+];
+
+const REQUIRED_PROJECT_FILES = [
+  'README.md', 'CLAUDE.md', 'AGENTS.md', 'DONE.md', 'Makefile', '.gitignore',
+  // src/before/main.* + src/after/main.* + tests/test_main.* + tests/conftest.* + requirements.txt|package.json
+];
+
+function extractSections(text) {
+  const out = {};
+  const lines = text.split('\n');
+  let cur = null, buf = [];
+  for (const line of lines) {
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    if (m) {
+      if (cur) out[cur] = buf.join('\n').trim();
+      cur = m[1].trim();
+      buf = [];
+    } else if (cur) {
+      buf.push(line);
+    }
+  }
+  if (cur) out[cur] = buf.join('\n').trim();
+  return out;
+}
+
+window.validateOutput = function() {
+  const text = getRawOutput();
+  const body = document.getElementById('validateBody');
+  if (!text.trim()) {
+    body.innerHTML = '<div class="validate-report bad">No output to validate. Run FORGE first.</div>';
+    openValidate();
+    return;
+  }
+
+  const lines = [];
+  const escape = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const push = (cls, txt) => lines.push(`<div class="${cls}">${escape(txt)}</div>`);
+
+  if (mode === 'project') {
+    const files = parseProjectFiles(text);
+    push('section-name', `MODE: Complete Project Package`);
+    push(files.length ? 'ok' : 'bad', `${files.length} file blocks parsed`);
+
+    const haveSet = new Set(files.map(f => f.path));
+    const haveAny = (pred) => files.some(f => pred(f.path));
+
+    for (const req of REQUIRED_PROJECT_FILES) {
+      push(haveSet.has(req) ? 'ok' : 'bad',
+           (haveSet.has(req) ? '✓ ' : '✗ MISSING — ') + req);
+    }
+    push(haveAny(p => /^src\/before\/main\./.test(p))     ? 'ok' : 'bad',
+         (haveAny(p => /^src\/before\/main\./.test(p)) ? '✓ ' : '✗ MISSING — ') + 'src/before/main.<ext>');
+    push(haveAny(p => /^src\/after\/main\./.test(p))      ? 'ok' : 'bad',
+         (haveAny(p => /^src\/after\/main\./.test(p)) ? '✓ ' : '✗ MISSING — ') + 'src/after/main.<ext>');
+    push(haveAny(p => /^tests\/test_main\./.test(p))      ? 'ok' : 'bad',
+         (haveAny(p => /^tests\/test_main\./.test(p)) ? '✓ ' : '✗ MISSING — ') + 'tests/test_main.<ext>');
+    push(haveAny(p => /^tests\/conftest\./.test(p))       ? 'ok' : 'warn',
+         (haveAny(p => /^tests\/conftest\./.test(p)) ? '✓ ' : '⚠ optional missing — ') + 'tests/conftest.<ext>');
+    push(haveAny(p => /^(requirements\.txt|package\.json)$/.test(p)) ? 'ok' : 'bad',
+         (haveAny(p => /^(requirements\.txt|package\.json)$/.test(p)) ? '✓ ' : '✗ MISSING — ') + 'requirements.txt OR package.json');
+
+    // CLAUDE.md should contain the canonical sections too
+    const claude = files.find(f => f.path === 'CLAUDE.md');
+    if (claude) {
+      push('section-name', '— CLAUDE.md section audit —');
+      for (const sec of REQUIRED_SECTIONS_SINGLE) {
+        const re = new RegExp(`^##\\s+${sec.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*$`, 'm');
+        push(re.test(claude.body) ? 'ok' : 'bad',
+             (re.test(claude.body) ? '✓ ' : '✗ MISSING — ') + '## ' + sec);
+      }
+    }
+  } else {
+    push('section-name', 'MODE: Single Prompt');
+    const sections = extractSections(text);
+    for (const sec of REQUIRED_SECTIONS_SINGLE) {
+      push(sections[sec] ? 'ok' : 'bad',
+           (sections[sec] ? '✓ ' : '✗ MISSING — ') + '## ' + sec);
+    }
+  }
+
+  // Ambiguity / placeholder check
+  const confirms = [...text.matchAll(/\[CONFIRM WITH USER:\s*([^\]]+)\]/g)];
+  const placeholders = [...text.matchAll(/<[A-Z][A-Z_ /]+>/g)];
+  const todos = [...text.matchAll(/\bTODO\b/g)];
+
+  push('section-name', '— Ambiguity scan —');
+  push(confirms.length ? 'warn' : 'ok',
+       `${confirms.length} [CONFIRM WITH USER: ...] placeholder${confirms.length===1?'':'s'}`);
+  if (confirms.length) {
+    for (const c of confirms.slice(0, 10)) push('warn', '· ' + c[1].trim());
+  }
+  push(placeholders.length > 4 ? 'warn' : 'ok',
+       `${placeholders.length} <ALL-CAPS> placeholder token${placeholders.length===1?'':'s'}`);
+  push(todos.length ? 'warn' : 'ok',
+       `${todos.length} TODO marker${todos.length===1?'':'s'}`);
+
+  // Token / size
+  push('section-name', '— Size —');
+  push('ok', `${text.length.toLocaleString()} chars · ~${approxTokens(text).toLocaleString()} tokens`);
+
+  body.innerHTML = `<div class="validate-report">${lines.join('')}</div>`;
+  openValidate();
+};
+
+window.openValidate  = () => document.getElementById('validateModal').classList.add('visible');
+window.closeValidate = () => document.getElementById('validateModal').classList.remove('visible');
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HISTORY
+// ═════════════════════════════════════════════════════════════════════════════
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(LS.HISTORY) || '[]'); }
+  catch { return []; }
+}
+function saveHistory(entry) {
+  const items = loadHistory();
+  items.unshift(entry);
+  while (items.length > 25) items.pop();
+  try { localStorage.setItem(LS.HISTORY, JSON.stringify(items)); }
+  catch {}
+}
+
+window.openHistory = function() {
+  const body = document.getElementById('historyBody');
+  const items = loadHistory();
+  if (!items.length) {
+    body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;">No history yet. Forge a prompt and it will appear here.</div>';
+  } else {
+    body.innerHTML = items.map((it, i) => {
+      const dt = new Date(it.ts).toLocaleString();
+      const preview = (it.task || '').slice(0, 120).replace(/\n/g, ' ');
+      return `
+        <div class="history-item" onclick="restoreHistory(${i})">
+          <button class="history-del" title="Delete this entry" onclick="deleteHistoryItem(${i}, event)">✕</button>
+          <div class="history-meta">
+            <span>${dt}</span>
+            <span>· ${it.mode}</span>
+            <span>· ${it.backend}</span>
+            <span>· ${it.model || '—'}</span>
+            ${it.template ? `<span>· ${it.template}</span>` : ''}
+            <span>· ${(it.durMs/1000).toFixed(1)}s</span>
+          </div>
+          <div class="history-task">${preview.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('historyModal').classList.add('visible');
+};
+window.closeHistory = () => document.getElementById('historyModal').classList.remove('visible');
+
+window.restoreHistory = function(i) {
+  const items = loadHistory();
+  const it = items[i];
+  if (!it) return;
+  taskInput.value = it.task || '';
+  showOutput(it.output || '');
+  if (it.mode) setMode(it.mode);
+  lastOutput   = it.output || '';
+  lastTaskText = it.task   || '';
+  refineBtn.disabled = !lastOutput;
+  regenBtn.disabled  = !lastTaskText;
+  if (lastOutput) { applyTint(); updateViewToggleVisibility(); }
+  updateInputMeter();
+  closeHistory();
+  toast('Restored from history');
+};
+
+window.deleteHistoryItem = function(i, ev) {
+  ev.stopPropagation();
+  const items = loadHistory();
+  items.splice(i, 1);
+  localStorage.setItem(LS.HISTORY, JSON.stringify(items));
+  openHistory();
+};
+
+window.clearHistory = function() {
+  if (!confirm('Clear all prompt history?')) return;
+  localStorage.removeItem(LS.HISTORY);
+  openHistory();
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CLEAR
+// ═════════════════════════════════════════════════════════════════════════════
+
+window.clearAll = function() {
+  taskInput.value = '';
+  outputContent.innerHTML = '';
+  outputContent.dataset.raw = '';
+  outputContent.style.display = 'none';
+  outputPlaceholder.style.display = 'flex';
+  fileViewer.classList.remove('visible');
+  viewToggle.classList.remove('visible');
+  currentView = 'raw';
+  lastOutput = '';
+  lastTaskText = '';
+  refineBtn.disabled = true;
+  regenBtn.disabled  = true;
+  ctxWarn.classList.remove('visible');
+  try { localStorage.removeItem(LS.DRAFT); } catch {}
+  updateInputMeter();
+  updateOutputMeter();
+  outputCharCount.textContent = '';
+  clearErr();
+  setStatus('', 'IDLE');
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SHORTCUTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key === 'Enter') { e.preventDefault(); forge(); return; }
+  if (mod && e.key === '.')     { e.preventDefault(); if (streaming) stopGeneration(); return; }
+  if (mod && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); clearAll(); return; }
+  if (mod && (e.key === 's' || e.key === 'S')) { e.preventDefault(); downloadMd(); return; }
+  if (mod && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); openHistory(); return; }
+  if (e.key === '?' && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) {
+    e.preventDefault(); openHelp(); return;
+  }
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal.visible').forEach(m => m.classList.remove('visible'));
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INIT
+// ═════════════════════════════════════════════════════════════════════════════
+
+(function init() {
+  const saved = localStorage.getItem(LS.SYS_PROMPT);
+  if (saved) {
+    systemPromptEditor.value = saved;
+    systemPromptEditor.dataset.dirty = '1';
+    document.getElementById('systemBadge').textContent = 'custom (saved)';
+    document.getElementById('systemBadge').style.color = 'var(--amber)';
+  } else {
+    systemPromptEditor.value = baseSystemPrompt();
+    systemPromptEditor.dataset.dirty = '0';
+  }
+  const draft = localStorage.getItem(LS.DRAFT);
+  if (draft && !taskInput.value) taskInput.value = draft;
+
+  updateInputMeter();
+  updateOutputMeter();
+  updateParamsBadge();
+  checkCtxOverflow();
+  fetchOllamaModels();
+})();
+
+</script>
+</body>
+</html>

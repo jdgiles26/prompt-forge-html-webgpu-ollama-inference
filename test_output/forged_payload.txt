@@ -1,0 +1,201 @@
+=== FILE: README.md ===
+# Token Counter — TDD Sample
+
+Counts unique whitespace-separated tokens in a UTF-8 file.
+
+## Stack
+- Python 3.11+
+
+## Quick start
+```bash
+make install
+make test
+make run
+```
+
+## Status
+RED — src/after/main.py raises NotImplementedError until you fill it in.
+=== END FILE ===
+
+=== FILE: CLAUDE.md ===
+# Token Counter — Claude Code System Prompt
+
+## ROLE
+Senior Python engineer turning a failing TDD scaffold into a green one.
+
+## VERSION MAP
+Single repo. Target: ./
+
+## HARDWARE / ENVIRONMENT TARGET
+Python 3.11+, any OS. No GPU.
+
+## OBJECTIVE — EXACT
+Implement count_tokens(path: str) -> dict[str,int] under src/after/main.py so all tests in tests/test_main.py pass.
+
+## WHAT TO BUILD
+1. count_tokens(path) — open file UTF-8, split on whitespace, return Counter-style dict.
+2. main(argv) — CLI: prints "token\tcount" lines sorted desc by count.
+
+## WHAT NOT TO BUILD
+- Streaming / large-file optimization — out of scope, dataset is small.
+
+## DELETE / REMOVE
+src/before/main.py  # broken reference impl, do not edit, do not import
+
+## PRESERVE — DO NOT TOUCH
+tests/test_main.py  # assertions are the contract
+
+## NEW FILES TO CREATE
+src/after/main.py  # implementation
+src/after/__init__.py  # empty
+
+## EXECUTION ORDER — TDD, NO SKIPPING STEPS
+
+### Step 1 — Audit
+Read src/before/main.py. Note the off-by-one and the missing UTF-8 decode.
+
+### Step 2 — Tests already exist
+tests/test_main.py — currently RED.
+
+### Step 3 — Implement under src/after/
+count_tokens first, then main(argv).
+
+### Step 4 — Validate
+```bash
+make test
+```
+
+### Step 5 — Deliver
+Complete files. No TODO. No placeholders.
+
+## GUARDRAILS — HARD STOPS
+- **STOP** if you import from src/before — it is the broken reference, never the source of truth.
+- **STOP** if you edit tests/test_main.py — assertions are immutable.
+- **STOP** if any test still fails before declaring done.
+
+## DONE WHEN
+1. make test exits 0
+2. src/after/main.py has no NotImplementedError
+3. CLI prints sorted token counts
+=== END FILE ===
+
+=== FILE: AGENTS.md ===
+# Agent Workflow
+- **Architect** — owns CLAUDE.md, never edits code.
+- **Implementer** — edits only src/after/.
+- **Reviewer** — runs make test, fills DONE.md.
+=== END FILE ===
+
+=== FILE: DONE.md ===
+# Done Criteria
+- [ ] make test exits 0
+- [ ] src/after/main.py implements count_tokens
+- [ ] CLI behavior matches spec
+=== END FILE ===
+
+=== FILE: Makefile ===
+.PHONY: install test lint run clean
+
+install:
+	pip install -e .
+
+test:
+	pytest tests/ -v
+
+lint:
+	ruff check src/ tests/
+
+run:
+	python -m src.after.main sample.txt
+
+clean:
+	rm -rf __pycache__ .pytest_cache
+=== END FILE ===
+
+=== FILE: .gitignore ===
+__pycache__/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+=== END FILE ===
+
+=== FILE: src/before/main.py ===
+# BROKEN — for reference only. Do not import.
+def count_tokens(path):
+    # bug: reads as bytes, no UTF-8 decode
+    with open(path, 'rb') as f:
+        data = f.read()
+    # bug: split on b' ' only, misses tabs/newlines
+    parts = data.split(b' ')
+    out = {}
+    for p in parts:
+        out[p] = out.get(p, 0) + 1
+    return out
+=== END FILE ===
+
+=== FILE: src/after/main.py ===
+"""Implementation lives here. Currently RED."""
+
+def count_tokens(path: str) -> dict:
+    raise NotImplementedError("implement count_tokens — see CLAUDE.md")
+
+def main(argv=None):
+    raise NotImplementedError("implement CLI entrypoint")
+
+if __name__ == "__main__":
+    import sys
+    main(sys.argv[1:])
+=== END FILE ===
+
+=== FILE: src/after/__init__.py ===
+=== END FILE ===
+
+=== FILE: tests/test_main.py ===
+import pytest
+from src.after.main import count_tokens
+
+def test_empty_file(tmp_path):
+    p = tmp_path / "e.txt"; p.write_text("", encoding="utf-8")
+    assert count_tokens(str(p)) == {}
+
+def test_single_token(tmp_path):
+    p = tmp_path / "s.txt"; p.write_text("hello", encoding="utf-8")
+    assert count_tokens(str(p)) == {"hello": 1}
+
+def test_repeated_tokens(tmp_path):
+    p = tmp_path / "r.txt"; p.write_text("a a b", encoding="utf-8")
+    assert count_tokens(str(p)) == {"a": 2, "b": 1}
+
+def test_whitespace_variants(tmp_path):
+    p = tmp_path / "w.txt"; p.write_text("a\tb\nc  d", encoding="utf-8")
+    assert count_tokens(str(p)) == {"a": 1, "b": 1, "c": 1, "d": 1}
+
+def test_utf8_tokens(tmp_path):
+    p = tmp_path / "u.txt"; p.write_text("café café naïve", encoding="utf-8")
+    assert count_tokens(str(p)) == {"café": 2, "naïve": 1}
+
+def test_returns_dict(tmp_path):
+    p = tmp_path / "d.txt"; p.write_text("x y z", encoding="utf-8")
+    r = count_tokens(str(p))
+    assert isinstance(r, dict)
+
+def test_missing_file_raises(tmp_path):
+    with pytest.raises((FileNotFoundError, OSError)):
+        count_tokens(str(tmp_path / "nope.txt"))
+
+def test_large_file(tmp_path):
+    p = tmp_path / "big.txt"
+    p.write_text(" ".join(["x"] * 10000), encoding="utf-8")
+    assert count_tokens(str(p))["x"] == 10000
+=== END FILE ===
+
+=== FILE: tests/conftest.py ===
+# Minimal — fixtures are inline in test_main.py via tmp_path.
+=== END FILE ===
+
+=== FILE: requirements.txt ===
+pytest>=7.0
+ruff>=0.1
+=== END FILE ===

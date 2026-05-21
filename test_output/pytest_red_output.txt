@@ -1,0 +1,17 @@
+[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31mF[0m[31m                                                                 [100%][0m
+[33m=============================== warnings summary ===============================[0m
+../../../../miniconda3/lib/python3.13/site-packages/pytest_freezegun.py:17: 16 warnings
+  /Users/joshua.giles/miniconda3/lib/python3.13/site-packages/pytest_freezegun.py:17: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pytest.__version__) < LooseVersion('3.6.0'):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[36m[1m=========================== short test summary info ============================[0m
+[31mFAILED[0m tests/test_main.py::[1mtest_empty_file[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_single_token[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_repeated_tokens[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_whitespace_variants[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_utf8_tokens[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_returns_dict[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_missing_file_raises[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31mFAILED[0m tests/test_main.py::[1mtest_large_file[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
+[31m[31m[1m8 failed[0m, [33m16 warnings[0m[31m in 0.11s[0m[0m
