@@ -14,4 +14,4 @@
 [31mFAILED[0m tests/test_main.py::[1mtest_returns_dict[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
 [31mFAILED[0m tests/test_main.py::[1mtest_missing_file_raises[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
 [31mFAILED[0m tests/test_main.py::[1mtest_large_file[0m - NotImplementedError: implement count_tokens — see CLAUDE.md
-[31m[31m[1m8 failed[0m, [33m16 warnings[0m[31m in 0.11s[0m[0m
+[31m[31m[1m8 failed[0m, [33m16 warnings[0m[31m in 0.13s[0m[0m

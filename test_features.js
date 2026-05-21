@@ -98,18 +98,19 @@ async function openSection(page, id) {
     record('browser config visible', await page.locator('#browserConfig.visible').count() === 1);
   });
 
-  await withPage('T05 browser model dropdown is curated + verified', async (page) => {
+  await withPage('T05 browser model dropdown is WebLLM-prebuilt list', async (page) => {
     const opts = await page.locator('#browserModel option').evaluateAll(els => els.map(e => e.value));
     const valid = [
-      'onnx-community/Qwen2.5-Coder-1.5B-Instruct',
-      'onnx-community/Qwen2.5-0.5B-Instruct',
-      'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+      'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC',
+      'Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC',
+      'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+      'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
+      'SmolLM2-135M-Instruct-q0f16-MLC',
     ];
     for (const v of valid) record('option ' + v + ' present', opts.includes(v));
-    // No dtype selector, no custom model input, no __custom__ option
+    record('all model IDs use MLC suffix', opts.filter(v => v).every(v => /-MLC$/.test(v)), opts.join(','));
     record('no dtype selector', await page.locator('#modelDtype').count() === 0);
     record('no custom model input', await page.locator('#customModelId').count() === 0);
-    record('no __custom__ option', !opts.includes('__custom__'));
   });
 
   await withPage('T06 input meter updates + draft autosaves', async (page) => {

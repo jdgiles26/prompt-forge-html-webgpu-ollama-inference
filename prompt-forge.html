@@ -603,10 +603,40 @@
               </div>
 
               <div class="backend-config" id="browserConfig">
+                <div id="fileProtoBanner" style="display:none;font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--amber);padding:8px 10px;border:1px solid rgba(255,184,0,0.4);background:rgba(255,184,0,0.06);border-radius:3px;margin-bottom:6px;">
+                  <b>ⓘ Recommended: run via local HTTP</b><br>
+                  WebLLM works best when the page is served over <code style="color:var(--green)">http://localhost</code> (enables SharedArrayBuffer + cross-origin workers).<br>
+                  <span style="color:var(--text)">Run: <code style="color:var(--green)">python3 serve.py</code> → open <code style="color:var(--green)">http://localhost:8765/prompt-forge.html</code></span>
+                </div>
                 <select id="browserModel">
-                  <option value="onnx-community/Qwen2.5-Coder-1.5B-Instruct" selected>Qwen2.5-Coder 1.5B · ~900MB (recommended)</option>
-                  <option value="onnx-community/Qwen2.5-0.5B-Instruct">Qwen2.5 0.5B · ~300MB (fast)</option>
-                  <option value="HuggingFaceTB/SmolLM2-1.7B-Instruct">SmolLM2 1.7B · ~1GB</option>
+                  <optgroup label="Qwen2.5-Coder (code-specialized)">
+                    <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC" selected>Qwen2.5-Coder 1.5B · ~1GB (recommended)</option>
+                    <option value="Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 0.5B · ~350MB (fast)</option>
+                    <option value="Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 7B · ~4.4GB (needs 8GB+ VRAM)</option>
+                  </optgroup>
+                  <optgroup label="Qwen2.5 (general)">
+                    <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen2.5 1.5B · ~1GB</option>
+                    <option value="Qwen2.5-3B-Instruct-q4f16_1-MLC">Qwen2.5 3B · ~1.9GB</option>
+                    <option value="Qwen2.5-7B-Instruct-q4f16_1-MLC">Qwen2.5 7B · ~4.4GB</option>
+                  </optgroup>
+                  <optgroup label="Llama 3.2 / 3.1">
+                    <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B · ~750MB</option>
+                    <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B · ~2GB</option>
+                    <option value="Llama-3.1-8B-Instruct-q4f16_1-MLC">Llama 3.1 8B · ~4.8GB</option>
+                  </optgroup>
+                  <optgroup label="SmolLM2 (small / fast)">
+                    <option value="SmolLM2-1.7B-Instruct-q4f16_1-MLC">SmolLM2 1.7B · ~1.1GB</option>
+                    <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2 360M · ~250MB</option>
+                    <option value="SmolLM2-135M-Instruct-q0f16-MLC">SmolLM2 135M · ~100MB (tiniest)</option>
+                  </optgroup>
+                  <optgroup label="Reasoning (DeepSeek-R1 distilled)">
+                    <option value="DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC">DeepSeek-R1-Distill-Qwen 7B · ~4.4GB</option>
+                    <option value="DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC">DeepSeek-R1-Distill-Llama 8B · ~4.8GB</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5 mini · ~2.4GB</option>
+                    <option value="gemma-2-2b-it-q4f16_1-MLC">Gemma 2 2B · ~1.6GB</option>
+                  </optgroup>
                 </select>
                 <div class="model-progress" id="modelProgress">
                   <div class="progress-label" id="progressLabel">Downloading model...</div>
@@ -1272,6 +1302,10 @@ window.setBackend = function(b) {
   browserConfig.classList.toggle('visible', b === 'browser');
   document.getElementById('backendBadge').textContent = b === 'ollama' ? 'OLLAMA' : 'WEBGPU';
   clearErr();
+  // Show the file:// banner only when relevant.
+  const banner = document.getElementById('fileProtoBanner');
+  if (banner) banner.style.display =
+    (b === 'browser' && window.location.protocol === 'file:') ? 'block' : 'none';
   if (b === 'browser' && !('gpu' in navigator)) {
     showErr('⚠ WebGPU not detected. Use Chrome 113+ or Edge 113+.');
   }
@@ -1371,14 +1405,23 @@ async function runOllama(userText) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// BROWSER (Transformers.js / WebGPU)
+// BROWSER (WebLLM / WebGPU)
+//
+// We use @mlc-ai/web-llm — TVM-compiled WGSL shaders + an OpenAI-compatible
+// chat.completions API. Far more reliable for browser LLM inference than the
+// transformers.js+ORT-Web stack which leaks WASM C++ exceptions as raw
+// integers when anything goes wrong on the WebGPU path.
 // ═════════════════════════════════════════════════════════════════════════════
 
-async function loadTransformers() {
-  if (!transformersMod) {
-    transformersMod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.1.2/dist/transformers.min.js');
+let webllmMod = null;
+let webllmEngine = null;
+let webllmLoadedModelId = null;
+
+async function loadWebLLM() {
+  if (!webllmMod) {
+    webllmMod = await import('https://esm.run/@mlc-ai/web-llm');
   }
-  return transformersMod;
+  return webllmMod;
 }
 
 async function runBrowser(userText) {
@@ -1387,36 +1430,22 @@ async function runBrowser(userText) {
   const modelId = document.getElementById('browserModel').value;
   setStatus('busy', 'LOADING MODEL');
 
-  const { pipeline: createPipeline, env } = await loadTransformers();
-  env.allowLocalModels  = false;
-  env.allowRemoteModels = true;
+  const webllm = await loadWebLLM();
 
-  if (!modelLoaded || loadedModelId !== modelId) {
-    modelLoaded = false;
-    pipeline = null;
+  if (!webllmEngine || webllmLoadedModelId !== modelId) {
     modelProgress.classList.add('visible');
-    progressLabel.textContent = 'Initializing...';
+    progressLabel.textContent = 'Initializing WebLLM…';
     progressFill.style.width = '0%';
 
-    pipeline = await createPipeline('text-generation', modelId, {
-      device: 'webgpu',
-      dtype:  'q4',
-      progress_callback: (p) => {
-        if (p.status === 'progress' || p.status === 'downloading') {
-          const pct = p.progress ? Math.round(p.progress) :
-                      (p.total ? Math.round((p.loaded / p.total) * 100) : 0);
-          progressLabel.textContent = `Downloading ${p.file || ''} ${pct}%`;
-          progressFill.style.width = pct + '%';
-        } else if (p.status === 'loading' || p.status === 'ready') {
-          progressLabel.textContent = 'Loading into WebGPU...';
-          progressFill.style.width = '95%';
-        } else if (p.status === 'done') {
-          progressFill.style.width = '100%';
-        }
-      }
+    webllmEngine = await webllm.CreateMLCEngine(modelId, {
+      initProgressCallback: (report) => {
+        // report.progress is 0..1, report.text is human-readable
+        const pct = Math.round((report.progress || 0) * 100);
+        progressLabel.textContent = report.text || `Loading ${pct}%`;
+        progressFill.style.width = pct + '%';
+      },
     });
-    loadedModelId = modelId;
-    modelLoaded = true;
+    webllmLoadedModelId = modelId;
     modelProgress.classList.remove('visible');
   }
 
@@ -1429,27 +1458,20 @@ async function runBrowser(userText) {
     { role: 'user',   content: userText },
   ];
 
-  const result = await pipeline(messages, {
-    max_new_tokens: maxTokens,
+  const chunks = await webllmEngine.chat.completions.create({
+    messages,
     temperature,
-    do_sample: temperature > 0.01,
-    streamer: {
-      put(tokens) {
-        if (stopRequested) throw new Error('__stopped__');
-        const text = tokens[0]?.generated_text?.at(-1)?.content ?? '';
-        if (text) appendOutput(text);
-      },
-      end() {}
-    }
+    max_tokens: maxTokens,
+    stream: true,
   });
 
-  if (!getRawOutput().trim()) {
-    // fallback: extract final assistant text
-    let full = '';
-    try {
-      full = result[0]?.generated_text?.at(-1)?.content ?? '';
-    } catch {}
-    if (full) showOutput(full);
+  for await (const chunk of chunks) {
+    if (stopRequested) {
+      try { await webllmEngine.interruptGenerate(); } catch {}
+      return;
+    }
+    const delta = chunk.choices?.[0]?.delta?.content || '';
+    if (delta) appendOutput(delta);
   }
 }
 
@@ -1673,7 +1695,11 @@ window.forge = async function() {
     });
   } catch (e) {
     setStatus('err', 'ERROR');
-    showErr('Error: ' + (e.message || String(e)));
+    let msg;
+    if (e instanceof Error && e.message) msg = e.message;
+    else if (typeof e === 'number')      msg = `Runtime threw error code ${e} (0x${e.toString(16).toUpperCase()}). Try a smaller model, or run via 'python3 serve.py' if you're on file://.`;
+    else                                  msg = String(e);
+    showErr('Error: ' + msg);
     console.error(e);
   } finally {
     streaming = false;
