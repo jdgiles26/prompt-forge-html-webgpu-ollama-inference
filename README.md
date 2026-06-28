@@ -1,4 +1,6 @@
 # PROMPT FORGE
+<img width="3022" height="1644" alt="image" src="https://github.com/user-attachments/assets/8e38fe90-1912-47cc-b3ca-9db2b5477012" />
+
 
 A single-file HTML application that transforms raw task descriptions into
 production-grade Claude Code system prompts — with optional full-project
