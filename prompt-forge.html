@@ -19,6 +19,7 @@
     --dim:       #3a5060;
     --text:      #c8dde8;
     --muted:     #4a6878;
+    --muted-hi:  #8fb0c4;  /* AA-compliant slate for inactive nav/labels on dark (#080c0f ~5.4:1) */
     --mono:      'Share Tech Mono', monospace;
     --sans:      'Rajdhani', sans-serif;
   }
@@ -158,15 +159,18 @@
   }
   .section-head {
     display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px;
+    width: 100%;
+    padding: 8px 10px;
     cursor: pointer;
     user-select: none;
-    font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
-    color: var(--muted); text-transform: uppercase;
-    border-bottom: 1px solid transparent;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px; font-weight: 600;
+    color: var(--muted-hi); text-transform: uppercase;
+    border: none; border-bottom: 1px solid transparent;
+    background: transparent; text-align: left;
   }
-  .section-head:hover { color: var(--text); }
-  .section.open .section-head { border-bottom-color: var(--border); color: var(--accent); }
+  .section-head:hover { color: #eaf6ff; }
+  .section-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .section.open .section-head { border-bottom-color: var(--border); color: #6fe0ff; text-shadow: 0 0 10px rgba(0,200,255,0.35); }
   .section-chev { margin-left: auto; font-size: 10px; transition: transform 0.2s; }
   .section.open .section-chev { transform: rotate(90deg); }
   .section-body { display: none; padding: 10px; gap: 8px; flex-direction: column; }
@@ -176,20 +180,25 @@
     display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
   }
   .backend-btn, .mode-btn {
-    flex: 1; padding: 8px;
+    flex: 1; padding: 9px;
     background: transparent; border: none;
-    color: var(--muted);
-    font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+    color: var(--muted-hi);
+    font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 1px;
     cursor: pointer; transition: all 0.2s;
     text-transform: uppercase;
   }
   .backend-btn + .backend-btn,
   .mode-btn + .mode-btn { border-left: 1px solid var(--border); }
   .backend-btn.active, .mode-btn.active {
-    background: rgba(0,200,255,0.12); color: var(--accent);
+    background: rgba(0,200,255,0.16); color: #6fe0ff;
+    box-shadow: inset 0 0 14px rgba(0,200,255,0.12);
+    text-shadow: 0 0 10px rgba(0,200,255,0.45);
   }
   .backend-btn:hover:not(.active),
-  .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.03); color: var(--text); }
+  .mode-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: #eaf6ff; }
+  .backend-btn:focus-visible, .mode-btn:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+  }
 
   .backend-config { display: none; flex-direction: column; gap: 6px; }
   .backend-config.visible { display: flex; }
@@ -233,30 +242,32 @@
   .slider-row .lbl { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; min-width: 80px; }
 
   .btn {
-    padding: 9px 18px;
+    padding: 10px 18px;
     border: 1px solid; border-radius: 3px;
-    font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px;
+    font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
     cursor: pointer; transition: all 0.15s;
     text-transform: uppercase; white-space: nowrap;
   }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .btn-primary {
     flex: 1;
-    background: rgba(0,200,255,0.1);
-    border-color: var(--accent); color: var(--accent);
+    background: rgba(0,200,255,0.14);
+    border-color: var(--accent); color: #9beeff;
+    text-shadow: 0 0 10px rgba(0,200,255,0.35);
   }
-  .btn-primary:hover { background: rgba(0,200,255,0.2); box-shadow: 0 0 16px rgba(0,200,255,0.2); }
-  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-primary:hover { background: rgba(0,200,255,0.24); box-shadow: 0 0 18px rgba(0,200,255,0.28); color: #d6f5ff; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; text-shadow: none; }
   .btn-ghost {
     background: transparent;
-    border-color: var(--border); color: var(--muted);
+    border-color: var(--border); color: var(--muted-hi);
   }
-  .btn-ghost:hover { border-color: var(--dim); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--accent); color: #eaf6ff; box-shadow: 0 0 10px rgba(0,200,255,0.12); }
   .btn-amber {
-    background: rgba(255,184,0,0.08);
-    border-color: var(--amber); color: var(--amber);
+    background: rgba(255,184,0,0.10);
+    border-color: var(--amber); color: #ffd24d;
   }
-  .btn-amber:hover { background: rgba(255,184,0,0.18); }
-  .btn-small { padding: 5px 10px; font-size: 10px; }
+  .btn-amber:hover { background: rgba(255,184,0,0.20); box-shadow: 0 0 14px rgba(255,184,0,0.25); color: #ffe39a; }
+  .btn-small { padding: 6px 11px; font-size: 10px; }
 
   .model-progress { display: none; flex-direction: column; gap: 4px; }
   .model-progress.visible { display: flex; }
@@ -482,6 +493,197 @@
   .validate-report .warn { color: var(--amber); }
   .validate-report .section-name { color: var(--accent); }
 
+  /* ── TAB BAR / VIEWS ─────────────────────────────────────────────── */
+  .tabbar {
+    display: flex; gap: 0; align-items: stretch;
+    margin-right: 6px; padding: 0; border: 1px solid var(--border);
+    border-radius: 3px; overflow: hidden;
+    background: rgba(0,0,0,0.25);
+  }
+  .tab {
+    background: transparent; color: var(--muted-hi);
+    border: none; border-right: 1px solid var(--border);
+    border-top: 2px solid transparent; border-bottom: 2px solid transparent;
+    font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: 2px;
+    padding: 10px 18px; cursor: pointer; text-transform: uppercase;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    white-space: nowrap; position: relative;
+  }
+  .tab:last-child { border-right: none; }
+  .tab:hover { background: rgba(0,200,255,0.10); color: #eaf6ff; border-bottom-color: rgba(0,200,255,0.45); }
+  .tab:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+    color: #eaf6ff; background: rgba(0,200,255,0.10);
+  }
+  .tab.active {
+    background: rgba(0,200,255,0.18); color: #6fe0ff;
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    text-shadow: 0 0 14px rgba(0,200,255,0.65);
+    box-shadow: inset 0 0 18px rgba(0,200,255,0.12), 0 0 12px rgba(0,200,255,0.18);
+  }
+  .tab .tab-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  .tab[data-view="forge"] .tab-dot { background: var(--amber); }
+  .tab[data-view="assembly"] .tab-dot { background: var(--green); }
+  .tab[data-view="agentforge"] .tab-dot { background: #c77dff; }
+  .tab.active .tab-dot { box-shadow: 0 0 8px currentColor; }
+
+  .views-host { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .view { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .view.hidden { display: none; }
+
+  .as-main, .af-main {
+    display: grid; grid-template-columns: minmax(340px, 40%) 5px 1fr;
+    height: 100%; overflow: hidden;
+  }
+  .as-main .splitter, .af-main .splitter { grid-column: 2; }
+  .as-left, .as-right, .af-left, .af-right {
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .as-left, .af-left { border-right: 1px solid var(--border); }
+
+  /* ── MODEL MULTI-SELECT (shared) ─────────────────────────────────── */
+  .model-pool { display: flex; flex-direction: column; gap: 6px; }
+  .model-pool-source { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:4px; }
+  .model-pool-source .src-dot { width:7px; height:7px; border-radius:50%; }
+  .model-pool-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; padding-right: 2px; }
+  .model-pool-list::-webkit-scrollbar { width: 4px; }
+  .model-pool-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .model-chip {
+    display:flex; align-items:center; gap:6px;
+    font-family: var(--mono); font-size: 11px;
+    padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px;
+    cursor: pointer; user-select: none; color: var(--text);
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .model-chip:hover { border-color: var(--dim); }
+  .model-chip .chip-name { flex: 1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .model-chip .chip-src { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+  .model-chip.selected {
+    border-color: var(--accent); background: rgba(0,200,255,0.08); color: var(--accent);
+  }
+  .model-chip.selected .chip-src { color: var(--accent); }
+  .model-chip .chip-check { width: 12px; text-align:center; color: var(--green); opacity: 0; }
+  .model-chip.selected .chip-check { opacity: 1; }
+  .src-ollama { background: var(--green); }
+  .src-browser { background: var(--accent); }
+
+  /* ── ASSEMBLY LINE ───────────────────────────────────────────────── */
+  .role-stage-list { display: flex; flex-direction: column; gap: 6px; }
+  .role-stage {
+    display: grid; grid-template-columns: 26px 1fr 150px 22px;
+    gap: 8px; align-items: center;
+    border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px;
+    background: var(--surface);
+  }
+  .role-stage .stage-num {
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    text-align: center; border-right: 1px solid var(--border); padding-right: 6px;
+  }
+  .role-stage .stage-role {
+    font-family: var(--sans); font-size: 12px; color: var(--text); letter-spacing: 0.5px;
+  }
+  .role-stage .stage-role .role-sub { display:block; font-size:10px; color:var(--muted); letter-spacing:0; margin-top:1px; }
+  .role-stage select {
+    font-family: var(--mono); font-size: 10px; padding: 3px 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
+  }
+  .role-stage .stage-del {
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:0;
+  }
+  .role-stage .stage-del:hover { color: var(--red); }
+
+  .as-stream { flex: 1; overflow-y: auto; padding: 10px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+  .as-stream::-webkit-scrollbar { width: 4px; }
+  .as-stream::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .as-step {
+    border: 1px solid var(--border); border-radius: 3px; margin-bottom: 10px; overflow: hidden;
+  }
+  .as-step-head {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  }
+  .as-step-head .as-step-num { color: var(--accent); }
+  .as-step-head .as-step-role { color: var(--text); flex: 1; }
+  .as-step-head .as-step-model { color: var(--muted); font-size: 10px; }
+  .as-step-head .as-step-state { font-size: 10px; color: var(--muted); }
+  .as-step.running .as-step-head { border-bottom-color: var(--accent); }
+  .as-step.running .as-step-state { color: var(--amber); }
+  .as-step.done .as-step-head .as-step-state { color: var(--green); }
+  .as-step.err .as-step-head .as-step-state { color: var(--red); }
+  .as-step-body { padding: 8px 12px; white-space: pre-wrap; word-break: break-word; color: var(--text); }
+  .as-step-body .md-h1 { color: var(--accent); font-weight: 600; display:block; margin: 6px 0 2px; }
+  .as-step-body .md-h2 { color: var(--amber); font-weight: 600; display:block; margin: 6px 0 2px; }
+  .as-step-body .md-h3 { color: #7ecfff; display:block; margin: 4px 0 2px; }
+  .as-step-body .md-code { background: rgba(0,200,255,0.06); color: var(--green); padding: 0 4px; border-radius: 2px; }
+  .as-step-body .md-fence { display:block; background: rgba(0,0,0,0.35); border-left: 2px solid var(--accent); padding: 6px 10px; color: var(--green); margin: 4px 0; white-space: pre; overflow-x: auto; }
+  .as-step-body .md-file { color: var(--amber); font-weight: 600; display:block; margin: 8px 0 2px; }
+  .as-step-body .md-bold { color: #e4f1f8; font-weight: 600; }
+  .as-progress-track {
+    display:flex; gap:4px; padding: 8px 14px; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10px; color: var(--muted); align-items:center; flex-wrap:wrap;
+  }
+  .as-progress-track .pstep {
+    padding: 3px 8px; border:1px solid var(--border); border-radius:2px; letter-spacing:1px;
+  }
+  .as-progress-track .pstep.active { color: var(--amber); border-color: var(--amber); }
+  .as-progress-track .pstep.done { color: var(--green); border-color: var(--green); }
+  .as-progress-track .psep { color: var(--dim); }
+
+  /* ── AGENT FORGE (wizard) ────────────────────────────────────────── */
+  .af-wizard { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .af-wizard::-webkit-scrollbar { width: 4px; }
+  .af-wizard::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .q-card {
+    border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px;
+    background: var(--surface);
+  }
+  .q-card.answered { border-color: var(--dim); }
+  .q-card .q-label {
+    font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .q-card .q-prompt { font-size: 14px; color: var(--text); margin-bottom: 8px; line-height: 1.4; }
+  .q-card .q-help { font-family: var(--mono); font-size: 10px; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+  .opt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt-chip {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px;
+    padding: 6px 11px; border: 1px solid var(--border); border-radius: 3px;
+    background: var(--panel); color: var(--text); cursor: pointer; user-select: none;
+    transition: border-color 0.12s, background 0.12s, color 0.12s;
+  }
+  .opt-chip:hover { border-color: var(--dim); color: var(--text); }
+  .opt-chip.selected { border-color: var(--accent); background: rgba(0,200,255,0.12); color: var(--accent); }
+  .opt-chip.selected::before { content: "✓ "; color: var(--green); }
+  .q-card input[type=text], .q-card textarea, .q-card select {
+    width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 12px; padding: 7px 9px;
+  }
+  .q-card textarea { min-height: 60px; resize: vertical; line-height: 1.5; }
+  .q-card input[type=text]:focus, .q-card textarea:focus, .q-card select:focus { border-color: var(--accent); outline: none; }
+  .q-multi .opt-chips { margin-bottom: 2px; }
+  .q-answer-preview {
+    margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--green);
+    border-top: 1px dashed var(--border); padding-top: 6px;
+  }
+  .af-readiness {
+    border: 1px solid var(--accent); border-radius: 4px; padding: 12px 14px;
+    background: rgba(0,200,255,0.05); font-family: var(--mono); font-size: 11px; line-height: 1.6;
+  }
+  .af-readiness .ready-no { color: var(--red); }
+  .af-readiness .ready-yes { color: var(--green); }
+  .af-gen-log { flex: 1; overflow-y: auto; padding: 10px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .af-gen-log::-webkit-scrollbar { width: 4px; }
+  .af-gen-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .af-file-tree { width: 220px; overflow-y:auto; border-right:1px solid var(--border); }
+  .af-file-tree .af-ft-item { padding: 5px 10px; font-family: var(--mono); font-size: 11px; cursor:pointer; border-left: 2px solid transparent; color: var(--text); }
+  .af-file-tree .af-ft-item:hover { background: rgba(0,200,255,0.05); }
+  .af-file-tree .af-ft-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,200,255,0.08); }
+  .af-file-view { display: none; flex:1; grid-template-columns: 220px 1fr; }
+  .af-file-view.visible { display: grid; }
+  .af-file-content { padding: 10px 14px; overflow: auto; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .af-file-content-header { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 8px; }
   .system-prompt-editor {
     width: 100%; min-height: 220px;
     background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
@@ -490,15 +692,38 @@
   }
 
   details summary { cursor: pointer; outline: none; }
+
+  /* ── CUSTOM HOVER TOOLTIP (no layout reflow) ─────────────────────── */
+  .pf-tip {
+    position: fixed; z-index: 10000;
+    max-width: 320px;
+    padding: 6px 10px;
+    background: rgba(8,12,15,0.96);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    color: #eaf6ff;
+    font-family: var(--mono); font-size: 11px; line-height: 1.45; letter-spacing: 0.3px;
+    text-transform: none; white-space: normal;
+    box-shadow: 0 0 14px rgba(0,200,255,0.25);
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.12s ease;
+  }
+  .pf-tip.show { opacity: 1; }
 </style>
 </head>
 <body>
+<div class="pf-tip" id="pfTip" role="tooltip" aria-hidden="true"></div>
 <div class="shell">
 
   <header>
     <div class="corner corner-tl"></div>
     <div class="logo">PROMPT<span>FORGE</span></div>
     <div class="tagline">Agentic Workflow Compiler // TDD + Guardrails + Packages</div>
+    <div class="tabbar" id="tabbar" role="tablist" aria-label="App tabs">
+      <button class="tab active" id="tab-forge"      data-view="forge"      onclick="switchTab('forge')"      role="tab" aria-selected="true"  aria-controls="view-forge"      tabindex="0" title="FORGE: Single-prompt and complete-project generation from a task description."><span class="tab-dot" aria-hidden="true"></span>FORGE</button>
+      <button class="tab"        id="tab-assembly"   data-view="assembly"   onclick="switchTab('assembly')"   role="tab" aria-selected="false" aria-controls="view-assembly"   tabindex="-1" title="ASSEMBLY LINE: Configure, sequence, and run multi-agent pipelines."><span class="tab-dot" aria-hidden="true"></span>ASSEMBLY LINE</button>
+      <button class="tab"        id="tab-agentforge" data-view="agentforge" onclick="switchTab('agentforge')" role="tab" aria-selected="false" aria-controls="view-agentforge" tabindex="-1" title="AGENT FORGE: Guided interview that produces a ready-to-run agent project package."><span class="tab-dot" aria-hidden="true"></span>AGENT FORGE</button>
+    </div>
     <div class="header-right">
       <div class="status-pill" id="tokrate" style="display:none">
         <div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>
@@ -508,7 +733,7 @@
       <button class="btn btn-ghost btn-small" onclick="exportWorkspace()" title="Export everything (settings, history, custom prompt) as .json">↑ EXPORT</button>
       <button class="btn btn-ghost btn-small" onclick="document.getElementById('importFile').click()" title="Import workspace .json">↓ IMPORT</button>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importWorkspace(event)" />
-      <button class="btn btn-ghost btn-small" onclick="openHistory()">⌖ HISTORY</button>
+      <button class="btn btn-ghost btn-small" onclick="openHistory()" title="History: Browse and restore previous generation runs.">⌖ HISTORY</button>
       <div class="status-pill" id="statusPill">
         <div class="dot"></div>
         <span id="statusText">IDLE</span>
@@ -517,6 +742,8 @@
     <div class="corner corner-tr"></div>
   </header>
 
+  <div class="views-host">
+  <section class="view" id="view-forge" role="tabpanel" aria-labelledby="tab-forge" aria-label="Prompt Forge">
   <main>
 
     <!-- LEFT -->
@@ -536,15 +763,15 @@
 
           <!-- MODE -->
           <div class="section open" id="sec-mode">
-            <div class="section-head" onclick="toggleSection('sec-mode')">
+            <button type="button" class="section-head" onclick="toggleSection('sec-mode')" aria-expanded="true" aria-controls="sec-mode-body">
               <span>MODE</span>
               <span id="modeBadge" style="color:var(--accent);font-size:10px;letter-spacing:1px;">SINGLE PROMPT</span>
               <span class="section-chev">›</span>
-            </div>
-            <div class="section-body">
+            </button>
+            <div class="section-body" id="sec-mode-body">
               <div class="mode-toggle">
-                <button class="mode-btn active" id="modeSingle" onclick="setMode('single')">▸ Single Prompt</button>
-                <button class="mode-btn" id="modeProject" onclick="setMode('project')">▣ Complete Project Pkg</button>
+                <button class="mode-btn active" id="modeSingle" onclick="setMode('single')" title="Single Prompt: Generate one structured Claude Code system prompt from your task.">▸ Single Prompt</button>
+                <button class="mode-btn" id="modeProject" onclick="setMode('project')" title="Complete Project: Package a full multi-file repo (before/after code + tests) into a downloadable .zip.">▣ Complete Project Pkg</button>
               </div>
               <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;" id="modeHelp">
                 Outputs one structured system prompt for Claude Code. Copy / save .md.
@@ -554,12 +781,12 @@
 
           <!-- TEMPLATE -->
           <div class="section" id="sec-template">
-            <div class="section-head" onclick="toggleSection('sec-template')">
+            <button type="button" class="section-head" onclick="toggleSection('sec-template')" aria-expanded="false" aria-controls="sec-template-body">
               <span>TEMPLATE</span>
               <span id="templateBadge" style="color:var(--muted);font-size:10px;">none</span>
               <span class="section-chev">›</span>
-            </div>
-            <div class="section-body">
+            </button>
+            <div class="section-body" id="sec-template-body">
               <select id="templateSel" onchange="onTemplateChange()">
                 <option value="">— None (vanilla forge) —</option>
                 <option value="refactor">Surgical Refactor (preserve API, replace internals)</option>
@@ -581,15 +808,15 @@
 
           <!-- BACKEND -->
           <div class="section open" id="sec-backend">
-            <div class="section-head" onclick="toggleSection('sec-backend')">
+            <button type="button" class="section-head" onclick="toggleSection('sec-backend')" aria-expanded="true" aria-controls="sec-backend-body">
               <span>INFERENCE BACKEND</span>
               <span id="backendBadge" style="color:var(--accent);font-size:10px;">OLLAMA</span>
               <span class="section-chev">›</span>
-            </div>
-            <div class="section-body">
+            </button>
+            <div class="section-body" id="sec-backend-body">
               <div class="backend-toggle">
-                <button class="backend-btn active" id="btnOllama" onclick="setBackend('ollama')">⚡ Ollama (Local)</button>
-                <button class="backend-btn" id="btnBrowser" onclick="setBackend('browser')">🧠 Browser AI (WebGPU)</button>
+                <button class="backend-btn active" id="btnOllama" onclick="setBackend('ollama')" title="Ollama (Local): Use a local Ollama server as the inference backend.">⚡ Ollama (Local)</button>
+                <button class="backend-btn" id="btnBrowser" onclick="setBackend('browser')" title="Browser AI (WebGPU): Run WebLLM models in-browser via WebGPU — no server needed.">🧠 Browser AI (WebGPU)</button>
               </div>
 
               <div class="backend-config visible" id="ollamaConfig">
@@ -648,12 +875,12 @@
 
           <!-- PARAMS -->
           <div class="section" id="sec-params">
-            <div class="section-head" onclick="toggleSection('sec-params')">
+            <button type="button" class="section-head" onclick="toggleSection('sec-params')" aria-expanded="false" aria-controls="sec-params-body">
               <span>GENERATION PARAMS</span>
               <span id="paramsBadge" style="color:var(--muted);font-size:10px;">T=0.3 · 3000 tok</span>
               <span class="section-chev">›</span>
-            </div>
-            <div class="section-body">
+            </button>
+            <div class="section-body" id="sec-params-body">
               <div class="slider-row">
                 <span class="lbl">Temp</span>
                 <input type="range" id="temperature" min="0" max="1" step="0.05" value="0.3" oninput="updateParamsBadge()" />
@@ -674,12 +901,12 @@
 
           <!-- SYSTEM PROMPT EDITOR -->
           <div class="section" id="sec-system">
-            <div class="section-head" onclick="toggleSection('sec-system')">
+            <button type="button" class="section-head" onclick="toggleSection('sec-system')" aria-expanded="false" aria-controls="sec-system-body">
               <span>META-PROMPT (edit base)</span>
               <span id="systemBadge" style="color:var(--muted);font-size:10px;">default</span>
               <span class="section-chev">›</span>
-            </div>
-            <div class="section-body">
+            </button>
+            <div class="section-body" id="sec-system-body">
               <textarea class="system-prompt-editor" id="systemPromptEditor" spellcheck="false"></textarea>
               <div class="row">
                 <button class="btn btn-ghost btn-small" onclick="resetSystemPrompt()">↺ Reset to default</button>
@@ -693,11 +920,11 @@
           <div class="ctx-warning" id="ctxWarning"></div>
 
           <div class="row">
-            <button class="btn btn-primary" id="forgeBtn" onclick="forge()">▶ FORGE PROMPT</button>
-            <button class="btn btn-amber" id="stopBtn" onclick="stopGeneration()" style="display:none">■ STOP</button>
+            <button class="btn btn-primary" id="forgeBtn" onclick="forge()" title="Forge Prompt: Generate the system prompt or complete project from the task input.">▶ FORGE PROMPT</button>
+            <button class="btn btn-amber" id="stopBtn" onclick="stopGeneration()" style="display:none" title="Stop: Cancel the in-progress generation.">■ STOP</button>
             <button class="btn btn-ghost" id="regenBtn" onclick="regenerate()" title="Re-run with the same task (does not mutate input)" disabled>⟲ REGEN</button>
             <button class="btn btn-ghost" id="refineBtn" onclick="refine()" title="Re-forge using prior output as additional context" disabled>↻ REFINE</button>
-            <button class="btn btn-ghost" onclick="clearAll()">✕ CLEAR</button>
+            <button class="btn btn-ghost" onclick="clearAll()" title="Clear: Reset the task input, output, and draft state.">✕ CLEAR</button>
           </div>
         </div>
       </div>
@@ -728,11 +955,11 @@
         </div>
       </div>
       <div class="output-actions">
-        <button class="btn btn-ghost btn-small" onclick="copyOutput()" id="copyBtn">⎘ COPY</button>
-        <button class="btn btn-ghost btn-small" onclick="downloadMd()">↓ .MD</button>
-        <button class="btn btn-ghost btn-small" onclick="downloadJson()">↓ .JSON</button>
-        <button class="btn btn-amber btn-small" id="zipBtn" onclick="downloadZip()" style="display:none">▣ DOWNLOAD .ZIP</button>
-        <button class="btn btn-ghost btn-small" onclick="validateOutput()">✓ VALIDATE</button>
+        <button class="btn btn-ghost btn-small" onclick="copyOutput()" id="copyBtn" title="Copy: Copy the generated output to the clipboard.">⎘ COPY</button>
+        <button class="btn btn-ghost btn-small" onclick="downloadMd()" title="Download .MD: Save the generated output as a Markdown file.">↓ .MD</button>
+        <button class="btn btn-ghost btn-small" onclick="downloadJson()" title="Download .JSON: Save the generated output as a JSON file.">↓ .JSON</button>
+        <button class="btn btn-amber btn-small" id="zipBtn" onclick="downloadZip()" style="display:none" title="Download .ZIP: Download the complete project package as a .zip archive.">▣ DOWNLOAD .ZIP</button>
+        <button class="btn btn-ghost btn-small" onclick="validateOutput()" title="Validate: Check the generated output against the required structure and guardrails.">✓ VALIDATE</button>
         <div class="char-count">
           <span id="outputCharCount"></span>
         </div>
@@ -740,6 +967,205 @@
     </div>
 
   </main>
+  </section>
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW: ASSEMBLY LINE  (multi-agent project development pipeline)   -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section class="view hidden" id="view-assembly" role="tabpanel" aria-labelledby="tab-assembly" aria-label="Assembly Line">
+      <div class="as-main" id="asMain">
+
+        <!-- LEFT: config -->
+        <div class="as-left panel">
+          <div class="panel-header">
+            <div class="panel-label">// Assembly Line · Configuration</div>
+            <div class="panel-meta" id="asPoolCount">0 models selected</div>
+          </div>
+          <div class="input-area">
+            <textarea
+              id="asTaskInput"
+              placeholder="Describe the complete project / application you want built...&#10;&#10;e.g. 'Build a FastAPI service that ingests CSV uploads, validates rows against a JSON schema, stores valid rows in SQLite, and exposes a /rows endpoint with pagination. Include tests and a Dockerfile.'"
+              spellcheck="false"
+              style="min-height:120px; flex:0 0 auto;"
+            ></textarea>
+
+            <div class="section open" id="as-sec-pool">
+              <button type="button" class="section-head" onclick="toggleSection('as-sec-pool')" aria-expanded="true" aria-controls="as-sec-pool-body">
+                <span>MODEL POOL</span>
+                <span id="asPoolBadge" style="color:var(--muted);font-size:10px;">select models to use</span>
+                <span class="section-chev">›</span>
+              </button>
+              <div class="section-body" id="as-sec-pool-body">
+                <div class="model-pool">
+                  <div class="model-pool-source"><span class="src-dot src-ollama"></span>Ollama (local) · <span id="asOllamaCount">0</span></div>
+                  <div class="model-pool-list" id="asOllamaPool"></div>
+                  <div class="row" style="margin-top:2px;">
+                    <input type="text" id="asOllamaUrl" value="/ollama" placeholder="Ollama base URL" style="flex:1; background:var(--panel); border:1px solid var(--border); border-radius:3px; color:var(--text); font-family:var(--mono); font-size:11px; padding:5px 8px;" />
+                    <button class="btn btn-ghost btn-small" onclick="asRefreshModels()" title="Refresh model list">↻</button>
+                  </div>
+                  <div class="model-pool-source"><span class="src-dot src-browser"></span>Browser AI · WebGPU (in-browser)</div>
+                  <div class="model-pool-list" id="asBrowserPool"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section open" id="as-sec-line">
+              <button type="button" class="section-head" onclick="toggleSection('as-sec-line')" aria-expanded="true" aria-controls="as-sec-line-body">
+                <span>ASSEMBLY LINE</span>
+                <span id="asLineBadge" style="color:var(--accent);font-size:10px;">6 stages</span>
+                <span class="section-chev">›</span>
+              </button>
+              <div class="section-body" id="as-sec-line-body">
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.55;margin-bottom:6px;">
+                  Each stage is handled by one model from the pool. The line runs in order — each stage receives the user's task plus the output of every prior stage. Add / remove / reorder stages, or assign the same model to multiple stages.
+                </div>
+                <div class="role-stage-list" id="asLineList"></div>
+                <div class="row" style="margin-top:6px;">
+                  <button class="btn btn-ghost btn-small" onclick="asAddStage()" title="Add Stage: Append a new stage to the assembly line.">+ ADD STAGE</button>
+                  <button class="btn btn-ghost btn-small" onclick="asAutoAssign()" title="Auto-assign pool models round-robin to stages">⟲ AUTO-ASSIGN</button>
+                  <button class="btn btn-ghost btn-small" onclick="asResetStages()" title="Reset: Restore the default assembly line stage configuration.">↺ RESET</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="section" id="as-sec-params">
+              <button type="button" class="section-head" onclick="toggleSection('as-sec-params')" aria-expanded="false" aria-controls="as-sec-params-body">
+                <span>PARAMS</span>
+                <span id="asParamsBadge" style="color:var(--muted);font-size:10px;">T=0.4 · 2000 tok</span>
+                <span class="section-chev">›</span>
+              </button>
+              <div class="section-body" id="as-sec-params-body">
+                <div class="slider-row">
+                  <span class="lbl">Temp</span>
+                  <input type="range" id="asTemperature" min="0" max="1" step="0.05" value="0.4" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asTempVal">0.40</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Max tokens</span>
+                  <input type="range" id="asMaxTokens" min="500" max="8000" step="100" value="2000" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asMaxVal">2000</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Ctx (Ollama)</span>
+                  <input type="range" id="asNumCtx" min="2048" max="32768" step="1024" value="8192" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asCtxVal">8192</span>
+                </div>
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px;">
+                  Final output mode:
+                  <select id="asOutputMode" style="width:100%;margin-top:4px;">
+                    <option value="project" selected>Complete project package (files → zip)</option>
+                    <option value="prompt">Consolidated system prompt (.md)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="err-msg" id="asErrMsg"></div>
+            <div class="row">
+              <button class="btn btn-primary" id="asRunBtn" onclick="asRun()" title="Run Assembly Line: Execute the configured multi-stage agent pipeline.">▶ RUN ASSEMBLY LINE</button>
+              <button class="btn btn-amber" id="asStopBtn" onclick="asStop()" style="display:none" title="Stop: Cancel the running assembly line.">■ STOP</button>
+              <button class="btn btn-ghost btn-small" onclick="asClearLog()" title="Clear: Clear the assembly line output log.">✕ CLEAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="splitter" id="asSplitter" title="Drag to resize"></div>
+
+        <!-- RIGHT: live pipeline log -->
+        <div class="as-right panel">
+          <div class="panel-header">
+            <div class="panel-label">// Assembly Line · Live Pipeline</div>
+            <div class="panel-meta" id="asStateMeta">idle</div>
+          </div>
+          <div class="as-progress-track" id="asProgressTrack"></div>
+          <div class="as-stream" id="asStream">
+            <div class="output-placeholder" style="display:flex;">
+              <div class="icon">⚙</div>
+              <p>Configure models & stages, then RUN ASSEMBLY LINE</p>
+            </div>
+          </div>
+          <div class="output-actions">
+            <button class="btn btn-ghost btn-small" onclick="asDownloadZip()" id="asZipBtn" disabled>▣ DOWNLOAD .ZIP</button>
+            <button class="btn btn-ghost btn-small" onclick="asDownloadMd()" id="asMdBtn" disabled>↓ .MD</button>
+            <button class="btn btn-ghost btn-small" onclick="asCopyLog()">⎘ COPY LOG</button>
+            <div class="char-count"><span id="asCharCount"></span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW: AGENT FORGE  (guided agent/team generator → zip)            -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <section class="view hidden" id="view-agentforge" role="tabpanel" aria-labelledby="tab-agentforge" aria-label="Agent Forge">
+      <div class="af-main" id="afMain">
+
+        <!-- LEFT: guided interview -->
+        <div class="af-left panel">
+          <div class="panel-header">
+            <div class="panel-label">// Agent Forge · Interview</div>
+            <div class="panel-meta" id="afReadinessMeta">0 / 0 answered</div>
+          </div>
+          <div class="af-wizard" id="afWizard"></div>
+          <div style="flex:0 0 auto; padding:10px 14px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+            <div class="af-readiness" id="afReadiness"></div>
+            <div class="row">
+              <button class="btn btn-ghost btn-small" onclick="afReset()" title="Reset Answers: Clear all Agent Forge interview answers.">↺ RESET ANSWERS</button>
+              <button class="btn btn-ghost btn-small" onclick="afLoadSample()" title="Sample Answers: Load example answers to preview Agent Forge output.">⤵ SAMPLE ANSWERS</button>
+            </div>
+            <div class="section open" id="af-sec-models" style="border:none;">
+              <button type="button" class="section-head" onclick="toggleSection('af-sec-models')" aria-expanded="true" aria-controls="af-sec-models-body" style="padding:4px 0;">
+                <span>GENERATOR MODELS</span>
+                <span id="afModelBadge" style="color:var(--muted);font-size:10px;">select to enable</span>
+                <span class="section-chev">›</span>
+              </button>
+              <div class="section-body" id="af-sec-models-body" style="padding:6px 0;">
+                <div class="model-pool">
+                  <div class="model-pool-source"><span class="src-dot src-ollama"></span>Ollama · <span id="afOllamaCount">0</span></div>
+                  <div class="model-pool-list" id="afOllamaPool" style="max-height:130px;"></div>
+                  <div class="model-pool-source"><span class="src-dot src-browser"></span>Browser AI · WebGPU</div>
+                  <div class="model-pool-list" id="afBrowserPool" style="max-height:130px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="err-msg" id="afErrMsg"></div>
+            <div class="row">
+              <button class="btn btn-primary" id="afGenerateBtn" onclick="afGenerate()" disabled title="Generate Agent Package: Build a ready-to-run agent project from your interview answers.">▶ GENERATE AGENT PACKAGE</button>
+              <button class="btn btn-amber" id="afStopBtn" onclick="afStop()" style="display:none" title="Stop: Cancel agent package generation.">■ STOP</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="splitter" id="afSplitter" title="Drag to resize"></div>
+
+        <!-- RIGHT: generation log + file tree + download -->
+        <div class="af-right panel">
+          <div class="panel-header">
+            <div class="panel-label">// Agent Forge · Output</div>
+            <div class="panel-meta" id="afStateMeta">idle</div>
+          </div>
+          <div class="af-gen-log" id="afGenLog">
+            <div class="output-placeholder" style="display:flex;">
+              <div class="icon">🤖</div>
+              <p>Answer the interview, pick generator model(s), then GENERATE</p>
+            </div>
+          </div>
+          <div class="af-file-view" id="afFileView">
+            <div class="af-file-tree" id="afFileTree"></div>
+            <div class="af-file-content" id="afFileContent"></div>
+          </div>
+          <div class="output-actions">
+            <button class="btn btn-amber btn-small" onclick="afDownloadZip()" id="afZipBtn" disabled>▣ DOWNLOAD .ZIP</button>
+            <button class="btn btn-ghost btn-small" onclick="afCopyLog()">⎘ COPY LOG</button>
+            <div class="char-count"><span id="afCharCount"></span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
 </div>
 
 <!-- HISTORY MODAL -->
@@ -1139,7 +1565,11 @@ function updateOutputMeter() {
 taskInput.addEventListener('input', updateInputMeter);
 
 window.toggleSection = function(id) {
-  document.getElementById(id).classList.toggle('open');
+  const sec = document.getElementById(id);
+  if (!sec) return;
+  const open = sec.classList.toggle('open');
+  const head = sec.querySelector('.section-head');
+  if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2284,6 +2714,1414 @@ document.addEventListener('keydown', (e) => {
   updateParamsBadge();
   checkCtxOverflow();
   fetchOllamaModels();
+})();
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TAB SYSTEM — three independent views, each self-contained.
+// The existing FORGE app keeps its own state; the new tabs never touch it.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const TABS = ['forge', 'assembly', 'agentforge'];
+let activeTab = 'forge';
+
+window.switchTab = function(name) {
+  if (!TABS.includes(name)) return;
+  activeTab = name;
+  for (const t of TABS) {
+    document.getElementById('view-' + t).classList.toggle('hidden', t !== name);
+  }
+  document.querySelectorAll('#tabbar .tab').forEach(b => {
+    const isActive = b.dataset.view === name;
+    b.classList.toggle('active', isActive);
+    b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    b.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+  // The forge view owns the global status pill; new tabs have their own meta.
+  // Persist active tab.
+  try { localStorage.setItem('pf.activeTab.v1', name); } catch {}
+  // Lazy init each tab the first time it's opened.
+  if (name === 'assembly')   asEnsureInit();
+  if (name === 'agentforge') afEnsureInit();
+};
+
+// Roving tabindex arrow-key navigation across the tab list.
+(function initTabKeyboard() {
+  const tabbar = document.getElementById('tabbar');
+  if (!tabbar) return;
+  tabbar.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+    const tabs = Array.from(tabbar.querySelectorAll('.tab'));
+    let idx = tabs.findIndex(t => t.getAttribute('tabindex') === '0');
+    if (idx < 0) idx = 0;
+    if (e.key === 'ArrowRight') idx = (idx + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') idx = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') idx = 0;
+    else if (e.key === 'End') idx = tabs.length - 1;
+    e.preventDefault();
+    const target = tabs[idx];
+    switchTab(target.dataset.view);
+    target.focus();
+  });
+})();
+
+(function restoreTab() {
+  try {
+    const t = localStorage.getItem('pf.activeTab.v1');
+    if (t && TABS.includes(t) && t !== 'forge') switchTab(t);
+  } catch {}
+})();
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SHARED INFRASTRUCTURE — model pool, inference backends, markdown tint,
+// JSZip loader. The forge view has its own copies (left untouched); these
+// are scoped to the assembly + agentforge tabs so the two stay independent.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Browser model catalog — mirrors the forge view's WebLLM list (single source
+// of truth would be nicer, but copying keeps the tabs fully independent, which
+// the task explicitly required).
+const BROWSER_MODELS = [
+  { id: 'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-Coder 1.5B', grp: 'Qwen2.5-Coder (code)' },
+  { id: 'Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-Coder 0.5B', grp: 'Qwen2.5-Coder (code)' },
+  { id: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',  name: 'Qwen2.5-Coder 7B',  grp: 'Qwen2.5-Coder (code)' },
+  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',      name: 'Qwen2.5 1.5B',      grp: 'Qwen2.5 (general)' },
+  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',        name: 'Qwen2.5 3B',        grp: 'Qwen2.5 (general)' },
+  { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',        name: 'Qwen2.5 7B',        grp: 'Qwen2.5 (general)' },
+  { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 1B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 3B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',      name: 'Llama 3.1 8B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',      name: 'SmolLM2 1.7B',      grp: 'SmolLM2 (small/fast)' },
+  { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',      name: 'SmolLM2 360M',      grp: 'SmolLM2 (small/fast)' },
+  { id: 'SmolLM2-135M-Instruct-q0f16-MLC',        name: 'SmolLM2 135M',      grp: 'SmolLM2 (small/fast)' },
+  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',name: 'DeepSeek-R1-Distill-Qwen 7B', grp: 'Reasoning (DeepSeek-R1)' },
+  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',name:'DeepSeek-R1-Distill-Llama 8B', grp: 'Reasoning (DeepSeek-R1)' },
+  { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',      name: 'Phi-3.5 mini',      grp: 'Other' },
+  { id: 'gemma-2-2b-it-q4f16_1-MLC',              name: 'Gemma 2 2B',        grp: 'Other' },
+];
+
+// Shared inference engine registry. Each WebGPU model gets one MLCEngine;
+// Ollama models are stateless HTTP calls. We keep a single engine per model
+// id so switching between stages doesn't reload weights.
+const _engines = {}; // modelId -> MLCEngine
+let _webllmModShared = null;
+async function sharedWebLLM() {
+  if (!_webllmModShared) _webllmModShared = await import('https://esm.run/@mlc-ai/web-llm');
+  return _webllmModShared;
+}
+
+// Markdown tint — same algorithm as the forge view, standalone for the tabs.
+function tintMdInline(text) {
+  const lines = (text || '').split('\n');
+  const out = [];
+  let inFence = false, fenceBuf = [];
+  const flushFence = () => {
+    if (fenceBuf.length) {
+      out.push('<span class="md-fence">' + escapeHtmlShared(fenceBuf.join('\n')) + '</span>');
+      fenceBuf = [];
+    }
+  };
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      if (inFence) { flushFence(); inFence = false; } else { inFence = true; }
+      continue;
+    }
+    if (inFence) { fenceBuf.push(line); continue; }
+    if (/^===\s*(FILE|END FILE):/.test(line)) {
+      out.push('<span class="md-file">' + escapeHtmlShared(line) + '</span>'); continue;
+    }
+    let m;
+    if ((m = line.match(/^###\s+(.*)$/))) { out.push('<span class="md-h3">### ' + escapeHtmlShared(m[1]) + '</span>'); continue; }
+    if ((m = line.match(/^##\s+(.*)$/)))  { out.push('<span class="md-h2">## '  + escapeHtmlShared(m[1]) + '</span>'); continue; }
+    if ((m = line.match(/^#\s+(.*)$/)))   { out.push('<span class="md-h1"># '   + escapeHtmlShared(m[1]) + '</span>'); continue; }
+    out.push(escapeHtmlShared(line)
+      .replace(/`([^`]+)`/g, '<span class="md-code">$1</span>')
+      .replace(/\*\*([^*]+)\*\*/g, '<span class="md-bold">$1</span>'));
+  }
+  if (inFence) flushFence();
+  return out.join('\n');
+}
+function escapeHtmlShared(s) {
+  return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+
+// parseProjectFiles — same protocol as the forge view (=== FILE / === END FILE)
+function parseFilesShared(text) {
+  return _parseFiles(text);  // thin wrapper; kept for back-compat
+}
+function _parseFiles(text) {
+  const normalized = (text || '').replace(/\r\n/g, '\n');
+  const files = [];
+  const re = /^===\s*FILE:\s*(.+?)\s*===\s*$([\s\S]*?)^===\s*END FILE\s*===\s*$/gm;
+  let m;
+  while ((m = re.exec(normalized)) !== null) {
+    const path = m[1].trim();
+    let body = m[2];
+    if (body.startsWith('\n')) body = body.slice(1);
+    if (body.endsWith('\n'))   body = body.slice(0, -1);
+    files.push({ path, body });
+  }
+  return files;
+}
+
+// Shared JSZip loader (cached) — the forge view also loads JSZip; caching is
+// fine, window.JSZip is the same UMD global either way.
+let _jszipShared = null;
+async function sharedJSZip() {
+  if (_jszipShared) return _jszipShared;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load JSZip from CDN.'));
+    document.head.appendChild(s);
+  });
+  if (!window.JSZip) throw new Error('JSZip did not register.');
+  _jszipShared = window.JSZip;
+  return _jszipShared;
+}
+
+function saveBlobShared(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Ollama models + URL helpers (shared between the two tabs; each tab has its
+// own URL input, so we read from whichever is passed in).
+async function fetchOllamaTagsRaw(base) {
+  const res = await fetch(base + '/api/tags', { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  return (data.models || []).map(m => m.name).sort();
+}
+
+// Run one Ollama generation, streaming chunks to an onChunk callback.
+// Returns the full accumulated text. Aborts if stopFlag() returns true.
+async function ollamaGenerate({ base, model, system, prompt, temperature, maxTokens, numCtx, onChunk, stopFlag, signal }) {
+  const body = JSON.stringify({
+    model, system, prompt, stream: true,
+    options: { temperature, num_ctx: numCtx, num_predict: maxTokens },
+  });
+  const res = await fetch(base + '/api/generate', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body, signal,
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', full = '';
+  while (true) {
+    if (stopFlag && stopFlag()) { try { await reader.cancel(); } catch {} return full; }
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop() || '';
+    for (const line of lines) {
+      const s = line.trim(); if (!s) continue;
+      try {
+        const obj = JSON.parse(s);
+        if (obj.response) { full += obj.response; onChunk && onChunk(obj.response); }
+        // Thinking models (e.g. qwen3) stream reasoning in `thinking` with an
+        // empty `response`. Surface it so the UI shows live progress during the
+        // reasoning phase; it is not part of the final answer.
+        else if (obj.thinking) { onChunk && onChunk(''); }
+        if (obj.done) return full;
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// Run one WebGPU generation, streaming to onChunk. Loads the model on first
+// use (one engine per model id, cached). progressCb gets 0..1 + text.
+async function browserGenerate({ modelId, system, prompt, temperature, maxTokens, onChunk, stopFlag, progressCb }) {
+  if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
+  const webllm = await sharedWebLLM();
+  if (!_engines[modelId]) {
+    _engines[modelId] = await webllm.CreateMLCEngine(modelId, {
+      initProgressCallback: (r) => progressCb && progressCb(r.progress || 0, r.text || ''),
+    });
+  }
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user',   content: prompt },
+  ];
+  const chunks = await _engines[modelId].chat.completions.create({
+    messages, temperature, max_tokens: maxTokens, stream: true,
+  });
+  let full = '';
+  for await (const chunk of chunks) {
+    if (stopFlag && stopFlag()) { try { await _engines[modelId].interruptGenerate(); } catch {} return full; }
+    const delta = chunk.choices?.[0]?.delta?.content || '';
+    if (delta) { full += delta; onChunk && onChunk(delta); }
+  }
+  return full;
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ASSEMBLY LINE TAB
+// An ordered pipeline of LLM stages. Each stage is one model from the pool
+// playing a role: Plan → Review Plan → Task Out → Execute → Code Review →
+// Final Review. Each stage sees the user task + all prior stage outputs.
+// The final stage emits a complete project (files → zip) or a consolidated
+// prompt (.md), depending on the output mode.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const ASSEMBLY_ROLES = [
+  { id: 'plan',         label: 'Planner',          sub: 'Decompose the task into a buildable plan' },
+  { id: 'review_plan',  label: 'Plan Reviewer',    sub: 'Critique & harden the plan' },
+  { id: 'taskout',      label: 'Task Architect',   sub: 'Task out the plan to models + sequence' },
+  { id: 'execute',      label: 'Executor',         sub: 'Produce the project files' },
+  { id: 'codereview',   label: 'Code Reviewer',    sub: 'Review the consolidated project' },
+  { id: 'final',        label: 'Final Reviewer',   sub: 'Final pass + ship-ready product' },
+];
+
+// Per-role system prompts. These define the "assembly line of intelligence".
+const ASSEMBLY_SYSTEMS = {
+  plan: `You are the PLANNER in a multi-agent assembly line. Given the user's task, produce a concrete, buildable plan.
+Output:
+## PLAN
+- Objective (one sentence, exact)
+- Target stack & runtime (derive from task; mark [CONFIRM] if truly unknown)
+- Components to build (ordered, each with one-line purpose)
+- Risks / unknowns
+- Definition of done (binary, verifiable)
+Be specific and terse. No code yet.`,
+
+  review_plan: `You are the PLAN REVIEWER in a multi-agent assembly line. You receive the Planner's plan.
+Output:
+## PLAN REVIEW
+- Verdict: APPROVED / APPROVED-WITH-CHANGES / REJECT
+- Gaps (bullet list of anything missing, ambiguous, or risky)
+- Required changes (bullet list, concrete)
+- Hardened definition of done (rewrite the DoD to be stricter if needed)
+Do not rewrite the whole plan — only critique and harden it.`,
+
+  taskout: `You are the TASK ARCHITECT in a multi-agent assembly line. You receive the user task, the plan, and the plan review.
+Output:
+## TASK BREAKDOWN
+An ordered, numbered list of concrete implementation tasks. For each task:
+<N>. <task title> — <one-line deliverable> — files affected: <paths>
+Order them by dependency. Merge any plan-review-required-changes into the tasks.
+End with:
+## SEQUENCE
+A short ordered summary of which tasks run first → last.
+No code yet.`,
+
+  execute: `You are the EXECUTOR in a multi-agent assembly line. You receive the user task, the plan, the plan review, and the task breakdown.
+Your job: produce the COMPLETE project as a set of files using the FILE marker protocol.
+Emit EVERY file needed to build, test, and run the project. Each file:
+
+=== FILE: <relative/path> ===
+<full file contents, no truncation, no TODO placeholders>
+=== END FILE ===
+
+Required files (adapt extensions to the detected stack): README.md, a build/dependency file, source files, and tests.
+Rules:
+- No prose outside FILE blocks. Output starts with "=== FILE:".
+- Complete files only. No "# ... rest of file". No mock returns.
+- Tests must be real and exercise the implemented code.
+- Pick file extensions from the detected stack (Python→.py, TS→.ts, Rust→.rs, Go→.go, JS→.js, etc).`,
+
+  codereview: `You are the CODE REVIEWER in a multi-agent assembly line. You receive the user task, the plan, the plan review, the task breakdown, and the executed project files.
+Output:
+## CODE REVIEW
+- Verdict: SHIP / FIX-REQUIRED
+- Findings (bullet list: file:line — issue — severity: blocker/major/minor)
+- Correctness issues (logic bugs, missing edge cases)
+- Test coverage gaps (which behaviors are untested)
+- Style / consistency notes
+Do NOT rewrite the code. Only review it. Be specific (cite file paths).`,
+
+  final: `You are the FINAL REVIEWER in a multi-agent assembly line. You receive everything: task, plan, plan review, task breakdown, executed files, and the code review.
+Your job: produce the FINAL, SHIP-READY product.
+If the code review raised no blockers, re-emit the complete project files unchanged (the consolidated product).
+If there ARE blockers, emit corrected files that resolve them.
+Output the complete project using the FILE marker protocol:
+
+=== FILE: <relative/path> ===
+<full file contents>
+=== END FILE ===
+
+Then after all files, emit:
+## FINAL REVIEW
+- Ship verdict: READY / NOT-READY
+- What changed from the executed version (if anything)
+- Final definition-of-done checklist (all boxes checked or explicitly justified)
+Rules: complete files only, no truncation, output starts with "=== FILE:".`,
+
+  custom: `You are a specialist stage in a multi-agent assembly line. Build on the prior stages' outputs. Be specific and terse.`,
+};
+
+// State
+let asInited = false;
+let asOllamaModels = [];      // [{name}]
+let asPool = new Set();       // "ollama:<name>" | "browser:<id>"
+let asStages = [];            // [{role, modelKey}]
+let asRunning = false;
+let asStopReq = false;
+let asAbort = null;
+let asStepOutputs = [];       // [{role,label,model,output}]
+let asFinalText = '';
+
+function asEnsureInit() {
+  if (asInited) return;
+  asInited = true;
+  // Default stages mirror the requested assembly line.
+  asStages = ASSEMBLY_ROLES.map(r => ({ role: r.id, modelKey: '' }));
+  asRenderBrowserPool();
+  asRefreshModels();
+  asRenderStages();
+  asUpdateParamsBadge();
+  asUpdatePoolCount();
+  asRenderProgressTrack();
+  asInitSplitter();
+}
+
+function asModelKey(src, id) { return src + ':' + id; }
+function asParseKey(k) { const i = k.indexOf(':'); return { src: k.slice(0,i), id: k.slice(i+1) }; }
+
+window.asRefreshModels = async function() {
+  const base = (document.getElementById('asOllamaUrl').value || '/ollama').trim();
+  const pool = document.getElementById('asOllamaPool');
+  const badge = document.getElementById('asOllamaCount');
+  try {
+    const names = await fetchOllamaTagsRaw(base);
+    asOllamaModels = names.map(n => ({ name: n }));
+    badge.textContent = asOllamaModels.length;
+    pool.innerHTML = asOllamaModels.length
+      ? asOllamaModels.map(m => {
+          const k = asModelKey('ollama', m.name);
+          return `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k}')">
+            <span class="chip-name">${escapeHtmlShared(m.name)}</span>
+            <span class="chip-src">OLLAMA</span><span class="chip-check">✓</span></div>`;
+        }).join('')
+      : '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px;">— no Ollama models —</div>';
+  } catch (e) {
+    asOllamaModels = [];
+    badge.textContent = '0';
+    pool.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:4px;">— cannot reach Ollama —</div>';
+  }
+  asRenderStages();
+  asUpdatePoolCount();
+};
+
+function asRenderBrowserPool() {
+  const pool = document.getElementById('asBrowserPool');
+  // Group by grp
+  const groups = {};
+  for (const m of BROWSER_MODELS) (groups[m.grp] = groups[m.grp] || []).push(m);
+  let html = '';
+  for (const [g, list] of Object.entries(groups)) {
+    html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">${escapeHtmlShared(g)}</div>`;
+    for (const m of list) {
+      const k = asModelKey('browser', m.id);
+      html += `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k}')">
+        <span class="chip-name">${escapeHtmlShared(m.name)}</span>
+        <span class="chip-src">WEBGPU</span><span class="chip-check">✓</span></div>`;
+    }
+  }
+  pool.innerHTML = html;
+}
+
+window.asTogglePool = function(k) {
+  if (asPool.has(k)) asPool.delete(k); else asPool.add(k);
+  // Refresh chip visuals
+  document.querySelectorAll('#asOllamaPool .model-chip, #asBrowserPool .model-chip').forEach(el => {
+    el.classList.toggle('selected', asPool.has(el.dataset.key));
+  });
+  asUpdatePoolCount();
+  asRenderStages(); // stage dropdowns list only pool models
+};
+
+function asPoolList() {
+  return [...asPool].map(k => {
+    const { src, id } = asParseKey(k);
+    const label = src === 'ollama' ? id : (BROWSER_MODELS.find(m => m.id === id)?.name || id);
+    return { key: k, src, id, label };
+  });
+}
+
+function asUpdatePoolCount() {
+  const n = asPool.size;
+  document.getElementById('asPoolCount').textContent = n + ' model' + (n===1?'':'s') + ' selected';
+  document.getElementById('asPoolBadge').textContent = n ? n + ' selected' : 'select models to use';
+  document.getElementById('asPoolBadge').style.color = n ? 'var(--accent)' : 'var(--muted)';
+}
+
+function asRenderStages() {
+  const list = document.getElementById('asLineList');
+  const pool = asPoolList();
+  const opts = (sel) => {
+    let o = '<option value="">— assign model —</option>';
+    for (const p of pool) o += `<option value="${p.key}"${p.key===sel?' selected':''}>${escapeHtmlShared(p.label)} (${p.src.toUpperCase()})</option>`;
+    return o;
+  };
+  list.innerHTML = asStages.map((s, i) => {
+    const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: 'Custom', sub: '' };
+    return `<div class="role-stage" data-i="${i}">
+      <div class="stage-num">${i+1}</div>
+      <div class="stage-role">${escapeHtmlShared(role.label)}<span class="role-sub">${escapeHtmlShared(role.sub)}</span></div>
+      <select onchange="asSetStageModel(${i}, this.value)">${opts(s.modelKey)}</select>
+      <button class="stage-del" title="Remove stage" onclick="asDelStage(${i})">✕</button>
+    </div>`;
+  }).join('');
+  document.getElementById('asLineBadge').textContent = asStages.length + ' stage' + (asStages.length===1?'':'s');
+}
+
+window.asSetStageModel = function(i, key) { asStages[i].modelKey = key; };
+
+window.asAddStage = function() {
+  asStages.push({ role: 'custom', modelKey: '' });
+  asRenderStages();
+};
+
+window.asDelStage = function(i) {
+  if (asStages.length <= 1) { toast('Keep at least one stage'); return; }
+  asStages.splice(i, 1);
+  asRenderStages();
+};
+
+window.asAutoAssign = function() {
+  const pool = asPoolList();
+  if (!pool.length) { toast('Select models in the pool first'); return; }
+  asStages.forEach((s, i) => { s.modelKey = pool[i % pool.length].key; });
+  asRenderStages();
+  toast('Auto-assigned ' + pool.length + ' model' + (pool.length===1?'':'s') + ' round-robin');
+};
+
+window.asResetStages = function() {
+  asStages = ASSEMBLY_ROLES.map(r => ({ role: r.id, modelKey: '' }));
+  asRenderStages();
+};
+
+window.asUpdateParamsBadge = function() {
+  const t = parseFloat(document.getElementById('asTemperature').value);
+  const m = parseInt(document.getElementById('asMaxTokens').value, 10);
+  const c = parseInt(document.getElementById('asNumCtx').value, 10);
+  document.getElementById('asTempVal').textContent = t.toFixed(2);
+  document.getElementById('asMaxVal').textContent  = m;
+  document.getElementById('asCtxVal').textContent  = c;
+  document.getElementById('asParamsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c}`;
+};
+
+function asParams() {
+  return {
+    temperature: parseFloat(document.getElementById('asTemperature').value),
+    maxTokens:   parseInt(document.getElementById('asMaxTokens').value, 10),
+    numCtx:      parseInt(document.getElementById('asNumCtx').value, 10),
+  };
+}
+
+function asRenderProgressTrack() {
+  const track = document.getElementById('asProgressTrack');
+  track.innerHTML = asStages.map((s, i) => {
+    const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: 'Custom' };
+    const cls = asStepOutputs[i] ? (asStepOutputs[i].err ? 'pstep' : 'pstep done')
+              : (asRunning && i === asStepOutputs.filter(o => o).length ? 'pstep active' : 'pstep');
+    return `<span class="${cls}">${i+1}. ${escapeHtmlShared(role.label)}</span>` +
+           (i < asStages.length-1 ? '<span class="psep">›</span>' : '');
+  }).join('');
+}
+
+function asShowErr(msg) {
+  const el = document.getElementById('asErrMsg');
+  el.textContent = msg; el.classList.add('visible');
+}
+function asClearErr() { document.getElementById('asErrMsg').classList.remove('visible'); }
+
+function asState(label) {
+  document.getElementById('asStateMeta').textContent = label;
+}
+
+window.asClearLog = function() {
+  if (asRunning) { toast('Stop the run first'); return; }
+  document.getElementById('asStream').innerHTML =
+    '<div class="output-placeholder" style="display:flex;"><div class="icon">⚙</div><p>Configure models & stages, then RUN ASSEMBLY LINE</p></div>';
+  asStepOutputs = [];
+  asFinalText = '';
+  document.getElementById('asZipBtn').disabled = true;
+  document.getElementById('asMdBtn').disabled = true;
+  document.getElementById('asCharCount').textContent = '';
+  asState('idle');
+  asRenderProgressTrack();
+};
+
+window.asStop = function() {
+  asStopReq = true;
+  if (asAbort) { try { asAbort.abort(); } catch {} }
+  toast('Stop requested');
+};
+
+function asAppendStepBlock(i) {
+  const stream = document.getElementById('asStream');
+  // remove placeholder if present
+  const ph = stream.querySelector('.output-placeholder'); if (ph) ph.remove();
+  const role = ASSEMBLY_ROLES.find(r => r.id === asStages[i].role) || { label: 'Custom' };
+  const mk = asStages[i].modelKey;
+  const ml = mk ? asParseKey(mk) : null;
+  const modelLabel = ml ? (ml.src === 'ollama' ? ml.id : (BROWSER_MODELS.find(m=>m.id===ml.id)?.name || ml.id)) : '— unassigned —';
+  const div = document.createElement('div');
+  div.className = 'as-step running';
+  div.id = 'asStep-' + i;
+  div.innerHTML = `<div class="as-step-head">
+      <span class="as-step-num">▸ Stage ${i+1}</span>
+      <span class="as-step-role">${escapeHtmlShared(role.label)}</span>
+      <span class="as-step-model">${escapeHtmlShared(modelLabel)} · ${ml?ml.src.toUpperCase():'NONE'}</span>
+      <span class="as-step-state">running…</span>
+    </div>
+    <div class="as-step-body"></div>`;
+  stream.appendChild(div);
+  div.querySelector('.as-step-body').dataset.raw = '';
+  div.scrollIntoView({ block: 'end', behavior: 'smooth' });
+  return div;
+}
+
+function asAppendChunk(stepEl, chunk) {
+  const body = stepEl.querySelector('.as-step-body');
+  body.dataset.raw = (body.dataset.raw || '') + chunk;
+  body.innerHTML = tintMdInline(body.dataset.raw);
+  const stream = document.getElementById('asStream');
+  stream.scrollTop = stream.scrollHeight;
+}
+
+function asFinalizeStep(i, err) {
+  const div = document.getElementById('asStep-' + i);
+  if (!div) return;
+  div.classList.remove('running');
+  if (err) { div.classList.add('err'); div.querySelector('.as-step-state').textContent = 'error'; }
+  else { div.classList.add('done'); div.querySelector('.as-step-state').textContent = 'done ✓'; }
+}
+
+// Build the prompt for stage i: user task + all prior outputs.
+function asBuildPrompt(i, userTask) {
+  const parts = ['USER TASK:\n' + userTask];
+  for (let j = 0; j < i; j++) {
+    const o = asStepOutputs[j];
+    if (!o) continue;
+    const role = ASSEMBLY_ROLES.find(r => r.id === asStages[j].role) || { label: 'Stage ' + (j+1) };
+    parts.push(`\n--- PRIOR STAGE ${j+1}: ${role.label} ---\n${o.output}`);
+  }
+  return parts.join('\n');
+}
+
+window.asRun = async function() {
+  if (asRunning) return;
+  const task = document.getElementById('asTaskInput').value.trim();
+  if (!task) { asShowErr('Describe the project you want built first.'); return; }
+  // validate every stage has a model
+  const unassigned = asStages.findIndex(s => !s.modelKey);
+  if (unassigned >= 0) { asShowErr(`Stage ${unassigned+1} has no model assigned. Assign one (or use AUTO-ASSIGN).`); return; }
+  // validate at least one stage
+  if (!asStages.length) { asShowErr('Add at least one stage.'); return; }
+  // final stage role must be able to emit files if output mode is project
+  const outMode = document.getElementById('asOutputMode').value;
+
+  asClearErr();
+  asRunning = true; asStopReq = false;
+  asStepOutputs = []; asFinalText = '';
+  document.getElementById('asZipBtn').disabled = true;
+  document.getElementById('asMdBtn').disabled = true;
+  document.getElementById('asRunBtn').disabled = true;
+  document.getElementById('asRunBtn').textContent = '⏳ RUNNING…';
+  document.getElementById('asStopBtn').style.display = '';
+  asState('running');
+  // Clear log
+  document.getElementById('asStream').innerHTML = '';
+  const { temperature, maxTokens, numCtx } = asParams();
+  const base = (document.getElementById('asOllamaUrl').value || '/ollama').trim();
+
+  try {
+    for (let i = 0; i < asStages.length; i++) {
+      if (asStopReq) break;
+      const stage = asStages[i];
+      const { src, id } = asParseKey(stage.modelKey);
+      const role = ASSEMBLY_ROLES.find(r => r.id === stage.role) || { id: 'custom', label: 'Custom' };
+      const system = ASSEMBLY_SYSTEMS[role.id] || ASSEMBLY_SYSTEMS.custom;
+      const prompt = asBuildPrompt(i, task);
+      const stepEl = asAppendStepBlock(i);
+      asRenderProgressTrack();
+      let output = '';
+      try {
+        if (src === 'ollama') {
+          asAbort = new AbortController();
+          output = await ollamaGenerate({
+            base, model: id, system, prompt, temperature, maxTokens, numCtx,
+            onChunk: c => asAppendChunk(stepEl, c),
+            stopFlag: () => asStopReq,
+            signal: asAbort.signal,
+          });
+        } else {
+          output = await browserGenerate({
+            modelId: id, system, prompt, temperature, maxTokens,
+            onChunk: c => asAppendChunk(stepEl, c),
+            stopFlag: () => asStopReq,
+            progressCb: (p, txt) => {
+              const st = stepEl.querySelector('.as-step-state');
+              if (st && p < 1) st.textContent = `loading model ${Math.round(p*100)}%`;
+            },
+          });
+        }
+        if (asStopReq) { asFinalizeStep(i, true); asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output, err: true }); break; }
+        asFinalizeStep(i, false);
+        asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output });
+      } catch (e) {
+        asFinalizeStep(i, true);
+        asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output: '', err: true });
+        asShowErr(`Stage ${i+1} (${role.label}) failed: ${e.message}`);
+        break;
+      }
+      asRenderProgressTrack();
+    }
+
+    // The final stage's output is the product.
+    const lastGood = [...asStepOutputs].reverse().find(o => o && !o.err && o.output);
+    asFinalText = lastGood ? lastGood.output : (asStepOutputs.length ? asStepOutputs[asStepOutputs.length-1].output : '');
+    if (asFinalText && !asStopReq) {
+      const files = parseFilesShared(asFinalText);
+      document.getElementById('asZipBtn').disabled = !(files.length && outMode === 'project');
+      document.getElementById('asMdBtn').disabled = !asFinalText;
+      document.getElementById('asCharCount').textContent = asFinalText.length.toLocaleString() + ' chars';
+      asState(files.length ? `complete · ${files.length} files` : 'complete');
+      toast('Assembly line complete');
+    } else {
+      asState(asStopReq ? 'stopped' : 'incomplete');
+    }
+  } catch (e) {
+    asShowErr('Assembly run error: ' + e.message);
+    asState('error');
+  } finally {
+    asRunning = false; asStopReq = false; asAbort = null;
+    document.getElementById('asRunBtn').disabled = false;
+    document.getElementById('asRunBtn').textContent = '▶ RUN ASSEMBLY LINE';
+    document.getElementById('asStopBtn').style.display = 'none';
+    asRenderProgressTrack();
+  }
+};
+
+window.asDownloadZip = async function() {
+  const files = parseFilesShared(asFinalText);
+  if (!files.length) { asShowErr('No FILE blocks in final output.'); return; }
+  try {
+    const JSZip = await sharedJSZip();
+    const zip = new JSZip();
+    for (const f of files) zip.file(f.path, f.body);
+    zip.file('assembly-line.json', JSON.stringify({
+      generated_at: new Date().toISOString(),
+      task: document.getElementById('asTaskInput').value,
+      stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, ok: !asStepOutputs[i]?.err })),
+      file_count: files.length,
+    }, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const safe = (document.getElementById('asTaskInput').value.trim().split('\n')[0] || 'assembly-project')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0,40) || 'assembly-project';
+    saveBlobShared(blob, safe + '.zip');
+    toast(`Packaged ${files.length} files`);
+  } catch (e) { asShowErr('ZIP error: ' + e.message); }
+};
+
+window.asDownloadMd = function() {
+  if (!asFinalText) return;
+  saveBlobShared(new Blob([asFinalText], { type: 'text/markdown' }), 'assembly-output.md');
+};
+
+window.asCopyLog = async function() {
+  // concatenate all step raw outputs
+  const parts = asStepOutputs.map((o, i) => {
+    if (!o) return '';
+    return `=== STAGE ${i+1}: ${o.label} (${o.err?'ERROR':'OK'}) ===\n${o.output||''}`;
+  }).filter(Boolean);
+  if (!parts.length) { toast('Nothing to copy'); return; }
+  await navigator.clipboard.writeText(parts.join('\n\n'));
+  toast('Log copied');
+};
+
+// Splitter for the assembly view.
+function asInitSplitter() {
+  const sp = document.getElementById('asSplitter');
+  const main = document.getElementById('asMain');
+  if (!sp || main.dataset.splitterInit) return;
+  main.dataset.splitterInit = '1';
+  let dragging = false;
+  sp.addEventListener('mousedown', e => { dragging = true; sp.classList.add('dragging'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const r = main.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - r.left, 300), r.width - 300);
+    const pct = (x / r.width) * 100;
+    main.style.gridTemplateColumns = pct + '% 5px ' + (100-pct) + '%';
+  });
+  window.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; sp.classList.remove('dragging'); document.body.style.cursor = ''; });
+}
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// AGENT FORGE TAB
+// A guided interview that gathers everything needed to scaffold a custom
+// agent / team-of-agents, then hands off to the multi-agent generator which
+// emits a complete, downloadable, ready-to-run agent project (files, README,
+// install.sh, install-all script). The interview explicitly asks what powers
+// the agent: API key, local models (Ollama), in-browser WebGPU, or a
+// dropped-in local GGUF file.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Question definitions. type: chips (single), multichips (multi), text, textarea, select.
+const AF_QUESTIONS = [
+  {
+    id: 'goal', label: 'Q1 · GOAL', type: 'textarea',
+    prompt: 'What is the goal of the agent / team of agents you want to create?',
+    help: 'One or two sentences. e.g. "A coding agent that reviews PRs and suggests fixes" or "A team of 3 agents that research, draft, and fact-check blog posts."',
+  },
+  {
+    id: 'existence', label: 'Q2 · WHERE IT LIVES', type: 'chips',
+    prompt: 'Should the agent(s) exist and run inside a project, or standalone?',
+    help: 'Inside a project = lives in a repo alongside the app it works on. Standalone = independent CLI / desktop tool.',
+    options: [
+      { v: 'in_project', t: 'Inside a project' },
+      { v: 'standalone', t: 'Standalone' },
+      { v: 'both',       t: 'Both (project + standalone mode)' },
+    ],
+  },
+  {
+    id: 'language', label: 'Q3 · LANGUAGE', type: 'chips',
+    prompt: 'What language / runtime should the agent be written in?',
+    help: 'Drives the generated project\'s tooling, install script, and dependency file.',
+    options: [
+      { v: 'python', t: 'Python' },
+      { v: 'typescript', t: 'TypeScript (Node)' },
+      { v: 'javascript', t: 'JavaScript (Node)' },
+      { v: 'go', t: 'Go' },
+      { v: 'rust', t: 'Rust' },
+      { v: 'bash', t: 'Bash' },
+    ],
+  },
+  {
+    id: 'framework', label: 'Q4 · FRAMEWORK', type: 'text',
+    prompt: 'Preferred agent framework / library? (optional)',
+    help: 'e.g. "langchain", "crewai", "autogen", "plain stdlib", "openai-agents". Leave blank to let the generator pick the simplest fit.',
+  },
+  {
+    id: 'host', label: 'Q5 · HOST', type: 'chips',
+    prompt: 'Where should the agent(s) run?',
+    help: 'Mac desktop = native CLI/GUI app on macOS. Browser = runs in a browser tab. Server = long-running service.',
+    options: [
+      { v: 'mac_desktop', t: 'Mac desktop (standalone)' },
+      { v: 'browser',     t: 'In the browser' },
+      { v: 'server',      t: 'Server / daemon' },
+      { v: 'cli',         t: 'CLI (any OS)' },
+    ],
+  },
+  {
+    id: 'team', label: 'Q6 · TEAM', type: 'chips',
+    prompt: 'Single agent, or a team of agents?',
+    help: 'A team has multiple roles (e.g. planner + researcher + writer) that hand work to each other.',
+    options: [
+      { v: 'single', t: 'Single agent' },
+      { v: 'team',   t: 'Team of agents' },
+    ],
+  },
+  {
+    id: 'team_roles', label: 'Q7 · TEAM ROLES', type: 'textarea',
+    prompt: 'If a team: list the roles (one per line). If single, leave blank.',
+    help: 'e.g.\nPlanner — breaks the goal into steps\nResearcher — gathers facts\nWriter — produces the final output',
+    showIf: (a) => a.team === 'team',
+  },
+  {
+    id: 'browser_mode', label: 'Q8 · BROWSER MODE', type: 'chips',
+    prompt: 'If browser: headless or headed?',
+    help: 'Headed = visible browser window (debugging, demos). Headless = no window (background, CI).',
+    options: [
+      { v: 'headless', t: 'Headless' },
+      { v: 'headed',   t: 'Headed' },
+      { v: 'both',     t: 'Both (flag-switchable)' },
+    ],
+    showIf: (a) => a.host === 'browser' || a.host === 'mac_desktop',
+  },
+  {
+    id: 'power', label: 'Q9 · AI POWER SOURCE', type: 'multichips',
+    prompt: 'What powers the agent\'s AI? (select all that apply)',
+    help: 'This is critical — the orchestration layer must know how to reach the model(s).',
+    options: [
+      { v: 'api_key',   t: 'API key (OpenAI / Anthropic / etc.)' },
+      { v: 'ollama',    t: 'Local models via Ollama' },
+      { v: 'webgpu',    t: 'In-browser WebGPU (WebLLM)' },
+      { v: 'gguf_file', t: 'Dropped-in local GGUF file' },
+      { v: 'no_ai',     t: 'No AI — pure rules / scripting' },
+    ],
+  },
+  {
+    id: 'api_provider', label: 'Q10 · API PROVIDER', type: 'text',
+    prompt: 'If using an API key: which provider(s) and model(s)? (optional to name models)',
+    help: 'e.g. "OpenAI gpt-4o-mini + Anthropic claude-3-5-sonnet". The generated install will ask the user for the key at runtime — never hardcode it.',
+    showIf: (a) => (a.power || []).includes('api_key'),
+  },
+  {
+    id: 'ollama_models', label: 'Q11 · OLLAMA MODELS', type: 'text',
+    prompt: 'If Ollama: which model(s)? (optional)',
+    help: 'e.g. "qwen3:0.6b, llama3.2:3b". Leave blank to let the generated agent auto-pull / auto-detect at first run.',
+    showIf: (a) => (a.power || []).includes('ollama'),
+  },
+  {
+    id: 'gguf_detail', label: 'Q12 · GGUF DETAIL', type: 'text',
+    prompt: 'If using a dropped-in GGUF: how is it provided?',
+    help: 'e.g. "user drops a .gguf into ./models/ at install time, loaded via llama.cpp". The install script should check for it and fail fast with a clear message if missing.',
+    showIf: (a) => (a.power || []).includes('gguf_file'),
+  },
+  {
+    id: 'extras', label: 'Q13 · EXTRAS', type: 'multichips',
+    prompt: 'Any extras to include?',
+    help: 'Selecting README + install scripts is strongly recommended — they make the package ready-to-run.',
+    options: [
+      { v: 'readme',      t: 'README.md (recommended)' },
+      { v: 'install',     t: 'install.sh (recommended)' },
+      { v: 'install_all', t: 'install-all.sh (bootstraps all deps + agent)' },
+      { v: 'tests',       t: 'Test suite' },
+      { v: 'dockerfile',  t: 'Dockerfile' },
+      { v: 'gitignore',   t: '.gitignore' },
+    ],
+  },
+  {
+    id: 'confirm', label: 'Q14 · READY?', type: 'chips',
+    prompt: 'Are all tailored questions answered and you\'re ready to generate?',
+    help: 'The generator will use the assembly-line model(s) you pick below to scaffold the complete agent package.',
+    options: [
+      { v: 'ready', t: 'Yes — generate the package' },
+      { v: 'notready', t: 'Not yet — I need to review my answers' },
+    ],
+  },
+];
+
+// State
+let afInited = false;
+let afAnswers = {};             // id -> value
+let afOllamaModels = [];
+let afPool = new Set();         // generator model keys
+let afRunning = false;
+let afStopReq = false;
+let afAbort = null;
+let afGenText = '';
+let afFiles = [];               // parsed from final output
+
+function afEnsureInit() {
+  if (afInited) return;
+  afInited = true;
+  afRenderWizard();
+  afRenderBrowserPool();
+  afRefreshModels();
+  afInitSplitter();
+}
+
+function afRenderWizard() {
+  const wiz = document.getElementById('afWizard');
+  wiz.innerHTML = AF_QUESTIONS.map(q => afRenderQuestion(q)).join('');
+  // wire up inputs
+  for (const q of AF_QUESTIONS) {
+    if (q.type === 'text' || q.type === 'textarea') {
+      const el = document.getElementById('af-input-' + q.id);
+      el.addEventListener('input', () => { afAnswers[q.id] = el.value; afRefreshVisibility(); afUpdateReadiness(); });
+    }
+  }
+  afRefreshVisibility();
+  afUpdateReadiness();
+}
+
+function afRenderQuestion(q) {
+  const showAttr = q.showIf ? '' : ' '; // shown by default; visibility toggled live
+  let body = '';
+  if (q.type === 'chips' || q.type === 'multichips') {
+    body = `<div class="opt-chips">${q.options.map(o =>
+      `<div class="opt-chip" data-q="${q.id}" data-v="${o.v}" onclick="afPick('${q.id}','${o.v}',${q.type==='multichips'})">${escapeHtmlShared(o.t)}</div>`
+    ).join('')}</div>`;
+  } else if (q.type === 'text') {
+    body = `<input type="text" id="af-input-${q.id}" placeholder="${escapeHtmlShared(q.help)}" value="${escapeHtmlShared(afAnswers[q.id] || '')}">`;
+  } else if (q.type === 'textarea') {
+    body = `<textarea id="af-input-${q.id}" placeholder="${escapeHtmlShared(q.help)}">${escapeHtmlShared(afAnswers[q.id] || '')}</textarea>`;
+  } else if (q.type === 'select') {
+    body = `<select id="af-input-${q.id}">${q.options.map(o => `<option value="${o.v}">${escapeHtmlShared(o.t)}</option>`).join('')}</select>`;
+  }
+  return `<div class="q-card" id="af-q-${q.id}" data-qid="${q.id}">
+    <div class="q-label">${escapeHtmlShared(q.label)}</div>
+    <div class="q-prompt">${escapeHtmlShared(q.prompt)}</div>
+    <div class="q-help">${escapeHtmlShared(q.help || '').replace(/\n/g,'<br>')}</div>
+    ${body}
+    <div class="q-answer-preview" id="af-prev-${q.id}"></div>
+  </div>`;
+}
+
+window.afPick = function(qid, v, multi) {
+  if (multi) {
+    const cur = new Set(afAnswers[qid] || []);
+    if (cur.has(v)) cur.delete(v); else cur.add(v);
+    afAnswers[qid] = [...cur];
+  } else {
+    afAnswers[qid] = v;
+  }
+  // update chip visuals
+  document.querySelectorAll(`.opt-chip[data-q="${qid}"]`).forEach(el => {
+    const on = multi ? (afAnswers[qid] || []).includes(el.dataset.v) : afAnswers[qid] === el.dataset.v;
+    el.classList.toggle('selected', on);
+  });
+  afRefreshVisibility();
+  afUpdateReadiness();
+};
+
+function afRefreshVisibility() {
+  for (const q of AF_QUESTIONS) {
+    const el = document.getElementById('af-q-' + q.id);
+    if (!el) continue;
+    const show = !q.showIf || q.showIf(afAnswers);
+    el.style.display = show ? '' : 'none';
+    // answer preview
+    const prev = document.getElementById('af-prev-' + q.id);
+    if (prev) {
+      const a = afAnswers[q.id];
+      const txt = Array.isArray(a) ? a.join(', ') : (a || '');
+      prev.textContent = txt ? '→ ' + txt : '';
+      el.classList.toggle('answered', !!txt);
+    }
+  }
+}
+
+function afRequiredAnswered() {
+  // Required: goal, existence, language, host, team, power, confirm=ready
+  const req = ['goal','existence','language','host','team','power','confirm'];
+  let done = 0;
+  for (const id of req) {
+    const v = afAnswers[id];
+    if (Array.isArray(v) ? v.length : v) done++;
+  }
+  return { done, total: req.length };
+}
+
+function afUpdateReadiness() {
+  const { done, total } = afRequiredAnswered();
+  document.getElementById('afReadinessMeta').textContent = done + ' / ' + total + ' answered';
+  const ready = done === total && afAnswers.confirm === 'ready';
+  const pool = afPoolList();
+  const hasModel = pool.length > 0;
+  const r = document.getElementById('afReadiness');
+  const lines = [];
+  lines.push(`<div class="${done===total?'ready-yes':'ready-no'}">Required answered: ${done}/${total}</div>`);
+  if (afAnswers.confirm === 'notready') lines.push(`<div class="ready-no">⚠ You marked "not yet ready"</div>`);
+  lines.push(`<div class="${hasModel?'ready-yes':'ready-no'}">Generator model(s): ${hasModel ? pool.length : 'none selected'}</div>`);
+  if (ready && hasModel) lines.push('<div class="ready-yes">✓ Ready to generate the agent package.</div>');
+  r.innerHTML = lines.join('');
+  document.getElementById('afGenerateBtn').disabled = !(ready && hasModel);
+}
+
+window.afLoadSample = function() {
+  afAnswers = {
+    goal: 'A team of agents that takes a topic, researches it on the web, drafts a short blog post, and fact-checks the draft before saving it as markdown.',
+    existence: 'standalone',
+    language: 'python',
+    framework: 'crewai',
+    host: 'cli',
+    team: 'team',
+    team_roles: 'Planner — breaks the topic into research questions\nResearcher — finds and summarizes sources\nWriter — drafts the post\nFactChecker — verifies claims and cites sources',
+    browser_mode: 'headless',
+    power: ['ollama', 'api_key'],
+    api_provider: 'OpenAI gpt-4o-mini (user supplies key at runtime)',
+    ollama_models: 'qwen3:0.6b, llama3.2:3b',
+    gguf_detail: '',
+    extras: ['readme','install','install_all','tests','gitignore'],
+    confirm: 'ready',
+  };
+  afRenderWizard();
+  // re-apply chip selections visually
+  for (const q of AF_QUESTIONS) {
+    if (q.type === 'chips' || q.type === 'multichips') {
+      document.querySelectorAll(`.opt-chip[data-q="${q.id}"]`).forEach(el => {
+        const a = afAnswers[q.id];
+        const on = q.type === 'multichips' ? (a||[]).includes(el.dataset.v) : a === el.dataset.v;
+        el.classList.toggle('selected', on);
+      });
+    } else if (q.type === 'text' || q.type === 'textarea') {
+      const el = document.getElementById('af-input-' + q.id);
+      if (el) el.value = afAnswers[q.id] || '';
+    }
+  }
+  afRefreshVisibility();
+  afUpdateReadiness();
+  toast('Sample answers loaded');
+};
+
+window.afReset = function() {
+  afAnswers = {};
+  afRenderWizard();
+  document.querySelectorAll('.opt-chip.selected').forEach(el => el.classList.remove('selected'));
+  afUpdateReadiness();
+  toast('Answers reset');
+};
+
+// Pool rendering (mirrors assembly but separate state).
+function afModelKey(src, id) { return src + ':' + id; }
+function afParseKey(k) { const i = k.indexOf(':'); return { src: k.slice(0,i), id: k.slice(i+1) }; }
+function afPoolList() {
+  return [...afPool].map(k => {
+    const { src, id } = afParseKey(k);
+    const label = src === 'ollama' ? id : (BROWSER_MODELS.find(m => m.id === id)?.name || id);
+    return { key: k, src, id, label };
+  });
+}
+
+window.afRefreshModels = async function() {
+  // reuse the assembly URL if present, else default
+  const base = ((document.getElementById('asOllamaUrl')?.value) || '/ollama').trim();
+  const pool = document.getElementById('afOllamaPool');
+  const badge = document.getElementById('afOllamaCount');
+  try {
+    const names = await fetchOllamaTagsRaw(base);
+    afOllamaModels = names.map(n => ({ name: n }));
+    badge.textContent = afOllamaModels.length;
+    pool.innerHTML = afOllamaModels.length
+      ? afOllamaModels.map(m => {
+          const k = afModelKey('ollama', m.name);
+          return `<div class="model-chip${afPool.has(k)?' selected':''}" data-key="${k}" onclick="afTogglePool('${k}')">
+            <span class="chip-name">${escapeHtmlShared(m.name)}</span><span class="chip-src">OLLAMA</span><span class="chip-check">✓</span></div>`;
+        }).join('')
+      : '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px;">— no Ollama models —</div>';
+  } catch {
+    afOllamaModels = []; badge.textContent = '0';
+    pool.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--red);padding:4px;">— cannot reach Ollama —</div>';
+  }
+  afUpdateReadiness();
+};
+
+function afRenderBrowserPool() {
+  const pool = document.getElementById('afBrowserPool');
+  const groups = {};
+  for (const m of BROWSER_MODELS) (groups[m.grp] = groups[m.grp] || []).push(m);
+  let html = '';
+  for (const [g, list] of Object.entries(groups)) {
+    html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">${escapeHtmlShared(g)}</div>`;
+    for (const m of list) {
+      const k = afModelKey('browser', m.id);
+      html += `<div class="model-chip${afPool.has(k)?' selected':''}" data-key="${k}" onclick="afTogglePool('${k}')">
+        <span class="chip-name">${escapeHtmlShared(m.name)}</span><span class="chip-src">WEBGPU</span><span class="chip-check">✓</span></div>`;
+    }
+  }
+  pool.innerHTML = html;
+}
+
+window.afTogglePool = function(k) {
+  if (afPool.has(k)) afPool.delete(k); else afPool.add(k);
+  document.querySelectorAll('#afOllamaPool .model-chip, #afBrowserPool .model-chip').forEach(el => {
+    el.classList.toggle('selected', afPool.has(el.dataset.key));
+  });
+  document.getElementById('afModelBadge').textContent = afPool.size ? afPool.size + ' selected' : 'select to enable';
+  document.getElementById('afModelBadge').style.color = afPool.size ? 'var(--accent)' : 'var(--muted)';
+  afUpdateReadiness();
+};
+
+function afShowErr(msg) { const el = document.getElementById('afErrMsg'); el.textContent = msg; el.classList.add('visible'); }
+function afClearErr() { document.getElementById('afErrMsg').classList.remove('visible'); }
+function afState(label) { document.getElementById('afStateMeta').textContent = label; }
+
+// Build a spec string from the answers, for the generator prompt.
+function afBuildSpec() {
+  const a = afAnswers;
+  const lines = [];
+  const fmt = (v) => Array.isArray(v) ? v.join(', ') : (v || '—');
+  lines.push('GOAL: ' + (a.goal || '—'));
+  lines.push('WHERE IT LIVES: ' + fmt(a.existence));
+  lines.push('LANGUAGE/RUNTIME: ' + fmt(a.language));
+  if (a.framework) lines.push('FRAMEWORK: ' + a.framework);
+  lines.push('HOST: ' + fmt(a.host));
+  lines.push('TEAM: ' + fmt(a.team));
+  if (a.team === 'team' && a.team_roles) lines.push('TEAM ROLES:\n' + a.team_roles);
+  if (a.browser_mode) lines.push('BROWSER MODE: ' + fmt(a.browser_mode));
+  lines.push('AI POWER SOURCE: ' + fmt(a.power));
+  if (a.api_provider) lines.push('API PROVIDER/MODELS: ' + a.api_provider);
+  if (a.ollama_models) lines.push('OLLAMA MODELS: ' + a.ollama_models);
+  if (a.gguf_detail) lines.push('GGUF DETAIL: ' + a.gguf_detail);
+  lines.push('EXTRAS: ' + fmt(a.extras));
+  return lines.join('\n');
+}
+
+const AF_GEN_SYSTEM = `You are a multi-agent scaffolding system. You generate a COMPLETE, ready-to-run agent project from a spec.
+The user has answered a structured interview. Your output must be a set of files using the FILE marker protocol:
+
+=== FILE: <relative/path> ===
+<full file contents>
+=== END FILE ===
+
+You MUST include:
+- README.md — explains the agent(s), the goal, how AI power is configured, how to install, how to run, and every file in the package.
+- install.sh — bash script that installs all OS-level + language dependencies for THIS agent. It must be idempotent, use 'set -euo pipefail', detect the OS, and print clear progress. It must NOT hardcode secrets.
+- install-all.sh — bash script that runs install.sh AND bootstraps everything else (the agent runtime, any model downloads for Ollama/WebGPU, a config check that verifies the chosen AI power source is reachable, and a final "ready" message). One command to go from empty machine to running agent.
+- The main agent source file(s) for the chosen language/framework.
+- A config file (e.g. config.yaml / .env.example / config.json) that captures the interview answers so the agent knows its own setup. NEVER put real API keys in generated files — only placeholders + env var reads.
+- If the AI power source is api_key: the install/runtime must PROMPT the user for the key and store it in an env var / .env (gitignored). Never hardcode.
+- If the power source is ollama: install-all.sh must ensure Ollama is running and pull the specified models (or a sensible default), failing fast with a clear message if not.
+- If the power source is webgpu: the agent must run in a browser context; include an index.html that loads the model via WebLLM, with COOP/COEP headers documented.
+- If the power source is gguf_file: install-all.sh must check for the .gguf in ./models/ and fail fast with a clear message if missing; document how the user drops the file in.
+- If the power source is no_ai: emit a pure rules/scripting agent with no model calls.
+- If tests were requested: include a real test file that exercises the agent's core logic (mock the model calls).
+- If Dockerfile was requested: include one.
+- If .gitignore was requested: include one (must ignore .env, node_modules, __pycache__, models/*.gguf).
+
+Hard rules:
+1. Output ONLY FILE blocks. No prose outside them. First characters must be "=== FILE:".
+2. Complete files only — no truncation, no "# ... rest of file", no TODO placeholders.
+3. install.sh and install-all.sh must have executable shebangs (#!/usr/bin/env bash) and be written so 'bash install-all.sh' works on a fresh macOS or Linux machine.
+4. README must contain: Goal, What powers the AI (and how to configure it), Install (one command), Run (one command), File manifest, Troubleshooting.
+5. The agent's runtime must read its config from the generated config file / env vars, not from hardcoded values.
+6. Adapt everything to the chosen language (Python→.py/requirements.txt, TS→.ts/package.json, Go→.go/go.mod, Rust→.rs/Cargo.toml, JS→.js/package.json, Bash→.sh).`;
+
+window.afGenerate = async function() {
+  if (afRunning) return;
+  afClearErr();
+  const pool = afPoolList();
+  if (!pool.length) { afShowErr('Select at least one generator model.'); return; }
+  if (afAnswers.confirm !== 'ready') { afShowErr('Mark the final question "ready" first.'); return; }
+
+  afRunning = true; afStopReq = false;
+  afGenText = ''; afFiles = [];
+  document.getElementById('afGenerateBtn').disabled = true;
+  document.getElementById('afGenerateBtn').textContent = '⏳ GENERATING…';
+  document.getElementById('afStopBtn').style.display = '';
+  document.getElementById('afZipBtn').disabled = true;
+  afState('running');
+  const log = document.getElementById('afGenLog');
+  log.innerHTML = '';
+  const ph = document.createElement('div');
+  ph.className = 'as-step running';
+  ph.id = 'afGenStep';
+  ph.innerHTML = `<div class="as-step-head">
+      <span class="as-step-num">▸ Generate</span>
+      <span class="as-step-role">Multi-agent agent-package scaffold</span>
+      <span class="as-step-model">${escapeHtmlShared(pool.map(p=>p.label).join(' · '))}</span>
+      <span class="as-step-state">running…</span>
+    </div><div class="as-step-body"></div>`;
+  log.appendChild(ph);
+  const body = ph.querySelector('.as-step-body');
+  body.dataset.raw = '';
+
+  const spec = afBuildSpec();
+  const userPrompt = `AGENT SPEC (from the user's interview answers):\n\n${spec}\n\nGenerate the complete, ready-to-run agent project now.`;
+  const { temperature, maxTokens, numCtx } = asParams();
+  const base = ((document.getElementById('asOllamaUrl')?.value) || '/ollama').trim();
+
+  try {
+    // Run pool models in sequence, each refining the accumulating output.
+    // First model does the heavy scaffold; subsequent models refine/complete.
+    let accumulated = '';
+    for (let i = 0; i < pool.length; i++) {
+      if (afStopReq) break;
+      const p = pool[i];
+      const isFirst = i === 0;
+      const sys = AF_GEN_SYSTEM + (isFirst ? '' : '\n\nYou are a REFINEMENT model. The prior model produced the files below. Fix gaps, complete any truncated files, ensure install.sh and install-all.sh are present and correct, and re-emit the COMPLETE file set. Do not drop files the prior model included unless they are wrong.');
+      const prompt = isFirst ? userPrompt
+        : userPrompt + '\n\n--- PRIOR MODEL OUTPUT (refine & complete this) ---\n' + accumulated;
+      const stEl = ph.querySelector('.as-step-state');
+      try {
+        if (p.src === 'ollama') {
+          afAbort = new AbortController();
+          accumulated = await ollamaGenerate({
+            base, model: p.id, system: sys, prompt, temperature, maxTokens, numCtx,
+            onChunk: c => { body.dataset.raw = (body.dataset.raw||'') + c; body.innerHTML = tintMdInline(body.dataset.raw); log.scrollTop = log.scrollHeight; },
+            stopFlag: () => afStopReq, signal: afAbort.signal,
+          });
+        } else {
+          if (stEl) stEl.textContent = 'loading model…';
+          accumulated = await browserGenerate({
+            modelId: p.id, system: sys, prompt, temperature, maxTokens,
+            onChunk: c => { body.dataset.raw = (body.dataset.raw||'') + c; body.innerHTML = tintMdInline(body.dataset.raw); log.scrollTop = log.scrollHeight; },
+            stopFlag: () => afStopReq,
+            progressCb: (pr, txt) => { if (stEl) stEl.textContent = 'loading ' + Math.round(pr*100) + '%'; },
+          });
+        }
+      } catch (e) {
+        ph.classList.remove('running'); ph.classList.add('err');
+        ph.querySelector('.as-step-state').textContent = 'error';
+        afShowErr(`Generator model ${p.label} failed: ${e.message}`);
+        break;
+      }
+    }
+    afGenText = accumulated;
+    if (afStopReq) { ph.classList.remove('running'); ph.querySelector('.as-step-state').textContent = 'stopped'; afState('stopped'); }
+    else {
+      ph.classList.remove('running'); ph.classList.add('done');
+      ph.querySelector('.as-step-state').textContent = 'done ✓';
+      afFiles = parseFilesShared(afGenText);
+      if (afFiles.length) {
+        document.getElementById('afZipBtn').disabled = false;
+        afRenderFileTree();
+        document.getElementById('afFileView').classList.add('visible');
+        document.getElementById('afGenLog').style.display = 'none';
+        afState(`complete · ${afFiles.length} files`);
+        toast(`Agent package generated · ${afFiles.length} files`);
+      } else {
+        afState('complete (no files parsed)');
+      }
+      document.getElementById('afCharCount').textContent = afGenText.length.toLocaleString() + ' chars';
+    }
+  } catch (e) {
+    afShowErr('Generate error: ' + e.message);
+    afState('error');
+  } finally {
+    afRunning = false; afStopReq = false; afAbort = null;
+    document.getElementById('afGenerateBtn').disabled = false;
+    document.getElementById('afGenerateBtn').textContent = '▶ GENERATE AGENT PACKAGE';
+    document.getElementById('afStopBtn').style.display = 'none';
+  }
+};
+
+window.afStop = function() {
+  afStopReq = true;
+  if (afAbort) { try { afAbort.abort(); } catch {} }
+  toast('Stop requested');
+};
+
+function afRenderFileTree() {
+  const tree = document.getElementById('afFileTree');
+  tree.innerHTML = afFiles.map((f, i) =>
+    `<div class="af-ft-item${i===0?' active':''}" data-i="${i}" onclick="afSelectFile(${i})">${escapeHtmlShared(f.path)}</div>`
+  ).join('');
+  afSelectFile(0);
+}
+
+window.afSelectFile = function(i) {
+  const f = afFiles[i]; if (!f) return;
+  document.querySelectorAll('#afFileTree .af-ft-item').forEach((el, j) => el.classList.toggle('active', j===i));
+  document.getElementById('afFileContent').innerHTML =
+    '<div class="af-file-content-header">// ' + escapeHtmlShared(f.path) + '</div>' + escapeHtmlShared(f.body);
+};
+
+window.afDownloadZip = async function() {
+  if (!afFiles.length) { afShowErr('No files to package.'); return; }
+  try {
+    const JSZip = await sharedJSZip();
+    const zip = new JSZip();
+    for (const f of afFiles) zip.file(f.path, f.body);
+    // make install scripts executable in the zip
+    for (const f of afFiles) {
+      if (/^install.*\.sh$/.test(f.path.split('/').pop())) {
+        try { zip.file(f.path).unixPermissions = 0o755; } catch {}
+      }
+    }
+    zip.file('agent-forge-spec.json', JSON.stringify({
+      generated_at: new Date().toISOString(),
+      answers: afAnswers,
+      generator_models: afPoolList().map(p => p.key),
+      file_count: afFiles.length,
+    }, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob', platform: 'UNIX' });
+    const safe = (afAnswers.goal || 'agent').trim().split(/\s+/).slice(0,4).join('-')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0,40) || 'agent';
+    saveBlobShared(blob, safe + '.zip');
+    toast(`Packaged ${afFiles.length} files`);
+  } catch (e) { afShowErr('ZIP error: ' + e.message); }
+};
+
+window.afCopyLog = async function() {
+  if (!afGenText) { toast('Nothing to copy'); return; }
+  await navigator.clipboard.writeText(afGenText);
+  toast('Log copied');
+};
+
+// ── Test/external hooks: expose a minimal surface on window ─────────
+window.__pf = {
+  parseFiles: parseFilesShared,
+  tintMd: tintMdInline,
+  setAsFinal: (text) => { asFinalText = text || ''; const files = parseFilesShared(asFinalText);
+    document.getElementById('asZipBtn').disabled = !(files.length && document.getElementById('asOutputMode')?.value === 'project');
+    document.getElementById('asMdBtn').disabled = !asFinalText;
+    document.getElementById('asCharCount').textContent = asFinalText.length.toLocaleString() + ' chars';
+    asState(files.length ? 'complete · ' + files.length + ' files' : 'complete');
+  },
+  setAfFinal: (text) => { afGenText = text || ''; afFiles = parseFilesShared(afGenText);
+    if (afFiles.length) { afRenderFileTree(); document.getElementById('afFileView').classList.add('visible'); document.getElementById('afGenLog').style.display='none'; }
+    document.getElementById('afZipBtn').disabled = !afFiles.length;
+    document.getElementById('afCharCount').textContent = afGenText.length.toLocaleString() + ' chars';
+    afState(afFiles.length ? 'complete · ' + afFiles.length + ' files' : 'complete');
+  },
+  getAfAnswers: () => afAnswers,
+  setAfAnswers: (a) => { afAnswers = a || {}; afRenderWizard(); afRefreshVisibility(); afUpdateReadiness(); },
+  afRequiredAnswered, asParams,
+};
+
+function afInitSplitter() {
+  const sp = document.getElementById('afSplitter');
+  const main = document.getElementById('afMain');
+  if (!sp || main.dataset.splitterInit) return;
+  main.dataset.splitterInit = '1';
+  let dragging = false;
+  sp.addEventListener('mousedown', e => { dragging = true; sp.classList.add('dragging'); document.body.style.cursor = 'col-resize'; e.preventDefault(); });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const r = main.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - r.left, 300), r.width - 300);
+    const pct = (x / r.width) * 100;
+    main.style.gridTemplateColumns = pct + '% 5px ' + (100-pct) + '%';
+  });
+  window.addEventListener('mouseup', () => { if (!dragging) return; dragging = false; sp.classList.remove('dragging'); document.body.style.cursor = ''; });
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// HOVER TOOLTIP — absolutely-positioned, no layout reflow, ~75ms show delay.
+// Reads text from data-tip (preferred) or title; strips native title to avoid
+// duplicate browser tooltips. aria-hidden tooltip element (visual only).
+// ═════════════════════════════════════════════════════════════════════════════
+(function initTooltips() {
+  const tip = document.getElementById('pfTip');
+  if (!tip) return;
+  let showTimer = null;
+  let hideTimer = null;
+
+  function tipText(el) {
+    return el.getAttribute('data-tip') || el.getAttribute('title') || '';
+  }
+  function position(el) {
+    const r = el.getBoundingClientRect();
+    let left = r.left;
+    let top = r.bottom + 6;
+    // keep on-screen
+    const mw = 320, pad = 8;
+    if (left + mw > window.innerWidth - pad) left = window.innerWidth - mw - pad;
+    if (left < pad) left = pad;
+    if (top + 60 > window.innerHeight - pad) top = r.top - 60;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+  function show(el) {
+    const txt = tipText(el);
+    if (!txt) return;
+    clearTimeout(hideTimer);
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => {
+      tip.textContent = txt;
+      position(el);
+      tip.classList.add('show');
+      tip.setAttribute('aria-hidden', 'false');
+    }, 75);
+  }
+  function hide() {
+    clearTimeout(showTimer);
+    hideTimer = setTimeout(() => {
+      tip.classList.remove('show');
+      tip.setAttribute('aria-hidden', 'true');
+      tip.textContent = '';
+    }, 60);
+  }
+
+  // Selector: tabs + all primary/menu buttons + backend/mode toggles.
+  const sel = '.tab, .btn-primary, .btn-amber, .btn-ghost, .backend-btn, .mode-btn, .section-head';
+  document.querySelectorAll(sel).forEach(el => {
+    // Migrate title -> data-tip so we can drop the native tooltip (avoids dupe).
+    if (!el.getAttribute('data-tip') && el.getAttribute('title')) {
+      el.setAttribute('data-tip', el.getAttribute('title'));
+      el.removeAttribute('title');
+    }
+    if (!tipText(el)) return;
+    el.addEventListener('mouseenter', () => show(el));
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('focus', () => show(el));
+    el.addEventListener('blur', hide);
+  });
 })();
 
 </script>
