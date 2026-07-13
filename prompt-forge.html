@@ -5340,6 +5340,7 @@ window.__pf = {
   asBuildPrompt, asCompactionEnabled, asValidateStages,
   scaleParamsForCtxFill, detectRepetitionLoop, ollamaOptions, browserChatParams,
   asModelTier, asDefaultStages, asStages: () => asStages,
+  getParams, // Forge view extended params (for tests)
   setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
   getAsStepOutputs: () => asStepOutputs,
 };
