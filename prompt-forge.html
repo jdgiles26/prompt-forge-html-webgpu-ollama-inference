@@ -874,6 +874,151 @@
     background: var(--bg); border:1px solid var(--border); border-radius:2px;
     color: var(--text); padding: 2px 4px;
   }
+
+  /* ════════════════════════════════════════════════════════════════════ */
+  /* 2026 ADVANCED FEATURES — Context Shield, 3D Globe, Drift Compiler,    */
+  /* Semantic PRD graph, AutoNet mesh sync. Dark/neon, matches Task 1.     */
+  /* ════════════════════════════════════════════════════════════════════ */
+
+  .pf2026-panel {
+    border: 1px solid var(--border); border-radius: 3px;
+    background: var(--surface); margin-top: 8px; overflow: hidden;
+  }
+  .pf2026-head {
+    display:flex; align-items:center; gap:8px; padding: 6px 10px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+    color: var(--muted-hi); text-transform: uppercase;
+  }
+  .pf2026-head:hover { color: #eaf6ff; }
+  .pf2026-head .pf2026-chev { margin-left:auto; font-size:10px; transition: transform .2s; color: var(--muted); }
+  .pf2026-panel.open .pf2026-chev { transform: rotate(90deg); }
+  .pf2026-panel.open .pf2026-head { color: #6fe0ff; border-bottom-color: var(--accent); }
+  .pf2026-body { display:none; padding: 10px 12px; flex-direction:column; gap:8px; }
+  .pf2026-panel.open .pf2026-body { display:flex; }
+  .pf2026-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .pf2026-hint { font-family: var(--mono); font-size:10px; color: var(--muted); line-height:1.55; }
+
+  .pf-badge {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+    padding: 2px 6px; border: 1px solid var(--border); border-radius: 2px;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .pf-badge.ok   { color: var(--green); border-color: var(--green); }
+  .pf-badge.warn { color: var(--amber); border-color: var(--amber); }
+  .pf-badge.bad  { color: var(--red);   border-color: var(--red); }
+  .pf-badge.accent { color: var(--accent); border-color: var(--accent); }
+
+  /* Context Shield */
+  #ctxShieldLog {
+    max-height: 160px; overflow-y: auto; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--text); line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .ctx-toggle-row { display:flex; gap:14px; flex-wrap:wrap; font-family: var(--mono); font-size:10px; color: var(--muted); }
+  .ctx-toggle-row label { display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+  .ctx-toggle-row input { accent-color: var(--accent); }
+
+  /* 3D Globe */
+  #globeWrap {
+    position: relative; width: 100%; height: 240px;
+    background: radial-gradient(ellipse at center, rgba(0,200,255,0.08) 0%, transparent 70%), var(--bg);
+    border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
+  }
+  #globeCanvas { width: 100%; height: 100%; display:block; cursor: grab; }
+  #globeCanvas:active { cursor: grabbing; }
+  #globeFallback { display:none; padding: 8px; height: 240px; overflow-y:auto;
+    background: var(--bg); border:1px solid var(--border); border-radius:3px;
+    font-family: var(--mono); font-size: 10px; }
+  #globeFallback.visible { display:block; }
+  #globeInspect {
+    position:absolute; left:8px; bottom:8px; max-width: 78%;
+    background: rgba(8,12,15,0.92); border:1px solid var(--accent); border-radius:3px;
+    padding: 6px 9px; font-family: var(--mono); font-size: 10px; color: var(--text);
+    box-shadow: 0 0 14px rgba(0,200,255,0.25); display:none; line-height:1.5;
+  }
+  #globeInspect.visible { display:block; }
+  #globeInspect .gi-path { color: var(--accent); }
+  #globeLegend { display:flex; gap:10px; flex-wrap:wrap; font-family:var(--mono); font-size:9px; color:var(--muted); }
+  #globeLegend .lg-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; }
+
+  /* Drift Compiler */
+  #driftDrop {
+    border: 1px dashed var(--border); border-radius: 3px; padding: 10px;
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    text-align: center; cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  #driftDrop:hover, #driftDrop.drag { border-color: var(--accent); color: var(--accent); }
+  #driftReport {
+    max-height: 320px; overflow-y:auto; background: var(--bg);
+    border:1px solid var(--border); border-radius:3px; padding: 8px 10px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--text); line-height:1.55;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .drift-entry { padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .drift-entry:last-child { border-bottom: none; }
+  .drift-tag { display:inline-block; min-width: 64px; text-align:center; font-size:9px; letter-spacing:1px;
+    padding:1px 5px; border:1px solid var(--border); border-radius:2px; margin-right:6px; text-transform:uppercase; }
+  .drift-tag.added    { color: var(--green); border-color: var(--green); }
+  .drift-tag.removed  { color: var(--red);   border-color: var(--red); }
+  .drift-tag.changed  { color: var(--amber); border-color: var(--amber); }
+  .drift-tag.matched  { color: var(--muted); border-color: var(--border); }
+  .drift-tag.orphan   { color: var(--accent); border-color: var(--accent); }
+  .drift-diff { white-space: pre; font-size: 9.5px; margin: 4px 0 6px 12px; color: var(--text); }
+  .drift-diff .add { color: var(--green); }
+  .drift-diff .del { color: var(--red); }
+  .drift-diff .ctx { color: var(--muted); }
+
+  /* Semantic PRD graph */
+  #prdGraphWrap {
+    position: relative; width:100%; height: 280px;
+    background: radial-gradient(ellipse at center, rgba(199,125,255,0.06) 0%, transparent 70%), var(--bg);
+    border:1px solid var(--border); border-radius:3px; overflow:hidden;
+  }
+  #prdGraphSvg { width:100%; height:100%; display:block; }
+  #prdGraphEmpty { display:flex; align-items:center; justify-content:center; height:100%;
+    font-family:var(--mono); font-size:11px; color:var(--muted); text-align:center; padding:20px; }
+  .prd-node circle { cursor: pointer; transition: filter .15s; }
+  .prd-node:hover circle { filter: drop-shadow(0 0 6px currentColor); }
+  .prd-node text { font-family: var(--mono); font-size: 9px; fill: var(--text); pointer-events:none; }
+  .prd-node.invalid circle { stroke: var(--red) !important; stroke-width: 2; }
+  .prd-edge { stroke: var(--dim); stroke-width: 1; fill: none; }
+  .prd-edge.invalid { stroke: var(--red); stroke-width: 1.6; }
+  .prd-edge.implements { stroke: var(--green); opacity: .5; }
+  .prd-edge.validates { stroke: var(--amber); opacity: .5; stroke-dasharray: 3 3; }
+  .prd-legend { display:flex; gap:10px; flex-wrap:wrap; font-family:var(--mono); font-size:9px; color:var(--muted); }
+  .prd-legend span.lg { display:inline-flex; align-items:center; gap:4px; }
+
+  /* AutoNet mesh */
+  #meshPanel {
+    position: fixed; right: 16px; bottom: 16px; width: 300px; max-height: 60vh;
+    background: var(--surface); border: 1px solid var(--accent); border-radius: 4px;
+    box-shadow: 0 0 24px rgba(0,200,255,0.25); z-index: 10000; display:none;
+    flex-direction: column; overflow: hidden;
+  }
+  #meshPanel.visible { display:flex; }
+  #meshHead { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:1px; }
+  #meshHead .mesh-close { margin-left:auto; cursor:pointer; color:var(--muted); border:none; background:none; font-size:14px; }
+  #meshBody { padding: 8px 10px; display:flex; flex-direction:column; gap:8px; overflow-y:auto;
+    font-family:var(--mono); font-size:10px; color:var(--text); }
+  #meshCode { font-size: 16px; letter-spacing: 3px; color: var(--green); text-align:center;
+    padding: 8px; background: var(--bg); border:1px solid var(--border); border-radius:3px; }
+  #meshPresence { display:flex; flex-direction:column; gap:3px; max-height:120px; overflow-y:auto; }
+  .mesh-peer { display:flex; align-items:center; gap:6px; padding:2px 0; }
+  .mesh-peer .peer-dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
+  .mesh-peer.me .peer-dot { background: var(--accent); }
+  #meshLog { max-height:120px; overflow-y:auto; background:var(--bg); border:1px solid var(--border);
+    border-radius:3px; padding:5px 7px; font-size:9.5px; color:var(--muted); line-height:1.5; }
+  .mesh-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  #meshShareBtn { position: relative; }
+  #meshShareBtn .mesh-pulse { position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green);
+    display:none; }
+  #meshShareBtn.live .mesh-pulse { display:block; }
+  .mesh-input { font-family:var(--mono); font-size:10px; background:var(--bg); border:1px solid var(--border);
+    border-radius:2px; color:var(--text); padding:4px 6px; flex:1; min-width:0; }
 </style>
 </head>
 <body>
@@ -894,6 +1039,7 @@
         <div class="dot" style="background:var(--green);box-shadow:0 0 6px var(--green)"></div>
         <span id="tokrateText">0 tok/s</span>
       </div>
+      <button class="btn btn-ghost btn-small" id="meshShareBtn" onclick="meshTogglePanel()" title="AutoNet Mesh-Sync: Share this assembly session with other developers on your LAN (optional, off by default)."><span class="mesh-pulse" aria-hidden="true"></span>⤴ SHARE</button>
       <button class="btn btn-ghost btn-small" onclick="openHelp()" title="Keyboard shortcuts (?)">? HELP</button>
       <button class="btn btn-ghost btn-small" onclick="exportWorkspace()" title="Export everything (settings, history, custom prompt) as .json">↑ EXPORT</button>
       <button class="btn btn-ghost btn-small" onclick="document.getElementById('importFile').click()" title="Import workspace .json">↓ IMPORT</button>
@@ -1366,6 +1512,32 @@
               </div>
             </div>
 
+            <!-- FEATURE 2: Zero-Trust Context Shield -->
+            <div class="pf2026-panel open" id="ctxShieldPanel">
+              <div class="pf2026-head" onclick="pfTogglePanel('ctxShieldPanel')" role="button" aria-expanded="true" tabindex="0">
+                <span>🛡 CONTEXT SHIELD</span>
+                <span class="pf-badge" id="ctxShieldBadge">off</span>
+                <span class="pf2026-chev">›</span>
+              </div>
+              <div class="pf2026-body">
+                <div class="pf2026-hint">Scans every prompt before it leaves for a backend. Auto-redacts API keys, tokens, private IPs, and high-entropy secrets. Nothing secret is ever sent to a cloud model.</div>
+                <div class="pf2026-row">
+                  <label class="ctx-toggle-row" style="gap:6px;"><input type="checkbox" id="ctxShieldEnable" onchange="ctxShieldSave()" /> enable shield</label>
+                  <span class="pf-badge" id="ctxShieldCount">0 redacted</span>
+                </div>
+                <div class="ctx-toggle-row">
+                  <label><input type="checkbox" id="ctxShieldHF" onchange="ctxShieldSave()" checked /> HF (cloud)</label>
+                  <label><input type="checkbox" id="ctxShieldOllama" onchange="ctxShieldSave()" /> Ollama (warn)</label>
+                  <label><input type="checkbox" id="ctxShieldBrowser" onchange="ctxShieldSave()" /> WebGPU (warn)</label>
+                </div>
+                <div id="ctxShieldLog" aria-label="Redaction log">— shield idle —</div>
+                <div class="pf2026-row">
+                  <button class="btn btn-ghost btn-small" onclick="ctxShieldScanNow()" title="Scan the current task input + assembled prompts now and show what would be redacted.">▶ SCAN NOW</button>
+                  <button class="btn btn-ghost btn-small" onclick="ctxShieldClear()" title="Clear the redaction log.">✕ CLEAR LOG</button>
+                </div>
+              </div>
+            </div>
+
             <div class="err-msg" id="asErrMsg"></div>
             <div class="row">
               <button class="btn btn-primary" id="asRunBtn" onclick="asRun()" title="Run Assembly Line: Execute the configured multi-stage agent pipeline.">▶ RUN ASSEMBLY LINE</button>
@@ -1413,6 +1585,78 @@
               <div class="sb-log" id="sandboxLog">— no runs yet —</div>
             </div>
           </div>
+          <!-- FEATURE 1: 3D OSINT / Data-Node Visualizer -->
+          <div class="pf2026-panel" id="globePanel">
+            <div class="pf2026-head" onclick="pfTogglePanel('globePanel')" role="button" aria-expanded="false" tabindex="0">
+              <span>🌐 3D DATA-NODE GLOBE</span>
+              <span class="pf-badge" id="globeBadge">0 nodes</span>
+              <span class="pf2026-chev">›</span>
+            </div>
+            <div class="pf2026-body">
+              <div class="pf2026-hint">File / dependency graph mapped onto a 3D globe (Three.js, lazy-loaded). Drag to rotate, click a node to inspect. Falls back to a 2D list if WebGL is unavailable.</div>
+              <div id="globeWrap">
+                <canvas id="globeCanvas" aria-label="3D project node globe"></canvas>
+                <div id="globeFallback"></div>
+                <div id="globeInspect"></div>
+              </div>
+              <div id="globeLegend"></div>
+              <div class="pf2026-row">
+                <button class="btn btn-ghost btn-small" onclick="globeRefresh()" title="Rebuild the globe from the current assembly output.">↻ REFRESH</button>
+                <button class="btn btn-ghost btn-small" onclick="globeToggleSpin()" id="globeSpinBtn" title="Pause / resume auto-rotation.">⏸ SPIN</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FEATURE 4: Semantic PRD dependency graph -->
+          <div class="pf2026-panel" id="prdPanel">
+            <div class="pf2026-head" onclick="pfTogglePanel('prdPanel')" role="button" aria-expanded="false" tabindex="0">
+              <span>◈ SEMANTIC PRD GRAPH</span>
+              <span class="pf-badge" id="prdBadge">no graph</span>
+              <span class="pf2026-chev">›</span>
+            </div>
+            <div class="pf2026-body">
+              <div class="pf2026-hint">Interactive dependency graph from prd.md / spec.md. Click a requirement node to invalidate its downstream files (tests, code, docs) and queue them for regeneration. Persisted in the project manifest.</div>
+              <div id="prdGraphWrap">
+                <svg id="prdGraphSvg" aria-label="Semantic PRD dependency graph"></svg>
+                <div id="prdGraphEmpty">Run the assembly line (or load a forged project) to build the graph.</div>
+              </div>
+              <div class="prd-legend" id="prdLegend"></div>
+              <div class="pf2026-row">
+                <button class="btn btn-ghost btn-small" onclick="prdBuildFromOutput()" title="Build the graph from the current assembly output (prd.md + spec.md).">↻ BUILD FROM OUTPUT</button>
+                <button class="btn btn-ghost btn-small" onclick="prdClearInvalid()" title="Clear all invalidation marks.">✕ CLEAR MARKS</button>
+                <span class="pf-badge" id="prdInvalidBadge">0 invalidated</span>
+              </div>
+              <div class="pf2026-row" id="prdQueueRow" style="display:none;">
+                <span class="pf-badge accent" id="prdQueueBadge">queue: 0</span>
+                <button class="btn btn-amber btn-small" onclick="prdRegenerateQueued()" title="Re-forge the queued (invalidated) files via a fresh assembly run.">▶ REGENERATE AFFECTED</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FEATURE 3: Agentic Drift Compiler -->
+          <div class="pf2026-panel" id="driftPanel">
+            <div class="pf2026-head" onclick="pfTogglePanel('driftPanel')" role="button" aria-expanded="false" tabindex="0">
+              <span>⇄ DRIFT COMPILER</span>
+              <span class="pf-badge" id="driftBadge">no baseline</span>
+              <span class="pf2026-chev">›</span>
+            </div>
+            <div class="pf2026-body">
+              <div class="pf2026-hint">Import a local project folder (or .zip) and diff it against the forged baseline (drift.md / architectural.md / capabilities.md). Highlights added / removed / changed files, with a diff view, and queues drifted files for re-forging.</div>
+              <div class="pf2026-row">
+                <button class="btn btn-ghost btn-small" onclick="driftUseCurrentBaseline()" title="Use the current assembly output as the drift baseline.">⤴ USE CURRENT AS BASELINE</button>
+                <button class="btn btn-ghost btn-small" onclick="driftLoadForgedZip()" title="Load a previously-forged .zip as the baseline.">▣ LOAD FORGED .ZIP</button>
+              </div>
+              <div id="driftDrop" onclick="driftPickLocal()" tabindex="0" role="button" aria-label="Import local project folder or zip for drift check">Drop / click to import local project folder or .zip</div>
+              <input type="file" id="driftZipInput" accept=".zip,application/zip" style="display:none" onchange="driftOnZipInput(event)" />
+              <input type="file" id="driftDirInput" webkitdirectory multiple style="display:none" onchange="driftOnDirInput(event)" />
+              <div id="driftReport">— no drift analysis yet —</div>
+              <div class="pf2026-row" id="driftQueueRow" style="display:none;">
+                <span class="pf-badge accent" id="driftQueueBadge">queue: 0</span>
+                <button class="btn btn-amber btn-small" onclick="driftRegenerateQueued()" title="Queue the drifted files and start a fresh assembly run to re-forge them.">▶ REGENERATE AFFECTED</button>
+              </div>
+            </div>
+          </div>
+
           <div class="output-actions">
             <button class="btn btn-ghost btn-small" onclick="asDownloadZip()" id="asZipBtn" disabled>▣ DOWNLOAD .ZIP</button>
             <button class="btn btn-ghost btn-small" onclick="asDownloadMd()" id="asMdBtn" disabled>↓ .MD</button>
@@ -1552,6 +1796,33 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- AUTONET MESH-SYNC PANEL (feature 5) -->
+<div class="pf2026-panel" id="meshPanel" role="dialog" aria-label="AutoNet Mesh-Sync">
+  <div id="meshHead">⤴ AUTONET MESH<button class="mesh-close" onclick="meshTogglePanel()" aria-label="Close mesh panel">✕</button></div>
+  <div id="meshBody">
+    <div class="pf2026-hint">Optional LAN sync — no internet needed. Host a session or join with a code. State syncs over WebRTC data channels via a local signaling relay.</div>
+    <div class="mesh-btns">
+      <button class="btn btn-ghost btn-small" onclick="meshHost()" title="Host: create a new session and show its join code.">▶ HOST SESSION</button>
+      <input type="text" id="meshJoinInput" class="mesh-input" placeholder="join code" maxlength="6" aria-label="Join code" />
+      <button class="btn btn-ghost btn-small" onclick="meshJoinFromInput()" title="Join: connect to a host's session using the 6-char code.">⤴ JOIN</button>
+    </div>
+    <div id="meshCode" aria-live="polite">—</div>
+    <div>
+      <div style="color:var(--muted);margin-bottom:3px;">PRESENCE</div>
+      <div id="meshPresence"><span style="color:var(--muted);">not connected</span></div>
+    </div>
+    <div>
+      <div style="color:var(--muted);margin-bottom:3px;">EVENT LOG</div>
+      <div id="meshLog">— no events —</div>
+    </div>
+    <div class="mesh-btns">
+      <button class="btn btn-ghost btn-small" onclick="meshDisconnect()" title="Disconnect: leave the session and close all peer connections.">■ DISCONNECT</button>
+      <label class="pf2026-hint" style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="meshSyncCfg" checked onchange="meshSavePref()" /> sync assembly config</label>
+    </div>
+    <div class="pf2026-hint" id="meshServerHint">Signaling server: not started. Run <code>node mesh-server.js</code> in the repo, then host/join.</div>
+  </div>
+</div>
 
 <script type="module">
 
@@ -3837,6 +4108,8 @@ function ollamaOptions({ temperature, maxTokens, numCtx, topP, topK, repeatPenal
 // Run one Ollama generation, streaming chunks to an onChunk callback.
 // Returns the full accumulated text. Aborts if stopFlag() returns true.
 async function ollamaGenerate({ base, model, system, prompt, temperature, maxTokens, numCtx, topP, topK, repeatPenalty, repeatLastN, presencePenalty, frequencyPenalty, minP, onChunk, stopFlag, signal }) {
+  // FEATURE 2: Context Shield — local backend, warn-only (no exfil risk).
+  if (window.ctxShieldApply) window.ctxShieldApply((system ? system + '\n\n' : '') + (prompt || ''), 'ollama');
   const body = JSON.stringify({
     model, system, prompt, stream: true,
     options: ollamaOptions({ temperature, maxTokens, numCtx, topP, topK, repeatPenalty, repeatLastN, presencePenalty, frequencyPenalty, minP }),
@@ -3888,6 +4161,8 @@ function browserChatParams({ temperature, maxTokens, topP, topK, repeatPenalty, 
 // Run one WebGPU generation, streaming to onChunk. Loads the model on first
 // use (one engine per model id, cached). progressCb gets 0..1 + text.
 async function browserGenerate({ modelId, system, prompt, temperature, maxTokens, topP, topK, repeatPenalty, presencePenalty, frequencyPenalty, onChunk, stopFlag, progressCb }) {
+  // FEATURE 2: Context Shield — in-browser WebGPU, warn-only.
+  if (window.ctxShieldApply) window.ctxShieldApply((system ? system + '\n\n' : '') + (prompt || ''), 'browser');
   if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
   const webllm = await sharedWebLLM();
   if (!_engines[modelId]) {
@@ -4244,6 +4519,12 @@ window.hfTestConnection = async function() {
 // Run one HF inference generation. Uses the HF Inference API text-generation
 // route (SSE streaming when supported, falls back to a single JSON response).
 async function hfGenerate({ model, system, prompt, temperature, maxTokens, topP, topK, onChunk, stopFlag, signal }) {
+  // FEATURE 2: Zero-Trust Context Shield — sanitize before any cloud send.
+  if (window.ctxShieldApply) {
+    const _r = window.ctxShieldApply((system ? system + '\n\n' : '') + (prompt || ''), 'hf');
+    if (_r.blocked) throw new Error('Context Shield blocked a cloud request containing ' + _r.redactions.length + ' secret(s).');
+    system = null; prompt = _r.clean;
+  }
   const key = hfKey();
   const base = hfUrlVal().replace(/\/$/, '');
   const inputs = (system ? system + '\n\n' : '') + prompt;
@@ -6322,9 +6603,1247 @@ window.afCopyLog = async function() {
   toast('Log copied');
 };
 
+// ═════════════════════════════════════════════════════════════════════════════
+// 2026 ADVANCED FEATURES MODULE
+// 1) 3D OSINT/Data-Node Globe (Three.js, lazy)        — feature 1
+// 2) Zero-Trust Context Shield (pre-inference redact) — feature 2
+// 3) Agentic Drift Compiler (baseline vs local folder)— feature 3
+// 4) Semantic PRD dependency graph (SVG force layout) — feature 4
+// 5) AutoNet Mesh-Sync (WebSocket signaling + WebRTC) — feature 5
+// All optional / toggleable. Heavy CDN deps lazy-loaded only on activation.
+// Graceful degradation: WebGL off → 2D list; no server → mesh disabled.
+// ═════════════════════════════════════════════════════════════════════════════
+(function pf2026() {
+'use strict';
+
+// ── shared helpers ──────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const LS = {
+  SHIELD:  'pf.ctxshield.v1',
+  MESH:    'pf.mesh.v1',
+  PRD:     'pf.prdgraph.v1',
+  DRIFT:   'pf.drift.v1',
+};
+function loadJSON(key, dflt) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : dflt; }
+  catch { return dflt; }
+}
+function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+// Collapsible panel toggling (shared by all new feature panels).
+window.pfTogglePanel = function(id) {
+  const p = $(id);
+  if (!p) return;
+  const open = p.classList.toggle('open');
+  const head = p.querySelector('.pf2026-head');
+  if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) {
+    if (id === 'globePanel') globeInitWhenOpened();
+    if (id === 'prdPanel') prdRefreshEmpty();
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE 2: ZERO-TRUST CONTEXT SHIELD
+// Pre-inference redaction. Regex + entropy detector for secrets. Applied to
+// the assembled prompt BEFORE it is sent to any backend. Cloud backends (HF)
+// are always redacted when enabled; local backends (Ollama/WebGPU) get a warn
+// overlay instead (the user opted in to local). Never exfiltrates a secret.
+// ═════════════════════════════════════════════════════════════════════════════
+const SECRET_PATTERNS = [
+  { id: 'aws_access',     re: /AKIA[0-9A-Z]{16}/g, label: 'AWS Access Key' },
+  { id: 'aws_secret',     re: /aws_secret_access_key\s*[:=]\s*["']?[A-Za-z0-9/+=]{40}["']?/gi, label: 'AWS Secret Key' },
+  { id: 'github_pat',     re: /gh[pousr]_[A-Za-z0-9]{36,}/g, label: 'GitHub PAT' },
+  { id: 'github_token',   re: /github_token\s*[:=]\s*["']?[A-Za-z0-9]{36,}["']?/gi, label: 'GitHub Token' },
+  { id: 'google_api',     re: /AIza[0-9A-Za-z\-_]{35}/g, label: 'Google API Key' },
+  { id: 'slack_token',    re: /xox[baprs]-[A-Za-z0-9-]{10,}/g, label: 'Slack Token' },
+  { id: 'stripe_key',     re: /sk_(live|test)_[0-9A-Za-z]{16,}/g, label: 'Stripe Key' },
+  { id: 'hf_token',       re: /hf_[A-Za-z0-9]{34,}/g, label: 'HF Token' },
+  { id: 'jwt',            re: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, label: 'JWT' },
+  { id: 'private_key',    re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----[\s\S]*?-----END[^-]+-----/g, label: 'Private Key' },
+  { id: 'bearer',         re: /Bearer\s+[A-Za-z0-9_\-\.=]{20,}/g, label: 'Bearer Token' },
+  { id: 'generic_secret', re: /(?:secret|passwd|password|api[_-]?key|token|auth)\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}["']?/gi, label: 'Generic Secret' },
+  { id: 'private_ip',     re: /\b(?:10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.)\d{1,3}\.\d{1,3}\b/g, label: 'Private IP' },
+  { id: 'conn_str',       re: /(?:postgres|mongodb|redis|amqp|wss?):\/\/[^\s"']{8,}/gi, label: 'Connection String' },
+];
+
+// Entropy detector: long base64-ish high-entropy blobs that look like secrets.
+function shannonEntropy(s) {
+  if (!s) return 0;
+  const freq = {};
+  for (const ch of s) freq[ch] = (freq[ch] || 0) + 1;
+  const n = s.length;
+  let e = 0;
+  for (const k in freq) {
+    const p = freq[k] / n;
+    e -= p * Math.log2(p);
+  }
+  return e;
+}
+function entropySecrets(text) {
+  const out = [];
+  const re = /["'`]([A-Za-z0-9+/=_\-]{32,})["'`]/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const blob = m[1];
+    if (shannonEntropy(blob) >= 4.2) {
+      out.push({ start: m.index, end: m.index + m[0].length, match: m[0], label: 'High-entropy secret' });
+    }
+  }
+  return out;
+}
+
+function ctxShieldState() {
+  return loadJSON(LS.SHIELD, {
+    enabled: false,
+    hf: true, ollama: false, browser: false,
+  });
+}
+function ctxShieldSave() {
+  const st = {
+    enabled: $('ctxShieldEnable').checked,
+    hf: $('ctxShieldHF').checked,
+    ollama: $('ctxShieldOllama').checked,
+    browser: $('ctxShieldBrowser').checked,
+  };
+  saveJSON(LS.SHIELD, st);
+  ctxShieldUpdateBadge();
+}
+window.ctxShieldSave = ctxShieldSave;
+window.ctxShieldClear = function() { $('ctxShieldLog').textContent = '— shield idle —'; ctxShieldResetCount(); };
+
+let _redactCount = 0;
+function ctxShieldResetCount() {
+  _redactCount = 0;
+  const el = $('ctxShieldCount'); if (el) el.textContent = '0 redacted';
+}
+function ctxShieldLog(msg) {
+  const el = $('ctxShieldLog');
+  if (!el) return;
+  const t = new Date().toLocaleTimeString();
+  el.textContent = (el.textContent === '— shield idle —' ? '' : el.textContent + '\n') + `[${t}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+function ctxShieldUpdateBadge() {
+  const st = ctxShieldState();
+  const b = $('ctxShieldBadge');
+  if (!b) return;
+  if (!st.enabled) { b.textContent = 'off'; b.className = 'pf-badge'; return; }
+  const on = [];
+  if (st.hf) on.push('HF');
+  if (st.ollama) on.push('Ollama');
+  if (st.browser) on.push('WebGPU');
+  b.textContent = on.length ? 'on · ' + on.join('+') : 'on';
+  b.className = 'pf-badge ok';
+}
+
+// Core: scan text, return { clean, redactions:[{label,match,masked}] }.
+// masked is the redacted form of the secret (first 2 + last 2 chars + ***).
+function ctxShieldScan(text) {
+  const redactions = [];
+  if (!text) return { clean: text || '', redactions };
+  const spans = []; // {start,end,label,match}
+  for (const p of SECRET_PATTERNS) {
+    p.re.lastIndex = 0;
+    let m;
+    while ((m = p.re.exec(text)) !== null) {
+      spans.push({ start: m.index, end: m.index + m[0].length, label: p.label, match: m[0] });
+      if (m[0].length === 0) p.re.lastIndex++; // avoid zero-length loop
+    }
+  }
+  for (const e of entropySecrets(text)) spans.push({ ...e });
+  // de-dup overlapping spans (keep the earliest, longest)
+  spans.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const merged = [];
+  for (const s of spans) {
+    if (merged.length && s.start < merged[merged.length - 1].end) continue;
+    merged.push(s);
+  }
+  // build cleaned text + record
+  let clean = '';
+  let i = 0;
+  for (const s of merged) {
+    clean += text.slice(i, s.start);
+    const secret = text.slice(s.start, s.end);
+    const masked = secret.length <= 8 ? '***' :
+      (secret.slice(0, 2) + '***' + secret.slice(-2));
+    clean += masked;
+    redactions.push({ label: s.label, match: secret.length > 48 ? secret.slice(0, 48) + '…' : secret, masked });
+    i = s.end;
+  }
+  clean += text.slice(i);
+  return { clean, redactions };
+}
+
+// Public: apply the shield to a prompt about to be sent to a backend.
+// `backend` ∈ 'hf' | 'ollama' | 'browser'. Returns {clean, redactions, warned}.
+// If the shield is off or the backend isn't selected for redaction, returns
+// the text unchanged (with redactions still reported if a scan was done).
+window.ctxShieldApply = function(text, backend) {
+  const st = ctxShieldState();
+  if (!st.enabled) return { clean: text, redactions: [], warned: false };
+  const doRedact = (backend === 'hf' && st.hf) || (backend === 'ollama' && st.ollama) || (backend === 'browser' && st.browser);
+  const { clean, redactions } = ctxShieldScan(text);
+  if (redactions.length) {
+    _redactCount += redactions.length;
+    const c = $('ctxShieldCount'); if (c) c.textContent = _redactCount + ' redacted';
+    for (const r of redactions) {
+      ctxShieldLog(`[${backend}] ${r.label} → ${r.masked}  (${r.match})`);
+    }
+    if (backend === 'hf' && !doRedact) {
+      // HARD STOP for cloud: never exfiltrate. Block even if user unchecked HF.
+      ctxShieldLog(`[${backend}] BLOCKED — refusing to send ${redactions.length} secret(s) to cloud backend.`);
+      return { clean: null, redactions, warned: true, blocked: true };
+    }
+    if (!doRedact && (backend === 'ollama' || backend === 'browser')) {
+      ctxShieldLog(`[${backend}] warning only — secret visible to local backend (user opted in).`);
+      return { clean: text, redactions, warned: true };
+    }
+  }
+  return { clean: doRedact ? clean : text, redactions, warned: false };
+};
+
+// Hook the shield into the inference path. We wrap hfGenerate / ollamaGenerate
+// / browserGenerate once (idempotent) so every outbound prompt is sanitized.
+let _shieldHooked = false;
+window.ctxShieldHook = function() {
+  if (_shieldHooked) return _shieldHooked;
+  if (typeof window.hfGenerate !== 'function') return false;
+  if (!window.hfGenerate.__shield) {
+    const orig = window.hfGenerate;
+    const wrapped = async function(opts) {
+      const text = (opts.system ? opts.system + '\n\n' : '') + (opts.prompt || '');
+      const r = window.ctxShieldApply(text, 'hf');
+      if (r.blocked) {
+        throw new Error('Context Shield blocked a cloud request that contained ' + r.redactions.length + ' secret(s). Sanitize the task input and retry.');
+      }
+      return orig(Object.assign({}, opts, { system: null, prompt: r.clean }));
+    };
+    wrapped.__shield = true;
+    window.hfGenerate = wrapped;
+  }
+  // Ollama + WebGPU are local — warn but pass through (no blocking).
+  if (typeof window.ollamaGenerate === 'function' && !window.ollamaGenerate.__shield) {
+    const orig = window.ollamaGenerate;
+    window.ollamaGenerate = async function(opts) {
+      const text = (opts.system ? opts.system + '\n\n' : '') + (opts.prompt || '');
+      window.ctxShieldApply(text, 'ollama');
+      return orig(opts);
+    };
+    window.ollamaGenerate.__shield = true;
+  }
+  if (typeof window.browserGenerate === 'function' && !window.browserGenerate.__shield) {
+    const orig = window.browserGenerate;
+    window.browserGenerate = async function(opts) {
+      const text = (opts.system ? opts.system + '\n\n' : '') + (opts.prompt || '');
+      window.ctxShieldApply(text, 'browser');
+      return orig(opts);
+    };
+    window.browserGenerate.__shield = true;
+  }
+  _shieldHooked = true;
+  return _shieldHooked;
+};
+
+// Scan the current assembly task + assembled prompts now (manual / preview).
+window.ctxShieldScanNow = function() {
+  const task = $('asTaskInput') ? $('asTaskInput').value : '';
+  let combined = task;
+  if (typeof window.asBuildPrompt === 'function' && typeof window.asStages === 'function') {
+    try {
+      const stages = window.asStages();
+      for (let i = 0; i < stages.length; i++) {
+        combined += '\n--- stage ' + (i + 1) + ' ---\n' + window.asBuildPrompt(i, task);
+      }
+    } catch {}
+  }
+  ctxShieldResetCount();
+  const { redactions } = ctxShieldScan(combined);
+  if (!redactions.length) {
+    ctxShieldLog('Scan complete — no secrets detected in task + assembled prompts.');
+    return;
+  }
+  for (const r of redactions) ctxShieldLog(`[scan] ${r.label} → ${r.masked}  (${r.match})`);
+  $('ctxShieldCount').textContent = redactions.length + ' redacted';
+  toast('Context Shield found ' + redactions.length + ' secret(s)');
+};
+
+function ctxShieldInit() {
+  const st = ctxShieldState();
+  const set = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
+  set('ctxShieldEnable', st.enabled);
+  set('ctxShieldHF', st.hf);
+  set('ctxShieldOllama', st.ollama);
+  set('ctxShieldBrowser', st.browser);
+  ctxShieldUpdateBadge();
+  // Auto-hook the inference path the first time the shield is enabled.
+  $('ctxShieldEnable').addEventListener('change', () => {
+    if ($('ctxShieldEnable').checked) window.ctxShieldHook();
+    ctxShieldSave();
+  });
+  if (st.enabled) window.ctxShieldHook();
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE 1: 3D OSINT / DATA-NODE GLOBE (Three.js, lazy)
+// Maps the project's file/dependency graph onto a 3D sphere. Color-coded by
+// role (doc/code/test/config). Degrades to a 2D list when WebGL is off.
+// ═════════════════════════════════════════════════════════════════════════════
+const GLOBE_COLORS = {
+  doc:    0x00c8ff, // accent
+  code:   0x00ff88, // green
+  test:   0xffb800, // amber
+  config: 0xc77dff, // purple
+  root:   0xff3b3b, // red
+};
+function nodeRole(path) {
+  const p = path.toLowerCase();
+  if (/(^|\/)(tests?|spec|__tests__)\/|test_|_test\.|\.spec\.|\.test\./.test(p)) return 'test';
+  if (/(^|\/)(src|lib|app|cmd|internal)\/|\.py$|\.js$|\.ts$|\.jsx$|\.tsx$|\.go$|\.rs$/.test(p)) return 'code';
+  if (/\.(md|txt|rst)$|^readme|drift|prd|spec|capabilities|architectural|done|agent/.test(p)) return 'doc';
+  if (/(^|\/)(makefile|dockerfile|\.gitignore|requirements|package\.json|pyproject|\.toml|\.yaml|\.yml|\.cfg|\.ini|\.env|\.json)$/.test(p)) return 'config';
+  if (!p.includes('/')) return 'root';
+  return 'code';
+}
+function globeNodesFromFiles(files) {
+  return (files || []).map(f => ({ path: f.path, role: nodeRole(f.path), body: f.body || '' }));
+}
+
+let _three = null;
+let _globeScene = null, _globeRenderer = null, _globeCamera = null;
+let _globeMesh = null, _globeNodes = [], _globeMarkers = [];
+let _globeSpin = true, _globeRAF = null, _globeInited = false, _globeFallback = false;
+
+async function loadThree() {
+  if (_three) return _three;
+  // esm.run sends CORP headers compatible with our COEP=require-corp.
+  _three = await import('https://esm.run/three@0.169.0');
+  return _three;
+}
+function webglAvailable() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
+  } catch { return false; }
+}
+
+function globeFibonacci(n) {
+  // Even distribution of n points on a sphere (Fibonacci lattice).
+  const pts = [];
+  const phi = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / Math.max(1, n - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const t = phi * i;
+    pts.push([Math.cos(t) * r, y, Math.sin(t) * r]);
+  }
+  return pts;
+}
+
+function globeRenderFallback() {
+  _globeFallback = true;
+  const c = $('globeCanvas'); if (c) c.style.display = 'none';
+  const fb = $('globeFallback'); if (!fb) return;
+  fb.classList.add('visible');
+  if (!_globeNodes.length) { fb.textContent = 'No files yet — run the assembly line or refresh.'; return; }
+  fb.innerHTML = _globeNodes.map(n => {
+    const col = { doc:'#00c8ff', code:'#00ff88', test:'#ffb800', config:'#c77dff', root:'#ff3b3b' }[n.role] || '#00ff88';
+    return `<div style="padding:2px 0;"><span style="color:${col};">●</span> <span style="color:var(--accent);">${esc(n.path)}</span> <span style="color:var(--muted);">[${n.role}]</span></div>`;
+  }).join('');
+}
+
+function globeRenderLegend() {
+  const el = $('globeLegend');
+  if (!el) return;
+  const items = [
+    { c:'#00c8ff', t:'doc' }, { c:'#00ff88', t:'code' }, { c:'#ffb800', t:'test' },
+    { c:'#c77dff', t:'config' }, { c:'#ff3b3b', t:'root' },
+  ];
+  el.innerHTML = items.map(i => `<span><span class="lg-dot" style="background:${i.c};"></span>${i.t}</span>`).join('');
+}
+
+async function globeInitWhenOpened() {
+  if (_globeInited) { globeMaybeRefresh(); return; }
+  _globeInited = true;
+  globeRenderLegend();
+  const badge = $('globeBadge'); if (badge) badge.textContent = '0 nodes';
+  if (!webglAvailable()) {
+    globeRenderFallback();
+    return;
+  }
+  try {
+    const THREE = await loadThree();
+    const wrap = $('globeWrap');
+    const canvas = $('globeCanvas');
+    const w = wrap.clientWidth || 320, h = wrap.clientHeight || 240;
+    _globeScene = new THREE.Scene();
+    _globeCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+    _globeCamera.position.set(0, 0, 3.6);
+    _globeRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    _globeRenderer.setPixelRatio(window.devicePixelRatio || 1);
+    _globeRenderer.setSize(w, h, false);
+    _globeRenderer.setClearColor(0x000000, 0);
+    // wireframe sphere — neon grid look
+    const geo = new THREE.SphereGeometry(1, 24, 16);
+    const wire = new THREE.WireframeGeometry(geo);
+    _globeMesh = new THREE.LineSegments(wire, new THREE.LineBasicMaterial({ color: 0x0f3a4a, transparent: true, opacity: 0.55 }));
+    _globeScene.add(_globeMesh);
+    // equator ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.005, 0.004, 8, 64), new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent:true, opacity:0.4 }));
+    _globeScene.add(ring);
+    globeMaybeRefresh();
+    globeStartLoop();
+    globeAttachDrag(canvas);
+    window.addEventListener('resize', globeOnResize);
+  } catch (e) {
+    console.warn('[globe] three.js unavailable, using fallback list:', e.message);
+    globeRenderFallback();
+  }
+}
+
+function globeOnResize() {
+  if (!_globeRenderer || _globeFallback) return;
+  const wrap = $('globeWrap');
+  const w = wrap.clientWidth || 320, h = wrap.clientHeight || 240;
+  _globeCamera.aspect = w / h; _globeCamera.updateProjectionMatrix();
+  _globeRenderer.setSize(w, h, false);
+}
+
+function globeAttachDrag(canvas) {
+  let dragging = false, lastX = 0, lastY = 0;
+  let rotX = 0, rotY = 0;
+  canvas.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    rotY += dx * 0.005; rotX += dy * 0.005;
+    rotX = Math.max(-1.2, Math.min(1.2, rotX));
+    if (_globeMesh) { _globeMesh.rotation.x = rotX; _globeMesh.rotation.y = rotY; }
+    _globeNodes.forEach(m => { if (m.parent) { m.parent.rotation.x = rotX; m.parent.rotation.y = rotY; } });
+  });
+  // click → inspect nearest node
+  canvas.addEventListener('click', ev => {
+    if (!_globeScene) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    globeInspectByRay(x, y);
+  });
+}
+function globeInspectByRay(nx, ny) {
+  // Simple project: convert normalized screen → ray, find nearest marker by
+  // angular distance (avoids full raycaster setup across a sphere of points).
+  if (!_globeNodes.length) return;
+  const THREE = _three;
+  let best = -1, bestD = 1e9;
+  const camPos = _globeCamera.position;
+  for (let i = 0; i < _globeNodes.length; i++) {
+    const m = _globeNodes[i];
+    if (!m.getWorldPosition) continue;
+    const wp = new THREE.Vector3(); m.getWorldPosition(wp);
+    const dir = wp.clone().sub(camPos).normalize();
+    const ray = new THREE.Vector3(nx, ny, -1).unproject(_globeCamera).sub(camPos).normalize();
+    const d = 1 - dir.dot(ray);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  if (best >= 0 && bestD < 0.06) globeShowInspect(_globeNodes[best]._pf);
+}
+function globeShowInspect(node) {
+  if (!node) return;
+  const el = $('globeInspect'); if (!el) return;
+  el.innerHTML = `<span class="gi-path">${esc(node.path)}</span><br><span style="color:var(--muted);">role: ${node.role} · ${node.body.length} chars</span>`;
+  el.classList.add('visible');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('visible'), 4000);
+}
+
+function globeStartLoop() {
+  if (_globeRAF) return;
+  const tick = () => {
+    _globeRAF = requestAnimationFrame(tick);
+    if (!_globeRenderer) return;
+    if (_globeSpin && _globeMesh) {
+      _globeMesh.rotation.y += 0.0035;
+      _globeNodes.forEach(m => { if (m.parent) m.parent.rotation.y = _globeMesh.rotation.y; });
+    }
+    _globeRenderer.render(_globeScene, _globeCamera);
+  };
+  tick();
+}
+
+function globeMaybeRefresh() {
+  // Pull current assembly output → files → nodes.
+  let files = [];
+  try {
+    const text = window.__pf.getAsFinal ? window.__pf.getAsFinal() : null;
+    if (text) files = (typeof window.parseFiles === 'function') ? window.parseFiles(text) : [];
+    else if (typeof window.__pf !== 'undefined' && window.__pf.parseFiles) files = window.__pf.parseFiles(text || '');
+  } catch {}
+  globeSetNodes(globeNodesFromFiles(files));
+}
+
+function globeSetNodes(nodes) {
+  _globeNodes = nodes || [];
+  const badge = $('globeBadge'); if (badge) badge.textContent = nodes.length + ' node' + (nodes.length === 1 ? '' : 's');
+  if (_globeFallback) { globeRenderFallback(); return; }
+  if (!_globeScene) return;
+  const THREE = _three; if (!THREE) return;
+  // remove old markers
+  _globeNodes.forEach(m => { try { _globeScene.remove(m); } catch {} });
+  _globeNodes = [];
+  if (!nodes.length) return;
+  const pts = globeFibonacci(nodes.length);
+  nodes.forEach((n, i) => {
+    const [x, y, z] = pts[i];
+    const col = GLOBE_COLORS[n.role] || 0x00ff88;
+    const g = new THREE.SphereGeometry(0.028, 10, 10);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col }));
+    m.position.set(x * 1.02, y * 1.02, z * 1.02);
+    m._pf = n;
+    _globeScene.add(m);
+    _globeNodes.push(m);
+  });
+}
+
+window.globeRefresh = globeMaybeRefresh;
+window.globeToggleSpin = function() {
+  _globeSpin = !_globeSpin;
+  const b = $('globeSpinBtn'); if (b) b.textContent = _globeSpin ? '⏸ SPIN' : '▶ SPIN';
+};
+// allow tests / external code to push nodes directly
+window.globeSetNodes = function(nodes) { globeSetNodes(nodes); };
+window.globeIsFallback = () => _globeFallback;
+window.globeWebGL = webglAvailable;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE 4: SEMANTIC PRD DEPENDENCY GRAPH (SVG, hand-rolled force layout)
+// Parses prd.md (FR list) + spec.md (spec rows) + file manifest and builds a
+// dependency graph: requirement → spec (validates) → file (implements).
+// Editing (clicking) a requirement marks it + downstream nodes invalid and
+// queues the affected files for regeneration. Graph persisted in manifest.
+// ═════════════════════════════════════════════════════════════════════════════
+let _prdGraph = null; // { nodes:[{id,type,label}], edges:[{s,t,kind}], invalid:Set }
+
+function prdParseRequirements(md) {
+  if (!md) return [];
+  const reqs = [];
+  // Look for FR/NFR/REQ style lines: "FR1: ...", "### FR-1 ...", "- **FR1** ...", "1. ... shall ..."
+  const re = /(?:^|\n)\s*(?:#{1,4}\s*)?(?:[-*]?\s*\*{0,2})\s*(FR[-\s]?\d+|NFR[-\s]?\d+|REQ[-\s]?\d+|R\d+)\b[:\.\)\-]\s*([^\n]+)/gi;
+  let m;
+  while ((m = re.exec(md)) !== null) {
+    const id = m[1].toUpperCase().replace(/\s+/g, '');
+    const label = m[2].trim().slice(0, 60);
+    if (!reqs.find(r => r.id === id)) reqs.push({ id, label });
+  }
+  // fallback: numbered "shall" lines
+  if (!reqs.length) {
+    const re2 = /(?:^|\n)\s*\d+\.\s+(.{6,}?)(?:\s+shall|\.)\s/gi;
+    while ((m = re2.exec(md)) !== null) {
+      reqs.push({ id: 'R' + (reqs.length + 1), label: m[1].trim().slice(0, 60) });
+    }
+  }
+  return reqs.slice(0, 24);
+}
+function prdParseSpecs(md) {
+  if (!md) return [];
+  // spec.md rows look like "| N | capability | input | expected | test |"
+  const specs = [];
+  const lines = md.split('\n');
+  for (const ln of lines) {
+    const cells = ln.split('|').map(s => s.trim()).filter(Boolean);
+    if (cells.length >= 4 && /^\d+$/.test(cells[0])) {
+      specs.push({ id: 'SPEC' + cells[0], label: cells[1].slice(0, 40) });
+    }
+  }
+  return specs.slice(0, 24);
+}
+function prdBuildGraph(files) {
+  const prd = (files.find(f => f.path === 'prd.md') || {}).body || '';
+  const spec = (files.find(f => f.path === 'spec.md') || {}).body || '';
+  const reqs = prdParseRequirements(prd);
+  const specs = prdParseSpecs(spec);
+  const nodes = [];
+  const edges = [];
+  reqs.forEach(r => nodes.push({ id: r.id, type: 'req', label: r.id + ' ' + r.label }));
+  specs.forEach(s => nodes.push({ id: s.id, type: 'spec', label: s.label }));
+  // implementation / test / doc files
+  const fileNodes = [];
+  for (const f of files) {
+    if (['prd.md', 'spec.md'].includes(f.path)) continue;
+    const role = nodeRole(f.path);
+    if (!['test', 'code', 'doc'].includes(role) && f.path !== 'README.md') continue;
+    const id = 'FILE:' + f.path;
+    fileNodes.push({ id, type: 'file', label: f.path, path: f.path, role });
+    nodes.push(id && nodes.find(n => n.id === id) ? null : { id, type: 'file', label: f.path, path: f.path, role });
+  }
+  // edges: req → spec (validates) by index pairing; spec → file (implements) by test/code
+  reqs.forEach((r, i) => {
+    if (specs[i]) edges.push({ s: r.id, t: specs[i].id, kind: 'validates' });
+  });
+  // every test file validates every spec (loose but useful for invalidation)
+  const testFiles = nodes.filter(n => n.type === 'file' && n.role === 'test');
+  const codeFiles = nodes.filter(n => n.type === 'file' && n.role === 'code');
+  specs.forEach(s => {
+    testFiles.forEach(t => edges.push({ s: s.id, t: t.id, kind: 'validates' }));
+    codeFiles.slice(0, 4).forEach(c => edges.push({ s: s.id, t: c.id, kind: 'implements' }));
+  });
+  // prune nulls from the nodes push above
+  const clean = nodes.filter(Boolean);
+  _prdGraph = { nodes: clean, edges, invalid: new Set(), reqs, specs };
+  return _prdGraph;
+}
+window.prdBuildFromOutput = function() {
+  let files = [];
+  try {
+    const text = window.__pf.getAsFinal ? window.__pf.getAsFinal() : '';
+    files = (typeof window.__pf !== 'undefined' && window.__pf.parseFiles) ? window.__pf.parseFiles(text || '') : [];
+  } catch {}
+  if (!files.length) { toast('No project output yet — run the assembly line first.'); return; }
+  const g = prdBuildGraph(files);
+  // restore persisted invalidation if path labels match
+  const saved = loadJSON(LS.PRD, null);
+  if (saved && saved.invalid) saved.invalid.forEach(id => g.invalid.add(id));
+  prdRender(g);
+  prdUpdateBadges();
+  toast('PRD graph built: ' + g.nodes.length + ' nodes · ' + g.edges.length + ' edges');
+};
+window.prdBuildGraph = prdBuildGraph; // for tests
+window.prdGetGraph = () => _prdGraph;
+
+// downstream invalidation: mark a node + everything reachable from it.
+function prdInvalidate(nodeId) {
+  if (!_prdGraph) return;
+  const g = _prdGraph;
+  const adj = {};
+  for (const e of g.edges) { (adj[e.s] = adj[e.s] || []).push(e.t); }
+  const stack = [nodeId], seen = new Set();
+  while (stack.length) {
+    const n = stack.pop();
+    if (seen.has(n)) continue; seen.add(n);
+    g.invalid.add(n);
+    for (const t of adj[n] || []) stack.push(t);
+  }
+  prdRender(g);
+  prdUpdateBadges();
+  prdPersist();
+}
+window.prdInvalidate = prdInvalidate;
+window.prdClearInvalid = function() {
+  if (!_prdGraph) return;
+  _prdGraph.invalid = new Set();
+  prdRender(_prdGraph);
+  prdUpdateBadges();
+  prdPersist();
+};
+function prdPersist() {
+  if (!_prdGraph) return;
+  saveJSON(LS.PRD, { invalid: Array.from(_prdGraph.invalid) });
+}
+function prdUpdateBadges() {
+  if (!_prdGraph) return;
+  const n = _prdGraph.invalid.size;
+  const ib = $('prdInvalidBadge'); if (ib) ib.textContent = n + ' invalidated';
+  const b = $('prdBadge'); if (b) { b.textContent = _prdGraph.nodes.length + ' nodes'; b.className = 'pf-badge ' + (n ? 'warn' : 'ok'); }
+  const qr = $('prdQueueRow');
+  const files = Array.from(_prdGraph.invalid).map(id => {
+    const node = _prdGraph.nodes.find(x => x.id === id);
+    return node && node.path;
+  }).filter(Boolean);
+  if (qr) {
+    qr.style.display = files.length ? 'flex' : 'none';
+    const qb = $('prdQueueBadge'); if (qb) qb.textContent = 'queue: ' + files.length;
+  }
+}
+window.prdQueuedFiles = function() {
+  if (!_prdGraph) return [];
+  return Array.from(_prdGraph.invalid).map(id => {
+    const n = _prdGraph.nodes.find(x => x.id === id);
+    return n && n.path;
+  }).filter(Boolean);
+};
+window.prdRegenerateQueued = function() {
+  const files = window.prdQueuedFiles();
+  if (!files.length) { toast('No files queued — invalidate a requirement first.'); return; }
+  // Queue into the assembly task input as an explicit re-forge request.
+  const task = $('asTaskInput');
+  if (task) {
+    const note = '\n\n[DRIFT/PRD REGENERATE] Re-forge these files, keeping the rest of the project consistent: ' + files.join(', ');
+    task.value = (task.value || '').replace(/\[DRIFT\/PRD REGENERATE\][\s\S]*$/, '') + note;
+    toast('Queued ' + files.length + ' file(s) for regeneration — press RUN ASSEMBLY LINE.');
+  }
+};
+
+// force-directed layout (hand-rolled, deterministic for tests)
+function prdLayout(g, w, h) {
+  const N = g.nodes.length;
+  const pos = {};
+  // seed by type in concentric rings
+  const byType = { req: [], spec: [], file: [] };
+  g.nodes.forEach(n => byType[n.type].push(n));
+  const ring = (arr, r) => arr.forEach((n, i) => {
+    const a = (i / Math.max(1, arr.length)) * Math.PI * 2;
+    pos[n.id] = { x: w / 2 + Math.cos(a) * r, y: h / 2 + Math.sin(a) * r };
+  });
+  ring(byType.req, Math.min(w, h) * 0.18);
+  ring(byType.spec, Math.min(w, h) * 0.34);
+  ring(byType.file, Math.min(w, h) * 0.46);
+  // a few iterations of spring relaxation
+  const k = 0.02, rep = 2400;
+  for (let iter = 0; iter < 60; iter++) {
+    for (const e of g.edges) {
+      const a = pos[e.s], b = pos[e.t]; if (!a || !b) continue;
+      const dx = b.x - a.x, dy = b.y - a.y; const d = Math.hypot(dx, dy) || 1;
+      const f = k * (d - 80) / d;
+      a.x += dx * f; a.y += dy * f; b.x -= dx * f; b.y -= dy * f;
+    }
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const a = pos[g.nodes[i].id], b = pos[g.nodes[j].id]; if (!a || !b) continue;
+        const dx = b.x - a.x, dy = b.y - a.y; const d2 = dx * dx + dy * dy || 1;
+        const f = rep / d2;
+        const d = Math.sqrt(d2);
+        a.x -= dx * f / d; a.y -= dy * f / d; b.x += dx * f / d; b.y += dy * f / d;
+      }
+    }
+    // keep inside bounds
+    for (const id in pos) {
+      pos[id].x = Math.max(20, Math.min(w - 20, pos[id].x));
+      pos[id].y = Math.max(20, Math.min(h - 20, pos[id].y));
+    }
+  }
+  return pos;
+}
+
+function prdRender(g) {
+  const svg = $('prdGraphSvg'); const empty = $('prdGraphEmpty');
+  if (!svg) return;
+  if (!g || !g.nodes.length) {
+    svg.innerHTML = ''; if (empty) empty.style.display = 'flex'; return;
+  }
+  if (empty) empty.style.display = 'none';
+  const w = svg.clientWidth || 480, h = svg.clientHeight || 280;
+  const pos = prdLayout(g, w, h);
+  const color = { req: '#c77dff', spec: '#ffb800', file: '#00ff88' };
+  let edges = '';
+  for (const e of g.edges) {
+    const a = pos[e.s], b = pos[e.t]; if (!a || !b) continue;
+    const inv = g.invalid.has(e.s) || g.invalid.has(e.t);
+    edges += `<line class="prd-edge ${e.kind} ${inv ? 'invalid' : ''}" x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" />`;
+  }
+  let nodes = '';
+  for (const n of g.nodes) {
+    const p = pos[n.id]; if (!p) continue;
+    const c = color[n.type] || '#00ff88';
+    const r = n.type === 'req' ? 7 : (n.type === 'spec' ? 5 : 4);
+    const inv = g.invalid.has(n.id);
+    nodes += `<g class="prd-node ${inv ? 'invalid' : ''}" data-id="${esc(n.id)}" style="color:${c}">` +
+      `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" fill="${c}" stroke="${inv ? '#ff3b3b' : 'transparent'}" stroke-width="2" />` +
+      `<text x="${(p.x + 9).toFixed(1)}" y="${(p.y + 3).toFixed(1)}">${esc(n.label.slice(0, 22))}</text></g>`;
+  }
+  svg.innerHTML = edges + nodes;
+  // wire click → invalidate
+  svg.querySelectorAll('.prd-node').forEach(el => {
+    el.addEventListener('click', () => prdInvalidate(el.getAttribute('data-id')));
+  });
+  prdRenderLegend();
+}
+function prdRenderLegend() {
+  const el = $('prdLegend'); if (!el) return;
+  el.innerHTML = [
+    `<span class="lg"><span class="lg-dot" style="background:#c77dff;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>requirement</span>`,
+    `<span class="lg"><span class="lg-dot" style="background:#ffb800;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>spec</span>`,
+    `<span class="lg"><span class="lg-dot" style="background:#00ff88;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>file</span>`,
+    `<span class="lg" style="color:var(--red);">click a node → invalidate downstream</span>`,
+  ].join('');
+}
+function prdRefreshEmpty() {
+  if (_prdGraph && _prdGraph.nodes.length) prdRender(_prdGraph);
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE 3: AGENTIC DRIFT COMPILER
+// Baseline = a previously-forged project (drift.md + architectural.md +
+// capabilities.md + file list). Imported = a local folder (File System Access
+// API) or .zip. Diff highlights added/removed/changed vs the baseline spec,
+// with a diff view + "regenerate affected" that queues drifted files.
+// ═════════════════════════════════════════════════════════════════════════════
+let _driftBaseline = null;  // { files:[{path,body}], docs:{drift,arch,caps}, spec:{paths:Set} }
+let _driftImported = null;  // [{path,body}]
+let _driftQueue = [];       // paths to regenerate
+
+function driftSetBaselineFiles(files) {
+  const docs = {};
+  for (const f of files) {
+    if (f.path === 'drift.md') docs.drift = f.body;
+    if (f.path === 'architectural.md') docs.arch = f.body;
+    if (f.path === 'capabilities.md') docs.caps = f.body;
+  }
+  _driftBaseline = { files, docs, paths: new Set(files.map(f => f.path)) };
+  driftUpdateBadge();
+}
+window.driftUseCurrentBaseline = function() {
+  let files = [];
+  try {
+    const text = window.__pf.getAsFinal ? window.__pf.getAsFinal() : '';
+    files = (typeof window.__pf !== 'undefined' && window.__pf.parseFiles) ? window.__pf.parseFiles(text || '') : [];
+  } catch {}
+  if (!files.length) { toast('No current assembly output to use as baseline.'); return; }
+  driftSetBaselineFiles(files);
+  toast('Drift baseline set from current output (' + files.length + ' files).');
+  driftMaybeRun();
+};
+window.driftLoadForgedZip = function() { $('driftZipInput').click(); };
+window.driftOnZipInput = function(ev) {
+  const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  (async () => {
+    try {
+      const JSZip = await sharedJSZip();
+      const zip = await JSZip.loadAsync(await f.arrayBuffer());
+      const files = [];
+      const entries = Object.keys(zip.files);
+      for (const name of entries) {
+        const ent = zip.files[name]; if (ent.dir) continue;
+        files.push({ path: name, body: await ent.async('string') });
+      }
+      driftSetBaselineFiles(files);
+      toast('Baseline loaded from .zip (' + files.length + ' files).');
+      driftMaybeRun();
+    } catch (e) { toast('Failed to read zip: ' + e.message); }
+  })();
+};
+window.driftPickLocal = function() { $('driftDirInput').click(); };
+window.driftOnDirInput = function(ev) {
+  const list = ev.target.files; if (!list || !list.length) return;
+  const files = [];
+  const pr = [];
+  // webkitdirectory gives files with webkitRelativePath
+  for (const f of list) {
+    const path = f.webkitRelativePath || f.name;
+    // skip node_modules / .git
+    if (/(^|\/)(node_modules|\.git|dist|build|__pycache__)\//.test(path)) continue;
+    if (f.size > 256 * 1024) { files.push({ path, body: '[file too large to diff — skipped]' }); continue; }
+    pr.push(f.text().then(t => files.push({ path, body: t })));
+  }
+  Promise.all(pr).then(() => {
+    files.sort((a, b) => a.path.localeCompare(b.path));
+    _driftImported = files;
+    toast('Imported ' + files.length + ' local files for drift check.');
+    driftMaybeRun();
+  });
+};
+// drag & drop onto the drop zone
+(function driftDnD() {
+  const drop = () => $('driftDrop');
+  function init() {
+    const d = drop(); if (!d) { setTimeout(init, 400); return; }
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('drag'); });
+    d.addEventListener('dragleave', () => d.classList.remove('drag'));
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('drag');
+      const dt = e.dataTransfer;
+      if (dt.files && dt.files.length && /\.zip$/i.test(dt.files[0].name)) {
+        const f = dt.files[0];
+        $('driftZipInput').files = dt.files;
+        window.driftOnZipInput({ target: $('driftZipInput') });
+      }
+    });
+    d.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.driftPickLocal(); } });
+  }
+  init();
+})();
+
+function driftUpdateBadge() {
+  const b = $('driftBadge'); if (!b) return;
+  if (!_driftBaseline) { b.textContent = 'no baseline'; b.className = 'pf-badge'; return; }
+  b.textContent = 'baseline: ' + _driftBaseline.files.length + ' files';
+  b.className = 'pf-badge ok';
+}
+
+// minimal line diff (LCS) for the diff view
+function diffLines(a, b) {
+  a = (a || '').split('\n'); b = (b || '').split('\n');
+  const n = a.length, m = b.length;
+  // LCS table (cap size for very large files)
+  if (n * m > 200000) { return [{ t: 'ctx', a: a.join('\n') }, { t: 'add', b: b.join('\n') }]; }
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      dp[i][j] = a[i] === b[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push({ t: 'ctx', v: a[i] }); i++; j++; }
+    else if (dp[i+1][j] >= dp[i][j+1]) { out.push({ t: 'del', v: a[i] }); i++; }
+    else { out.push({ t: 'add', v: b[j] }); j++; }
+  }
+  while (i < n) out.push({ t: 'del', v: a[i++] });
+  while (j < m) out.push({ t: 'add', v: b[j++] });
+  return out;
+}
+
+function driftRun() {
+  if (!_driftBaseline) { toast('Set a baseline first (use current output or load a .zip).'); return; }
+  if (!_driftImported || !_driftImported.length) { toast('Import a local project folder or .zip to compare.'); return; }
+  const basePaths = new Set(_driftBaseline.files.map(f => f.path));
+  const impMap = {}; _driftImported.forEach(f => impMap[f.path] = f);
+  const entries = [];
+  const queue = [];
+  // removed: in baseline but not imported
+  for (const f of _driftBaseline.files) {
+    if (!impMap[f.path]) {
+      entries.push({ kind: 'removed', path: f.path, base: f.body, imp: null });
+      // removing a file the spec requires → re-forge it
+      if (!/^(README|prd|spec|drift|capabilities|architectural|DONE|agent|CLAUDE|AGENTS)\.md$/i.test(f.path)) queue.push(f.path);
+    }
+  }
+  // added / changed
+  for (const f of _driftImported) {
+    if (!basePaths.has(f.path)) {
+      entries.push({ kind: 'added', path: f.path, base: null, imp: f.body });
+      // files not in the baseline plan are orphan drift (don't auto-queue; user decides)
+    } else {
+      const bf = _driftBaseline.files.find(x => x.path === f.path);
+      if (bf.body !== f.body) {
+        entries.push({ kind: 'changed', path: f.path, base: bf.body, imp: f.body });
+        queue.push(f.path);
+      } else {
+        entries.push({ kind: 'matched', path: f.path, base: bf.body, imp: f.body });
+      }
+    }
+  }
+  entries.sort((a, b) => a.path.localeCompare(b.path));
+  _driftQueue = Array.from(new Set(queue));
+  driftRender(entries);
+  driftUpdateQueue();
+  toast('Drift analysis: ' + entries.filter(e => e.kind !== 'matched').length + ' deviation(s).');
+}
+window.driftRun = driftRun;
+function driftMaybeRun() { if (_driftBaseline && _driftImported && _driftImported.length) driftRun(); }
+
+function driftRender(entries) {
+  const el = $('driftReport'); if (!el) return;
+  const parts = entries.map(e => {
+    const tag = `<span class="drift-tag ${e.kind}">${e.kind}</span>`;
+    let diff = '';
+    if (e.kind === 'changed') {
+      const d = diffLines(e.base, e.imp).slice(0, 40);
+      diff = '<div class="drift-diff">' + d.map(l =>
+        l.t === 'add' ? `<span class="add">+ ${esc(l.v)}</span>` :
+        l.t === 'del' ? `<span class="del">- ${esc(l.v)}</span>` :
+        `<span class="ctx">  ${esc(l.v)}</span>`
+      ).join('\n') + (diffLines(e.base, e.imp).length > 40 ? '\n…' : '') + '</div>';
+    }
+    return `<div class="drift-entry">${tag}<span style="color:var(--accent);">${esc(e.path)}</span>${diff}</div>`;
+  }).join('');
+  el.innerHTML = parts || '<span style="color:var(--muted);">No deviations — local project matches the forged baseline.</span>';
+}
+function driftUpdateQueue() {
+  const qr = $('driftQueueRow'); if (!qr) return;
+  qr.style.display = _driftQueue.length ? 'flex' : 'none';
+  const qb = $('driftQueueBadge'); if (qb) qb.textContent = 'queue: ' + _driftQueue.length;
+}
+window.driftQueuedFiles = () => _driftQueue.slice();
+window.driftRegenerateQueued = function() {
+  if (!_driftQueue.length) { toast('Nothing queued — run a drift check first.'); return; }
+  const task = $('asTaskInput');
+  if (task) {
+    const note = '\n\n[DRIFT REGENERATE] These files have drifted from the forged architecture and must be re-forged, keeping the rest consistent: ' + _driftQueue.join(', ');
+    task.value = (task.value || '').replace(/\[DRIFT REGENERATE\][\s\S]*$/, '') + note;
+    toast('Queued ' + _driftQueue.length + ' drifted file(s) — press RUN ASSEMBLY LINE.');
+  }
+};
+// test hooks
+window.driftSetBaseline = (files) => { driftSetBaselineFiles(files); };
+window.driftSetImported = (files) => { _driftImported = files; driftUpdateBadge(); };
+window.driftDiffLines = diffLines;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE 5: AUTONET MESH-SYNC (WebSocket signaling + WebRTC data channels)
+// Optional LAN sync. A small Node signaling server (mesh-server.js) relays
+// join codes + SDP/ICE between peers; actual state syncs over WebRTC data
+// channels. Last-writer-wins with per-field timestamps + presence list.
+// Off by default. Degrades gracefully: no server → panel shows hint, no sync.
+// ═════════════════════════════════════════════════════════════════════════════
+const MESH_DEFAULT_WS = 'ws://127.0.0.1:8770';
+let _meshState = null;  // { ws, code, peerId, peers:Map, isHost, syncCfg }
+function meshState() { return _meshState || loadJSON(LS.MESH, { syncCfg: true }); }
+function meshSavePref() {
+  const el = $('meshSyncCfg');
+  const s = meshState();
+  s.syncCfg = el ? el.checked : true;
+  saveJSON(LS.MESH, s);
+}
+window.meshSavePref = meshSavePref;
+window.meshTogglePanel = function() {
+  const p = $('meshPanel');
+  if (!p) return;
+  const open = p.classList.toggle('visible');
+  if (open) meshInitPanel();
+};
+function meshInitPanel() {
+  const s = meshState();
+  const cb = $('meshSyncCfg'); if (cb) cb.checked = s.syncCfg !== false;
+  meshServerHint();
+}
+function meshServerHint() {
+  const el = $('meshServerHint'); if (!el) return;
+  const url = meshWsUrl();
+  if (_meshState && _meshState.ws && _meshState.ws.readyState === 1) {
+    el.textContent = 'Connected to signaling server: ' + url;
+    el.style.color = 'var(--green)';
+  } else {
+    el.innerHTML = 'Signaling server not connected. Run <code>node mesh-server.js</code> in the repo (default ' + url + '), then host/join. Set PF_MESH_WS to override.';
+    el.style.color = 'var(--muted)';
+  }
+}
+function meshWsUrl() {
+  try { return localStorage.getItem('pf.mesh.ws') || MESH_DEFAULT_WS; } catch { return MESH_DEFAULT_WS; }
+}
+function meshLog(msg) {
+  const el = $('meshLog'); if (!el) return;
+  const t = new Date().toLocaleTimeString();
+  el.textContent = (el.textContent === '— no events —' ? '' : el.textContent + '\n') + `[${t}] ${msg}`;
+  el.scrollTop = el.scrollHeight;
+}
+function meshRandId() { return 'p' + Math.random().toString(36).slice(2, 8); }
+function meshRandCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)];
+  return s;
+}
+
+function meshConnect() {
+  return new Promise((resolve, reject) => {
+    if (_meshState && _meshState.ws && _meshState.ws.readyState <= 1) return resolve(_meshState.ws);
+    let ws;
+    try { ws = new WebSocket(meshWsUrl()); }
+    catch (e) { reject(new Error('WebSocket unavailable: ' + e.message)); return; }
+    _meshState = _meshState || {};
+    _meshState.ws = ws;
+    _meshState.peerId = _meshState.peerId || meshRandId();
+    _meshState.peers = _meshState.peers || new Map();
+    ws.addEventListener('open', () => { meshLog('signaling connected'); meshServerHint(); resolve(ws); });
+    ws.addEventListener('error', () => { meshLog('signaling error — is mesh-server.js running?'); meshServerHint(); reject(new Error('ws error')); });
+    ws.addEventListener('close', () => { meshLog('signaling closed'); meshServerHint(); });
+    ws.addEventListener('message', meshOnSignal);
+  });
+}
+window.meshConnect = meshConnect;
+
+function meshOnSignal(ev) {
+  let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+  if (msg.type === 'presence') {
+    meshRenderPresence(msg.peers);
+    return;
+  }
+  if (msg.type === 'host-ack') {
+    _meshState.code = msg.code; _meshState.isHost = true;
+    const el = $('meshCode'); if (el) el.textContent = msg.code;
+    meshLog('hosting session ' + msg.code);
+    $('meshShareBtn').classList.add('live');
+    return;
+  }
+  if (msg.type === 'join-ack') {
+    _meshState.code = msg.code; _meshState.isHost = false;
+    const el = $('meshCode'); if (el) el.textContent = msg.code;
+    meshLog('joined session ' + msg.code);
+    $('meshShareBtn').classList.add('live');
+    return;
+  }
+  if (msg.type === 'join-error') {
+    meshLog('join failed: ' + (msg.reason || 'unknown code'));
+    return;
+  }
+  if (msg.type === 'sdp' || msg.type === 'ice') {
+    meshHandleSignaling(msg);
+    return;
+  }
+  if (msg.type === 'peer-left') {
+    if (_meshState.peers) _meshState.peers.delete(msg.peerId);
+    meshRenderPresence();
+    meshLog('peer left: ' + msg.peerId);
+  }
+}
+
+async function meshHost() {
+  try { await meshConnect(); }
+  catch (e) { toast('Mesh server unreachable: ' + e.message); return; }
+  _meshState.code = meshRandCode();
+  _meshState.ws.send(JSON.stringify({ type: 'host', code: _meshState.code, peerId: _meshState.peerId }));
+}
+async function meshJoin(code) {
+  code = (code || '').toUpperCase().trim();
+  if (!/^[A-Z0-9]{6}$/.test(code)) { toast('Enter a 6-character join code.'); return; }
+  try { await meshConnect(); }
+  catch (e) { toast('Mesh server unreachable: ' + e.message); return; }
+  _meshState.code = code;
+  _meshState.ws.send(JSON.stringify({ type: 'join', code, peerId: _meshState.peerId }));
+}
+window.meshJoinFromInput = function() { meshJoin($('meshJoinInput').value); };
+window.meshHost = meshHost;
+window.meshJoin = meshJoin;
+window.meshDisconnect = function() {
+  if (!_meshState) return;
+  if (_meshState.ws) { try { _meshState.ws.send(JSON.stringify({ type: 'leave', code: _meshState.code, peerId: _meshState.peerId })); _meshState.ws.close(); } catch {} }
+  if (_meshState.peers) _meshState.peers.forEach(p => { try { p.pc.close(); } catch {} });
+  _meshState.peers = new Map();
+  _meshState.code = null; _meshState.isHost = false;
+  $('meshCode').textContent = '—';
+  $('meshShareBtn').classList.remove('live');
+  meshRenderPresence();
+  meshLog('disconnected');
+  meshServerHint();
+};
+
+function meshRenderPresence(peers) {
+  const el = $('meshPresence'); if (!el) return;
+  const list = peers || (_meshState ? Array.from(_meshState.peers.keys()) : []);
+  if (!list.length) { el.innerHTML = '<span style="color:var(--muted);">just you</span>'; return; }
+  el.innerHTML = list.map(id =>
+    `<div class="mesh-peer ${id === (_meshState && _meshState.peerId) ? 'me' : ''}"><span class="peer-dot"></span>${esc(id)}</div>`
+  ).join('');
+}
+
+// WebRTC peer connection handling. We use the signaling server to exchange
+// SDP + ICE, then send/receive state over a data channel.
+async function meshHandleSignaling(msg) {
+  if (!_meshState) return;
+  const peers = _meshState.peers = _meshState.peers || new Map();
+  let peer = peers.get(msg.from);
+  if (!peer) {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    peer = { pc, dc: null, id: msg.from };
+    peers.set(msg.from, peer);
+    pc.addEventListener('datachannel', e => { peer.dc = e.channel; meshWireDataChannel(peer); });
+    pc.addEventListener('icecandidate', e => {
+      if (e.candidate && _meshState.ws) {
+        _meshState.ws.send(JSON.stringify({ type: 'ice', code: _meshState.code, from: _meshState.peerId, to: msg.from, candidate: e.candidate }));
+      }
+    });
+    // If we are the host (or the higher-id peer), create the data channel to
+    // avoid the glare problem of both sides offering.
+    if (_meshState.isHost || _meshState.peerId > msg.from) {
+      const dc = pc.createDataChannel('pf-sync', { ordered: true });
+      peer.dc = dc;
+      meshWireDataChannel(peer);
+    }
+  }
+  try {
+    if (msg.type === 'sdp') {
+      await peer.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+      if (msg.sdp.type === 'offer' && !peer.dc) {
+        const ans = await peer.pc.createAnswer();
+        await peer.pc.setLocalDescription(ans);
+        _meshState.ws.send(JSON.stringify({ type: 'sdp', code: _meshState.code, from: _meshState.peerId, to: msg.from, sdp: ans }));
+      }
+    } else if (msg.type === 'ice') {
+      try { await peer.pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
+    }
+  } catch (e) { meshLog('webrtc error: ' + e.message); }
+}
+function meshWireDataChannel(peer) {
+  if (!peer.dc) return;
+  peer.dc.addEventListener('open', () => { meshLog('data channel open: ' + peer.id); meshSendState(peer); });
+  peer.dc.addEventListener('message', e => meshOnPeerData(peer, e.data));
+  peer.dc.addEventListener('close', () => meshLog('data channel closed: ' + peer.id));
+}
+function meshSendState(peer) {
+  if (!peer.dc || peer.dc.readyState !== 'open') return;
+  const snapshot = meshCaptureState();
+  peer.dc.send(JSON.stringify({ type: 'state', from: _meshState.peerId, ts: Date.now(), state: snapshot }));
+}
+function meshOnPeerData(peer, raw) {
+  let msg; try { msg = JSON.parse(raw); } catch { return; }
+  if (msg.type === 'state') {
+    meshApplyState(msg.state, msg.from, msg.ts);
+    meshLog('synced state from ' + msg.from);
+  } else if (msg.type === 'update') {
+    meshApplyField(msg.field, msg.value, msg.ts, msg.from);
+  } else if (msg.type === 'chat') {
+    meshLog('chat from ' + msg.from + ': ' + msg.text);
+  }
+}
+// Capture the current assembly state to sync to a peer.
+function meshCaptureState() {
+  const out = { fields: {}, ts: Date.now() };
+  try {
+    const task = $('asTaskInput'); if (task) out.fields.task = { v: task.value, ts: Date.now() };
+    const mode = $('asOutputMode'); if (mode) out.fields.outputMode = { v: mode.value, ts: Date.now() };
+    if (typeof window.asStages === 'function') out.fields.stages = { v: JSON.stringify(window.asStages()), ts: Date.now() };
+    out.fields.peerName = { v: _meshState.peerId, ts: Date.now() };
+  } catch {}
+  return out;
+}
+// Last-writer-wins apply with per-field timestamps.
+let _meshFieldTs = {};
+function meshApplyState(state, from, ts) {
+  if (!state || !state.fields) return;
+  for (const k in state.fields) meshApplyField(k, state.fields[k].v, state.fields[k].ts || ts, from);
+}
+function meshApplyField(field, value, ts, from) {
+  if (_meshFieldTs[field] && _meshFieldTs[field] > ts) return; // stale
+  _meshFieldTs[field] = ts;
+  try {
+    if (field === 'task') { const el = $('asTaskInput'); if (el && document.activeElement !== el) el.value = value; }
+    else if (field === 'outputMode') { const el = $('asOutputMode'); if (el) el.value = value; }
+    else if (field === 'stages' && typeof window.setAsStages === 'function') window.setAsStages(JSON.parse(value));
+  } catch {}
+}
+// Broadcast a single field update to all peers (called on local edits).
+window.meshBroadcastField = function(field, value) {
+  if (!_meshState || !_meshState.peers) return;
+  const ts = Date.now();
+  _meshFieldTs[field] = ts;
+  const msg = JSON.stringify({ type: 'update', from: _meshState.peerId, field, value, ts });
+  _meshState.peers.forEach(p => { try { if (p.dc && p.dc.readyState === 'open') p.dc.send(msg); } catch {} });
+};
+// public test hooks
+window.meshState = () => _meshState;
+window.meshSetWsUrl = (u) => { try { localStorage.setItem('pf.mesh.ws', u); } catch {} };
+window.meshIsValidCode = (c) => /^[A-Z0-9]{6}$/.test((c || '').toUpperCase().trim());
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INIT — wire up the panels on first assembly-tab open (lazy).
+// ═════════════════════════════════════════════════════════════════════════════
+let _pf2026Inited = false;
+window.pf2026Init = function() {
+  if (_pf2026Inited) return;
+  _pf2026Inited = true;
+  ctxShieldInit();
+  // mesh: load saved ws url + syncCfg into UI
+  const s = meshState();
+  const cb = $('meshSyncCfg'); if (cb) cb.checked = s.syncCfg !== false;
+};
+// hook into the assembly tab's lazy init
+(function hookAsEnsureInit() {
+  const orig = window.asEnsureInit;
+  window.asEnsureInit = function() {
+    if (orig) try { orig(); } catch {}
+    try { window.pf2026Init(); } catch (e) { console.warn('pf2026 init', e); }
+  };
+})();
+
+// expose on __pf (the test/introspection surface) — appended in the main __pf block
+window.__pf2026 = {
+  ctxShieldScan, ctxShieldState, ctxShieldApply: window.ctxShieldApply,
+  globeSetNodes: window.globeSetNodes, globeWebGL: window.globeWebGL, globeIsFallback: window.globeIsFallback,
+  prdBuildGraph, prdInvalidate, prdGetGraph: window.prdGetGraph, prdQueuedFiles: window.prdQueuedFiles,
+  driftSetBaseline: window.driftSetBaseline, driftSetImported: window.driftSetImported, driftRun, driftDiffLines: window.driftDiffLines, driftQueuedFiles: window.driftQueuedFiles,
+  meshHost, meshJoin, meshIsValidCode, meshState: window.meshState,
+};
+
+})();
 // ── Test/external hooks: expose a minimal surface on window ─────────
+// ═════════════════════════════════════════════════════════════════════════════
 window.__pf = {
   parseFiles: parseFilesShared,
+  getAsFinal: () => asFinalText,
+  setAsStages: (s) => { asStages = Array.isArray(s) ? s : asStages; try { asSaveStages(); } catch {} asRenderStages(); },
+  pf2026: () => window.__pf2026,
   tintMd: tintMdInline,
   setAsFinal: (text) => { asFinalText = text || ''; const files = parseFilesShared(asFinalText);
     document.getElementById('asZipBtn').disabled = !(files.length && document.getElementById('asOutputMode')?.value === 'project');

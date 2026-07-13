@@ -11,7 +11,7 @@
   },
   "scripts": {
     "serve": "python3 serve.py",
-    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_webgpu_local_http.js",
+    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_webgpu_local_http.js && node test_2026_features.js",
     "test:features": "node test_features.js",
     "test:e2e": "node test_e2e_project.js",
     "test:zip": "node test_zip_runs_tdd.js",
