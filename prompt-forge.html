@@ -594,29 +594,88 @@
   .src-browser { background: var(--accent); }
 
   /* ── ASSEMBLY LINE ───────────────────────────────────────────────── */
-  .role-stage-list { display: flex; flex-direction: column; gap: 6px; }
+  .role-stage-list { display: flex; flex-direction: column; gap: 8px; }
   .role-stage {
-    display: grid; grid-template-columns: 26px 1fr 150px 22px;
-    gap: 8px; align-items: center;
+    display: grid; grid-template-columns: 14px 26px 1fr;
+    gap: 8px; align-items: start;
     border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px;
     background: var(--surface);
   }
+  .role-stage.dragging { opacity: 0.5; border-color: var(--accent); }
+  .role-stage.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,200,255,0.2); }
+  .role-stage .stage-grip {
+    font-family: var(--mono); font-size: 12px; color: var(--dim); cursor: grab;
+    text-align: center; padding-top: 2px; user-select: none;
+  }
+  .role-stage .stage-grip:active { cursor: grabbing; }
   .role-stage .stage-num {
     font-family: var(--mono); font-size: 12px; color: var(--accent);
-    text-align: center; border-right: 1px solid var(--border); padding-right: 6px;
+    text-align: center; border-right: 1px solid var(--border); padding-right: 6px; padding-top: 2px;
   }
+  .role-stage .stage-main { display: flex; flex-direction: column; gap: 4px; }
   .role-stage .stage-role {
     font-family: var(--sans); font-size: 12px; color: var(--text); letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
-  .role-stage .stage-role .role-sub { display:block; font-size:10px; color:var(--muted); letter-spacing:0; margin-top:1px; }
+  .role-stage .stage-role .role-sub { display:block; font-size:10px; color:var(--muted); letter-spacing:0; margin-top:1px; flex-basis:100%; }
+  .role-stage .stage-tier, .role-stage .stage-pref {
+    font-family: var(--mono); font-size: 8px; letter-spacing: 1px; padding: 1px 4px;
+    border: 1px solid var(--border); border-radius: 2px; color: var(--muted);
+  }
+  .role-stage .stage-tier.tier-heavy { color: var(--amber); border-color: var(--amber); }
+  .role-stage .stage-tier.tier-light { color: var(--green); border-color: var(--green); }
+  .role-stage .stage-name {
+    font-family: var(--sans); font-size: 12px; padding: 4px 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
+  }
+  .role-stage .stage-system {
+    font-family: var(--mono); font-size: 10px; padding: 5px 6px; min-height: 48px; resize: vertical;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
+    line-height: 1.4;
+  }
+  .role-stage .stage-controls {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .role-stage .stage-status {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 1px; padding: 2px 6px;
+    border: 1px solid var(--border); border-radius: 2px; color: var(--muted); text-transform: uppercase;
+  }
+  .role-stage .stage-status.status-running { color: var(--amber); border-color: var(--amber); }
+  .role-stage .stage-status.status-done { color: var(--green); border-color: var(--green); }
+  .role-stage .stage-status.status-error { color: var(--red); border-color: var(--red); }
+  .role-stage .stage-status.status-paused { color: var(--accent); border-color: var(--accent); }
+  .role-stage .stage-status.status-skipped { color: var(--dim); border-color: var(--dim); }
   .role-stage select {
     font-family: var(--mono); font-size: 10px; padding: 3px 6px;
     background: var(--panel); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
+    max-width: 180px;
   }
+  .role-stage .stage-move, .role-stage .stage-reset, .role-stage .stage-save {
+    background:none; border:1px solid var(--border); color:var(--muted); cursor:pointer; font-size:11px; padding:1px 5px; border-radius:2px;
+  }
+  .role-stage .stage-move:hover, .role-stage .stage-reset:hover, .role-stage .stage-save:hover { color: var(--accent); border-color: var(--accent); }
   .role-stage .stage-del {
     background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:0;
   }
   .role-stage .stage-del:hover { color: var(--red); }
+  .role-stage .stage-err {
+    font-family: var(--mono); font-size: 10px; color: var(--red); display: none;
+  }
+  .role-stage .stage-err.visible { display: block; }
+  .model-chip .chip-tier {
+    font-family: var(--mono); font-size: 8px; letter-spacing: 1px; padding: 1px 4px;
+    border: 1px solid var(--border); border-radius: 2px; color: var(--muted);
+  }
+  .model-chip .chip-tier.tier-heavy { color: var(--amber); border-color: var(--amber); }
+  .model-chip .chip-tier.tier-light { color: var(--green); border-color: var(--green); }
+  /* Per-stage telemetry + compaction badge in the progress track */
+  .as-progress-track .pstep .pstep-meta { display:block; font-size:8px; color:var(--dim); letter-spacing:0; margin-top:2px; }
+  .as-progress-track .pstep.status-running { color: var(--amber); border-color: var(--amber); }
+  .as-progress-track .pstep.status-error { color: var(--red); border-color: var(--red); }
+  .as-progress-track .pstep.status-skipped { color: var(--dim); border-color: var(--dim); }
+  .as-progress-track .pstep .compact-badge { display:inline-block; margin-left:4px; font-size:8px; color:var(--accent); }
+  .as-telemetry { display:flex; gap:10px; padding: 4px 14px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 10px; color: var(--muted); flex-wrap: wrap; }
+  .as-telemetry .tel b { color: var(--accent); }
 
   .as-stream { flex: 1; overflow-y: auto; padding: 10px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
   .as-stream::-webkit-scrollbar { width: 4px; }
@@ -3019,6 +3078,13 @@ async function buildProjectZip(parts, opts = {}) {
       try { zip.file(f.path).unixPermissions = 0o755; } catch {}
     }
   }
+  // Callers (e.g. the Assembly Line) may attach extra sidecar files beyond
+  // the parsed project files — e.g. a stage manifest. These are additive and
+  // never replace a parsed project file of the same path.
+  const extra = parts.extraFiles || opts.extraFiles || [];
+  for (const f of extra) {
+    if (!zip.file(f.path)) zip.file(f.path, f.body == null ? '' : String(f.body));
+  }
 
   // 2. Manifest (extended: test_types, prd_hash, spec_hash)
   const prdFile = files.find(f => f.path === 'prd.md');
@@ -3774,22 +3840,102 @@ Rules: complete files only, no truncation, output starts with "=== FILE:".`,
   custom: `You are a specialist stage in a multi-agent assembly line. Build on the prior stages' outputs. Be specific and terse.`,
 };
 
+// ── MoA capability tiers ──────────────────────────────────────────────
+// Each pool model is classified light / medium / heavy. Roles declare a
+// preferred tier; asAutoAssign matches by tier when possible (with a
+// diversity guardrail) instead of pure round-robin.
+const ASSEMBLY_MODEL_TIERS = {
+  // Ollama: infer tier from the parameter count in the tag (e.g. "7b", "13b").
+  // Falls back to 'medium' if unknown.
+  ollama: (id) => {
+    const m = id.toLowerCase().match(/(\d+(?:\.\d+)?)b/);
+    if (!m) return 'medium';
+    const b = parseFloat(m[1]);
+    if (b <= 1.5) return 'light';
+    if (b <= 4)   return 'medium';
+    return 'heavy';
+  },
+  // Browser/WebLLM: classify from the catalog name's parameter count.
+  browser: (id) => {
+    const m = (id || '').toLowerCase().match(/(\d+(?:\.\d+)b)/);
+    if (!m) return 'medium';
+    const b = parseFloat(m[1]);
+    if (b <= 0.6) return 'light';
+    if (b <= 4)   return 'medium';
+    return 'heavy';
+  },
+};
+const ASSEMBLY_ROLE_TIER_PREF = {
+  plan: 'heavy', review_plan: 'heavy', taskout: 'heavy',
+  execute: 'heavy', codereview: 'heavy', final: 'medium', custom: 'medium',
+};
+const TIER_LABEL = { light: 'LIGHT', medium: 'MED', heavy: 'HEAVY' };
+
+function asModelTier(key) {
+  const { src, id } = asParseKey(key);
+  const fn = ASSEMBLY_MODEL_TIERS[src];
+  return fn ? fn(id) : 'medium';
+}
+
 // State
 let asInited = false;
 let asOllamaModels = [];      // [{name}]
 let asPool = new Set();       // "ollama:<name>" | "browser:<id>"
-let asStages = [];            // [{role, modelKey}]
+// Each stage: { role, modelKey, label, system, tier (role pref, derived) }
+// label + system are user-owned (editable, persisted). role stays for
+// prompt-construction categorization; built-in roles seed label+system from
+// ASSEMBLY_ROLES/ASSEMBLY_SYSTEMS but become editable on edit.
+let asStages = [];
 let asRunning = false;
 let asStopReq = false;
 let asAbort = null;
-let asStepOutputs = [];       // [{role,label,model,output}]
+let asStepOutputs = [];       // [{role,label,model,output,err}]
 let asFinalText = '';
+let asPaused = false;         // per-run pause flag (pause before next stage)
+let asRunCursor = -1;        // index of the currently-running stage (-1 if idle)
+let asRunFromStage = 0;       // resume / re-run-from-here index
+let asSkipStages = new Set(); // stages to skip this run
+// Per-stage telemetry: { tokens, tokRate, startTs, fillPct }
+let asStageTelemetry = [];
+
+const AS_LS = 'pf.assembly.stages.v2';
+
+// Build the default stage list (6 built-in roles, pre-filled label+system).
+function asDefaultStages() {
+  return ASSEMBLY_ROLES.map(r => ({
+    role: r.id,
+    modelKey: '',
+    label: r.label,
+    system: ASSEMBLY_SYSTEMS[r.id],
+  }));
+}
+
+// Persist stages (label+system+role+modelKey) to localStorage.
+function asSaveStages() {
+  try { localStorage.setItem(AS_LS, JSON.stringify(asStages)); } catch {}
+}
+function asLoadStages() {
+  try {
+    const raw = localStorage.getItem(AS_LS);
+    if (!raw) return null;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || !arr.length) return null;
+    // migrate: ensure label/system exist
+    return arr.map(s => ({
+      role: s.role || 'custom',
+      modelKey: s.modelKey || '',
+      label: s.label || ASSEMBLY_ROLES.find(r => r.id === (s.role || 'custom'))?.label || 'Custom',
+      system: s.system || ASSEMBLY_SYSTEMS[s.role] || ASSEMBLY_SYSTEMS.custom,
+    }));
+  } catch { return null; }
+}
 
 function asEnsureInit() {
   if (asInited) return;
   asInited = true;
-  // Default stages mirror the requested assembly line.
-  asStages = ASSEMBLY_ROLES.map(r => ({ role: r.id, modelKey: '' }));
+  // Restore persisted stages or fall back to defaults.
+  const saved = asLoadStages();
+  asStages = saved || asDefaultStages();
   asRenderBrowserPool();
   asRefreshModels();
   asRenderStages();
@@ -3797,6 +3943,7 @@ function asEnsureInit() {
   asUpdatePoolCount();
   asRenderProgressTrack();
   asInitSplitter();
+  asInitDragDrop();
 }
 
 function asModelKey(src, id) { return src + ':' + id; }
@@ -3813,8 +3960,10 @@ window.asRefreshModels = async function() {
     pool.innerHTML = asOllamaModels.length
       ? asOllamaModels.map(m => {
           const k = asModelKey('ollama', m.name);
+          const tier = asModelTier(k);
           return `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k}')">
             <span class="chip-name">${escapeHtmlShared(m.name)}</span>
+            <span class="chip-tier tier-${tier}" title="${tier} capability tier">${TIER_LABEL[tier]}</span>
             <span class="chip-src">OLLAMA</span><span class="chip-check">✓</span></div>`;
         }).join('')
       : '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px;">— no Ollama models —</div>';
@@ -3837,8 +3986,10 @@ function asRenderBrowserPool() {
     html += `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">${escapeHtmlShared(g)}</div>`;
     for (const m of list) {
       const k = asModelKey('browser', m.id);
+      const tier = asModelTier(k);
       html += `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k}')">
         <span class="chip-name">${escapeHtmlShared(m.name)}</span>
+        <span class="chip-tier tier-${tier}" title="${tier} capability tier">${TIER_LABEL[tier]}</span>
         <span class="chip-src">WEBGPU</span><span class="chip-check">✓</span></div>`;
     }
   }
@@ -3870,68 +4021,255 @@ function asUpdatePoolCount() {
   document.getElementById('asPoolBadge').style.color = n ? 'var(--accent)' : 'var(--muted)';
 }
 
+// Per-stage run status shown in the progress track + step panel.
+// 'idle' | 'running' | 'paused' | 'done' | 'error' | 'skipped'
+function asStageStatus(i) {
+  const o = asStepOutputs[i];
+  if (asSkipStages.has(i)) return 'skipped';
+  if (!o) return (asRunning && i === asRunCursor) ? 'running' : 'idle';
+  return o.err ? 'error' : 'done';
+}
+
 function asRenderStages() {
   const list = document.getElementById('asLineList');
   const pool = asPoolList();
   const opts = (sel) => {
     let o = '<option value="">— assign model —</option>';
-    for (const p of pool) o += `<option value="${p.key}"${p.key===sel?' selected':''}>${escapeHtmlShared(p.label)} (${p.src.toUpperCase()})</option>`;
+    for (const p of pool) {
+      const tier = asModelTier(p.key);
+      o += `<option value="${p.key}"${p.key===sel?' selected':''}>${escapeHtmlShared(p.label)} (${p.src.toUpperCase()} · ${TIER_LABEL[tier]})</option>`;
+    }
     return o;
   };
   list.innerHTML = asStages.map((s, i) => {
     const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: 'Custom', sub: '' };
-    return `<div class="role-stage" data-i="${i}">
+    const pref = ASSEMBLY_ROLE_TIER_PREF[s.role] || 'medium';
+    const isCustom = s.role === 'custom';
+    const isBuiltIn = !isCustom;
+    const st = asStageStatus(i);
+    const tierTag = s.modelKey ? `<span class="stage-tier tier-${asModelTier(s.modelKey)}" title="model capability tier">${TIER_LABEL[asModelTier(s.modelKey)]}</span>` : '';
+    return `<div class="role-stage" data-i="${i}" draggable="true">
+      <div class="stage-grip" title="Drag to reorder">⠿</div>
       <div class="stage-num">${i+1}</div>
-      <div class="stage-role">${escapeHtmlShared(role.label)}<span class="role-sub">${escapeHtmlShared(role.sub)}</span></div>
-      <select onchange="asSetStageModel(${i}, this.value)">${opts(s.modelKey)}</select>
-      <button class="stage-del" title="Remove stage" onclick="asDelStage(${i})">✕</button>
+      <div class="stage-main">
+        <div class="stage-role">${escapeHtmlShared(role.label)}<span class="role-sub">${escapeHtmlShared(role.sub)}</span>${tierTag}<span class="stage-pref" title="role prefers ${pref} tier">pref:${pref}</span></div>
+        <input class="stage-name" type="text" value="${escapeHtmlShared(s.label || '')}" placeholder="Stage name (required)"
+          oninput="asEditField(${i},'label',this.value)" onblur="asSaveStage(${i})" />
+        <textarea class="stage-system" spellcheck="false" placeholder="Instructions / system prompt for this stage (required)"
+          oninput="asEditField(${i},'system',this.value)" onblur="asSaveStage(${i})">${escapeHtmlShared(s.system || '')}</textarea>
+        <div class="stage-controls">
+          <span class="stage-status status-${st}" data-status="${st}">${st}</span>
+          <select onchange="asSetStageModel(${i}, this.value)">${opts(s.modelKey)}</select>
+          <button class="stage-move" title="Move up" onclick="asMoveStage(${i},-1)">▲</button>
+          <button class="stage-move" title="Move down" onclick="asMoveStage(${i},1)">▼</button>
+          ${isBuiltIn ? `<button class="stage-reset" title="Reset name+instructions to default" onclick="asResetStage(${i})">↺</button>` : ''}
+          <button class="stage-save" title="Save (auto-saves on blur too)" onclick="asSaveStage(${i})">💾</button>
+          <button class="stage-del" title="Remove stage" onclick="asDelStage(${i})">✕</button>
+        </div>
+        <div class="stage-err" id="asStageErr-${i}"></div>
+      </div>
     </div>`;
   }).join('');
   document.getElementById('asLineBadge').textContent = asStages.length + ' stage' + (asStages.length===1?'':'s');
+  asRenderProgressTrack();
 }
 
-window.asSetStageModel = function(i, key) { asStages[i].modelKey = key; };
+// Two-way binding: edits update asStages[i] live (validation on save).
+window.asEditField = function(i, field, value) {
+  asStages[i][field] = value;
+  // live-clear the inline error when the user starts fixing it
+  const errEl = document.getElementById('asStageErr-' + i);
+  if (errEl && value.trim()) errEl.classList.remove('visible');
+};
+
+// Persist a stage's edits to localStorage. Validates non-empty name+system.
+window.asSaveStage = function(i) {
+  const s = asStages[i];
+  const errEl = document.getElementById('asStageErr-' + i);
+  const nameOk = (s.label || '').trim().length > 0;
+  const sysOk  = (s.system || '').trim().length > 0;
+  if (errEl) {
+    if (!nameOk) { errEl.textContent = 'Name required'; errEl.classList.add('visible'); }
+    else if (!sysOk) { errEl.textContent = 'Instructions required'; errEl.classList.add('visible'); }
+    else { errEl.textContent = ''; errEl.classList.remove('visible'); }
+  }
+  asSaveStages();
+};
+
+window.asSetStageModel = function(i, key) { asStages[i].modelKey = key; asSaveStages(); asRenderStages(); };
+
+// Reset a single built-in stage's label+system back to the default text.
+window.asResetStage = function(i) {
+  const s = asStages[i];
+  const r = ASSEMBLY_ROLES.find(x => x.id === s.role);
+  if (!r) { toast('Only built-in stages can reset'); return; }
+  s.label = r.label;
+  s.system = ASSEMBLY_SYSTEMS[r.id];
+  asSaveStages();
+  asRenderStages();
+  toast('Stage ' + (i+1) + ' reset to default');
+};
 
 window.asAddStage = function() {
-  asStages.push({ role: 'custom', modelKey: '' });
+  asStages.push({ role: 'custom', modelKey: '', label: 'New Stage', system: ASSEMBLY_SYSTEMS.custom });
+  asSaveStages();
   asRenderStages();
 };
 
 window.asDelStage = function(i) {
   if (asStages.length <= 1) { toast('Keep at least one stage'); return; }
   asStages.splice(i, 1);
+  asStepOutputs.splice(i, 1);
+  asSaveStages();
   asRenderStages();
 };
 
+// Keyboard-accessible move up/down (a11y fallback to drag-and-drop).
+window.asMoveStage = function(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= asStages.length) return;
+  const a = asStages, b = asStepOutputs;
+  [a[i], a[j]] = [a[j], a[i]];
+  if (b[i] !== undefined || b[j] !== undefined) { [b[i], b[j]] = [b[j], b[i]]; }
+  asSaveStages();
+  asRenderStages();
+};
+
+// MoA router: assign by role→tier preference when possible, with a diversity
+// guardrail (don't pile every stage onto the same model if alternatives exist).
 window.asAutoAssign = function() {
   const pool = asPoolList();
   if (!pool.length) { toast('Select models in the pool first'); return; }
-  asStages.forEach((s, i) => { s.modelKey = pool[i % pool.length].key; });
+  // Group pool by tier.
+  const byTier = { light: [], medium: [], heavy: [] };
+  for (const p of pool) byTier[asModelTier(p.key)].push(p);
+  const hasHeavy = byTier.heavy.length > 0;
+  // Guardrail: warn if a heavy-preference role would get a light model and
+  // there is no heavy model in the pool. We still assign (user can override).
+  let guardWarn = false;
+  const used = new Set();
+  asStages.forEach((s, i) => {
+    const pref = ASSEMBLY_ROLE_TIER_PREF[s.role] || 'medium';
+    // pick pref tier first, then fall back medium → heavy → light → any
+    const order = [pref, 'medium', 'heavy', 'light'].filter((v, idx, arr) => arr.indexOf(v) === idx);
+    let chosen = null;
+    for (const t of order) {
+      const cands = (byTier[t] || []).filter(p => !used.has(p.key));
+      if (cands.length) { chosen = cands[i % cands.length]; break; }
+    }
+    if (!chosen) {
+      // round-robin fallback over the whole pool
+      chosen = pool[i % pool.length];
+    }
+    if (pref === 'heavy' && asModelTier(chosen.key) === 'light' && !hasHeavy) guardWarn = true;
+    used.add(chosen.key);
+    s.modelKey = chosen.key;
+  });
+  asSaveStages();
   asRenderStages();
-  toast('Auto-assigned ' + pool.length + ' model' + (pool.length===1?'':'s') + ' round-robin');
+  if (guardWarn) {
+    asShowErr('Warning: a heavy-preference role is assigned a light model and no heavy model is in the pool. Add a larger model or override manually.');
+    toast('Auto-assigned with tier guardrail warning');
+  } else {
+    asClearErr();
+    toast('Auto-assigned by capability tier (' + pool.length + ' model' + (pool.length===1?'':'s') + ')');
+  }
 };
 
 window.asResetStages = function() {
-  asStages = ASSEMBLY_ROLES.map(r => ({ role: r.id, modelKey: '' }));
+  asStages = asDefaultStages();
+  asStepOutputs = [];
+  asSaveStages();
   asRenderStages();
+  toast('Stages reset to defaults');
 };
+
+// Native HTML5 drag-and-drop reorder for the stages list.
+function asInitDragDrop() {
+  const list = document.getElementById('asLineList');
+  if (!list || list.dataset.ddInit) return;
+  list.dataset.ddInit = '1';
+  let dragFrom = null;
+  list.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('.role-stage');
+    if (!row) return;
+    dragFrom = parseInt(row.dataset.i, 10);
+    row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', String(dragFrom)); } catch {}
+  });
+  list.addEventListener('dragend', () => {
+    list.querySelectorAll('.role-stage.dragging').forEach(r => r.classList.remove('dragging'));
+    list.querySelectorAll('.role-stage.drag-over').forEach(r => r.classList.remove('drag-over'));
+    dragFrom = null;
+  });
+  list.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const row = e.target.closest('.role-stage');
+    if (row) {
+      list.querySelectorAll('.role-stage.drag-over').forEach(r => r.classList.remove('drag-over'));
+      row.classList.add('drag-over');
+    }
+  });
+  list.addEventListener('dragleave', (e) => {
+    const row = e.target.closest('.role-stage');
+    if (row) row.classList.remove('drag-over');
+  });
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const row = e.target.closest('.role-stage');
+    if (!row || dragFrom == null) return;
+    const to = parseInt(row.dataset.i, 10);
+    if (to === dragFrom || Number.isNaN(to)) return;
+    const moved = asStages.splice(dragFrom, 1)[0];
+    asStages.splice(to, 0, moved);
+    // keep outputs bound to the right stage
+    const movedOut = asStepOutputs.splice(dragFrom, 1)[0];
+    if (movedOut !== undefined) asStepOutputs.splice(to, 0, movedOut);
+    asSaveStages();
+    asRenderStages();
+  });
+}
 
 window.asUpdateParamsBadge = function() {
   const t = parseFloat(document.getElementById('asTemperature').value);
   const m = parseInt(document.getElementById('asMaxTokens').value, 10);
   const c = parseInt(document.getElementById('asNumCtx').value, 10);
+  const rp = parseFloat(document.getElementById('asRepeatPenalty').value);
   document.getElementById('asTempVal').textContent = t.toFixed(2);
   document.getElementById('asMaxVal').textContent  = m;
   document.getElementById('asCtxVal').textContent  = c;
-  document.getElementById('asParamsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c}`;
+  const setVal = (id, v, d=2) => { const el = document.getElementById(id); if (el) el.textContent = (+v).toFixed(d); };
+  setVal('asTopPVal', document.getElementById('asTopP').value);
+  setVal('asTopKVal', document.getElementById('asTopK').value, 0);
+  setVal('asRepeatPenaltyVal', rp);
+  setVal('asPresencePenaltyVal', document.getElementById('asPresencePenalty').value);
+  setVal('asFrequencyPenaltyVal', document.getElementById('asFrequencyPenalty').value);
+  setVal('asMinPVal', document.getElementById('asMinP').value);
+  document.getElementById('asParamsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c} · rp ${rp.toFixed(2)}`;
 };
 
+// Read the extended sampling param set from the Assembly PARAMS sliders.
 function asParams() {
   return {
-    temperature: parseFloat(document.getElementById('asTemperature').value),
-    maxTokens:   parseInt(document.getElementById('asMaxTokens').value, 10),
-    numCtx:      parseInt(document.getElementById('asNumCtx').value, 10),
+    temperature:        parseFloat(document.getElementById('asTemperature').value),
+    maxTokens:          parseInt(document.getElementById('asMaxTokens').value, 10),
+    numCtx:             parseInt(document.getElementById('asNumCtx').value, 10),
+    topP:               parseFloat(document.getElementById('asTopP').value),
+    topK:               parseInt(document.getElementById('asTopK').value, 10),
+    repeatPenalty:      parseFloat(document.getElementById('asRepeatPenalty').value),
+    repeatLastN:        256,
+    presencePenalty:    parseFloat(document.getElementById('asPresencePenalty').value),
+    frequencyPenalty:   parseFloat(document.getElementById('asFrequencyPenalty').value),
+    minP:               parseFloat(document.getElementById('asMinP').value),
   };
+}
+
+// Is context compaction enabled (toggleable, default ON)?
+function asCompactionEnabled() {
+  const el = document.getElementById('asCompaction');
+  return el ? el.checked : true;
 }
 
 function asRenderProgressTrack() {
@@ -4131,8 +4469,19 @@ window.asDownloadZip = async function() {
       manifest: {
         source: 'assembly-line',
         task,
-        stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, ok: !asStepOutputs[i]?.err })),
+        stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, label: s.label, ok: !asStepOutputs[i]?.err })),
       },
+      // Legacy stage manifest sidecar (kept for back-compat with consumers
+      // expecting assembly-line.json; the canonical manifest is prompt-forge.json).
+      extraFiles: [{
+        path: 'assembly-line.json',
+        body: JSON.stringify({
+          generated_at: new Date().toISOString(),
+          task,
+          stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, ok: !asStepOutputs[i]?.err })),
+          file_count: files.length,
+        }, null, 2),
+      }],
     }, { jszipLoader: sharedJSZip, onError: asShowErr });
     const safe = (task.trim().split('\n')[0] || 'assembly-project')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0,40) || 'assembly-project';
@@ -4719,6 +5068,17 @@ window.afDownloadZip = async function() {
         answers: afAnswers,
         generator_models: afPoolList().map(p => p.key),
       },
+      // Legacy agent spec sidecar (back-compat; canonical manifest is
+      // prompt-forge.json).
+      extraFiles: [{
+        path: 'agent-forge-spec.json',
+        body: JSON.stringify({
+          generated_at: new Date().toISOString(),
+          answers: afAnswers,
+          generator_models: afPoolList().map(p => p.key),
+          file_count: afFiles.length,
+        }, null, 2),
+      }],
     }, {
       jszipLoader: sharedJSZip,
       onError: afShowErr,
