@@ -105,6 +105,11 @@ let page;
   const opts = await page.locator('#asLineList select').first().evaluateAll(els => Array.from(els[0].options).map(o => o.value));
   rec('stage dropdown lists selected model', opts.includes('ollama:mock-tiny:1b'));
 
+  // The mock pool is a single 1b (light-tier) model; the heavy-tier
+  // guardrail would refuse to auto-assign heavy roles to it. Enable the
+  // documented override (the test is exercising the run pipeline with a
+  // mock, not the guardrail itself).
+  await page.evaluate(() => asSetHeavyOverride(true));
   await page.evaluate(() => asAutoAssign());
   const assigned = await page.locator('#asLineList select').evaluateAll(els => els.map(e => e.value));
   rec('auto-assign fills all 6 stages', assigned.every(v => v === 'ollama:mock-tiny:1b'));
@@ -121,6 +126,7 @@ let page;
   await page.evaluate(() => {
     while (document.querySelectorAll('#asLineList .role-stage').length > 1) asDelStage(document.querySelectorAll('#asLineList .role-stage').length - 1);
     if (!document.getElementById('asOllamaPool').querySelector('.model-chip.selected')) asTogglePool('ollama:mock-tiny:1b');
+    asSetHeavyOverride(true);   // override guardrail for the mock light-tier pool
     asAutoAssign();
     document.getElementById('asMaxTokens').value = 500; asUpdateParamsBadge();
     document.getElementById('asTaskInput').value = 'tiny test task';

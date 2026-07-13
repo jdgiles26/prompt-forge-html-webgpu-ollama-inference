@@ -1488,6 +1488,9 @@
                     <input type="checkbox" id="asCompaction" checked onchange="asRenderStages()" /> compact context between stages
                   </label>
                   <div style="margin-top:4px;">Anti-loop: penalties auto-scale as ctx fills; repetition loops auto-bump + toast.</div>
+                  <label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;" title="Allow heavy roles (Planner/Architect/Code-Reviewer) to run on LIGHT models. Off by default — the guardrail refuses a run if every pool model is light tier and a heavy role is assigned.">
+                    <input type="checkbox" id="asHeavyOverride" onchange="asSetHeavyOverride(this.checked)" /> override heavy-tier guardrail
+                  </label>
                 </div>
                 <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px;">
                   Final output mode:
@@ -2701,41 +2704,180 @@ function getParams() {
   };
 }
 
+// ── Hallucination / repetition guard config (safe-by-default, tunable) ──────
+// Centralized thresholds so the detector + scaling curve are configurable but
+// ship with conservative defaults that stop the repeating-line / file-corruption
+// failure mode seen on small models (qwen3:0.6b / SmolLM2 / 0.5B coders).
+const PF_GUARD_CFG = {
+  // Repetition-loop detector
+  rep: {
+    window:        1600,   // chars of trailing text to inspect
+    lineMinRepeats: 3,     // >=3 identical normalized trailing lines → loop
+    ngramN:         8,     // 8-token n-gram window
+    ngramMinRepeats:4,     // >=4 repeats of the same 8-gram → loop
+    tokenStreakMax: 18,    // >=18 identical tokens in a row → loop
+    tokenSep:       /[\s,;:.\}\)\]\>\-]+/, // token splitter for streak/n-gram
+  },
+  // Dynamic ctx-fill scaling curve
+  scale: {
+    startFill:    0.70,    // no-op below 70% context fill
+    endFill:      1.00,    // full ramp at 100% fill
+    repeatAdd:    0.20,    // ramp×this added to repeat_penalty
+    repeatCap:    1.30,    //   capped here
+    presenceAdd:  0.30,    // ramp×this added to presence_penalty
+    presenceCap:  0.50,
+    frequencyAdd: 0.30,
+    frequencyCap: 0.50,
+    topPDrop:     0.15,    // ramp×this subtracted from top_p
+    topPFloor:    0.50,
+    topKFloor:    10,      // never let top_k fall below this under scaling
+    minPFloor:    0.05,    // never let min_p fall below this
+  },
+};
+
 // Dynamic anti-repetition scaling. As the running token budget fills toward
-// numCtx, progressively raise repeat_penalty (cap 1.3) and presence/frequency
-// (cap 0.5) and slightly lower top_p. `usedTokens` is the current running
-// token estimate for the active generation; `numCtx` is the context window.
-// Returns an UPDATED param object (does not mutate sliders).
+// numCtx, progressively raise repeat_penalty (cap), presence/frequency (cap),
+// slightly lower top_p (floor), and clamp top_k to a safe floor so the model
+// never collapses to greedy single-token decoding. `usedTokens` is the
+// current running token estimate for the active generation; `numCtx` is the
+// context window. Returns an UPDATED param object (does not mutate sliders).
+// The curve is driven by PF_GUARD_CFG.scale (safe defaults, tunable).
 function scaleParamsForCtxFill(p, usedTokens) {
+  const cfg = PF_GUARD_CFG.scale;
   const fill = Math.max(0, Math.min(1, (usedTokens || 0) / Math.max(1, p.numCtx || 8192)));
-  if (fill < 0.7) return p;
-  // ramp from 0.7..1.0 → 0..1 extra pressure
-  const ramp = (fill - 0.7) / 0.3;
+  if (fill < cfg.startFill) return p;
+  // ramp from startFill..endFill → 0..1 extra pressure
+  const ramp = Math.max(0, Math.min(1, (fill - cfg.startFill) / Math.max(0.0001, (cfg.endFill - cfg.startFill))));
+  const topK = Math.max(cfg.topKFloor, (p.topK == null ? 40 : p.topK));
   return Object.assign({}, p, {
-    repeatPenalty:    Math.min(1.3, (p.repeatPenalty || 1.1) + ramp * 0.2),
-    presencePenalty:  Math.min(0.5, (p.presencePenalty || 0) + ramp * 0.3),
-    frequencyPenalty: Math.min(0.5, (p.frequencyPenalty || 0) + ramp * 0.3),
-    topP:             Math.max(0.5, (p.topP || 0.9) - ramp * 0.15),
+    repeatPenalty:    Math.min(cfg.repeatCap,    (p.repeatPenalty    == null ? 1.1  : p.repeatPenalty)    + ramp * cfg.repeatAdd),
+    presencePenalty:  Math.min(cfg.presenceCap,  (p.presencePenalty  == null ? 0    : p.presencePenalty)  + ramp * cfg.presenceAdd),
+    frequencyPenalty: Math.min(cfg.frequencyCap, (p.frequencyPenalty == null ? 0    : p.frequencyPenalty) + ramp * cfg.frequencyAdd),
+    topP:             Math.max(cfg.topPFloor,    (p.topP             == null ? 0.9  : p.topP)             - ramp * cfg.topPDrop),
+    topK,                                                                                       // floored — never greedy-collapse
+    minP:             Math.max(cfg.minPFloor,    (p.minP             == null ? 0.05 : p.minP)),           // never fall below floor
   });
 }
 
-// Client-side repetition-loop detector. Inspects the trailing text and
-// returns true if the last few lines/tokens repeat beyond a threshold.
-// `window` is how many chars to inspect; `minRepeats` is the count of
-// repetitions of the dominant line required to flag a loop.
+// Client-side repetition-loop detector (hardened). Three independent signals,
+// any one of which flags a loop:
+//   (a) LINE repeat:   the last N non-empty lines are byte-identical after
+//                       whitespace normalization (the classic repeating-line
+//                       failure mode).
+//   (b) N-GRAM repeat:  the same N-token sequence repeats >= M times in the
+//                       trailing window (catches loops that vary per-line but
+//                       recycle a phrase, e.g. the same import block over and
+//                       over with a changed header).
+//   (c) TOKEN STREAK:   >= M identical tokens in a row (catches degenerate
+//                       single-token spam: "            }            }").
+// `opts` may override any field of PF_GUARD_CFG.rep. Returns true on a trip.
 function detectRepetitionLoop(text, opts) {
-  opts = opts || {};
-  const win = opts.window || 1200;
-  const minRepeats = opts.minRepeats || 4;
   if (!text || text.length < 40) return false;
-  const tail = text.slice(-win);
-  const lines = tail.split('\n').filter(l => l.trim().length > 0);
-  if (lines.length < minRepeats) return false;
-  const last = lines.slice(-minRepeats);
-  const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
-  const first = norm(last[0]);
-  if (!first) return false;
-  return last.every(l => norm(l) === first);
+  const cfg = Object.assign({}, PF_GUARD_CFG.rep, opts || {});
+  const tail = text.slice(-Math.max(40, cfg.window));
+  const norm = s => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // (a) line repeat
+  const lines = tail.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length >= cfg.lineMinRepeats) {
+    const lastN = lines.slice(-cfg.lineMinRepeats).map(norm);
+    const first = lastN[0];
+    if (first && lastN.every(l => l === first)) return true;
+  }
+
+  // (b) n-gram repeat — over a flat token stream of the tail. Two signals:
+  //   (b1) the most-recent N-token n-gram appears >= M times ANYWHERE in the
+  //        tail (catches a recycled phrase even with interleaved differing
+  //        tokens, e.g. the same import block re-emitted with new headers), AND
+  //   (b2) contiguous aligned repeats of the most-recent n-gram (the strict
+  //        back-to-back loop). Either tripping flags a loop.
+  const toks = tail.split(cfg.tokenSep).filter(t => t.length > 0);
+  const N = Math.max(2, cfg.ngramN | 0);
+  if (toks.length >= N + N) {
+    const key = i => toks.slice(i, i + N).join(' ');
+    const lastKey = key(toks.length - N);
+    if (lastKey && lastKey.replace(/\s+/g, '').length >= N) {   // ignore trivial all-separator n-grams
+      // (b1) frequency of the trailing n-gram across the whole tail
+      let freq = 0;
+      for (let i = 0; i + N <= toks.length; i++) if (key(i) === lastKey) freq++;
+      if (freq >= cfg.ngramMinRepeats) return true;
+      // (b2) contiguous aligned streak
+      let streak = 1;
+      for (let i = toks.length - N - N; i >= 0; i -= N) {
+        if (key(i) === lastKey) streak++; else break;
+      }
+      if (streak >= cfg.ngramMinRepeats) return true;
+    }
+  }
+
+  // (c) token streak — identical token repeated >= M times in a row
+  if (toks.length >= cfg.tokenStreakMax) {
+    let streak = 1;
+    for (let i = toks.length - 2; i >= 0; i--) {
+      if (toks[i] === toks[i + 1] && toks[i].length > 0) {
+        streak++;
+        if (streak >= cfg.tokenStreakMax) return true;
+      } else break;
+    }
+  }
+
+  return false;
+}
+
+// ── FILE-block integrity scanner ─────────────────────────────────────────────
+// Detects malformed / truncated / unbalanced === FILE: === === END FILE ===
+// blocks in a (possibly still-streaming) text. Returns { ok, errors[], openBlock }
+// so callers can (a) refuse to emit a corrupt zip and (b) know whether a loop
+// tripped mid-FILE-block (openBlock set) so the output can be marked errored
+// rather than emitting a truncated file.
+function scanFileBlocks(text) {
+  const normalized = (text || '').replace(/\r\n/g, '\n');
+  const errors = [];
+  const opens = [];          // indices of unmatched === FILE: ... === lines
+  const lines = normalized.split('\n');
+  let inBlock = false, curPath = null, curStart = 0;
+  const fileRe = /^===\s*FILE:\s*(.*?)\s*===\s*$/;
+  const endRe  = /^===\s*END FILE\s*===\s*$/;
+  const seen = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    const fm = lines[i].match(fileRe);
+    const em = lines[i].match(endRe);
+    if (fm) {
+      if (inBlock) {
+        // Nested FILE header without a closing END → malformed.
+        errors.push({ line: i + 1, kind: 'nested', path: curPath });
+      }
+      const p = (fm[1] || '').trim();
+      if (!p) { errors.push({ line: i + 1, kind: 'empty-path' }); }
+      else if (seen.has(p)) { errors.push({ line: i + 1, kind: 'duplicate', path: p }); }
+      else seen.add(p);
+      inBlock = true; curPath = p; curStart = i + 1;
+      opens.push({ line: i + 1, path: p });
+    } else if (em) {
+      if (!inBlock) { errors.push({ line: i + 1, kind: 'orphan-end' }); }
+      else { inBlock = false; curPath = null; opens.pop(); }
+    }
+  }
+  return {
+    ok: errors.length === 0 && !inBlock,
+    errors,
+    openBlock: inBlock ? { path: curPath, startLine: curStart } : null,
+    uniqueFiles: seen.size,
+  };
+}
+
+// Global "output compromised" flag. Set by the repetition detector / file
+// integrity guard when a generation had to be killed mid-flight or a FILE
+// block was malformed. Surfaced in the validate panel + blocks "done" state.
+let pfOutputCompromised = false;
+let pfCompromiseReason = '';
+function pfMarkCompromised(reason) {
+  pfOutputCompromised = true;
+  pfCompromiseReason = reason || 'output compromised';
+}
+function pfClearCompromised() {
+  pfOutputCompromised = false;
+  pfCompromiseReason = '';
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2995,14 +3137,35 @@ function appendOutput(chunk) {
   }
   tokCount += approxTokens(chunk);
   // Throttled repetition-loop detector (<=1 check / 250ms). If the trailing
-  // output is clearly repeating, soft-stop the active generation and toast.
+  // output is clearly repeating, soft-stop the active generation, toast, and
+  // — if the loop tripped mid-FILE-block — mark the output COMPROMISED so the
+  // export path refuses to ship a truncated/corrupt file. We never silently
+  // emit a half-written FILE block.
   const now = performance.now();
   if (now - _repLoopLastCheck > 250) {
     _repLoopLastCheck = now;
-    if (detectRepetitionLoop(outputContent.dataset.raw || '')) {
+    const raw = outputContent.dataset.raw || '';
+    if (detectRepetitionLoop(raw)) {
       stopRequested = true;
       if (abortCtl) { try { abortCtl.abort(); } catch {} }
-      toast('Repetition loop detected - stopping. Raise repeat_penalty or top_k.');
+      const scan = scanFileBlocks(raw);
+      if (scan.openBlock) {
+        // Loop tripped inside an open === FILE: ... === block. Truncate the
+        // raw output back to the start of that block so a corrupt/half file
+        // never reaches parseProjectFiles / the zip builder, and mark the
+        // generation errored (blocks "done").
+        const cut = raw.lastIndexOf('=== FILE:', raw.length - 1);
+        if (cut > 0) {
+          outputContent.dataset.raw = raw.slice(0, cut).replace(/\s+$/, '');
+          outputTextNode.data = outputContent.dataset.raw;
+        }
+        pfMarkCompromised('repetition loop mid-FILE-block (' + (scan.openBlock.path || '(unnamed)') + ')');
+        toast('Repetition loop inside FILE block "' + (scan.openBlock.path || '?') + '" — output marked compromised, file dropped.');
+      } else {
+        pfMarkCompromised('repetition loop detected');
+        toast('Repetition loop detected - stopping. Raise repeat_penalty or top_k.');
+      }
+      updateOutputMeter();
     }
   }
 }
@@ -3149,6 +3312,7 @@ window.forge = async function() {
   clearErr();
   streaming = true;
   stopRequested = false;
+  pfClearCompromised();   // reset output-compromised flag at the start of each forge
   forgeBtn.disabled = true;
   forgeBtn.textContent = '⏳ FORGING...';
   stopBtn.style.display = '';
@@ -3160,7 +3324,15 @@ window.forge = async function() {
     if (backend === 'ollama') await runOllama(userText);
     else if (backend === 'hf') await runHF(userText);
     else                       await runBrowser(userText);
-    setStatus('live', stopRequested ? 'STOPPED' : 'COMPLETE');
+    // If the repetition detector tripped or a FILE block was malformed, do
+    // NOT mark this generation "complete" — surface a clear compromised state
+    // and let the validator/export path refuse to ship a corrupt artifact.
+    if (pfOutputCompromised) {
+      setStatus('err', 'OUTPUT COMPROMISED');
+      showErr('⚠ Output compromised — ' + pfCompromiseReason + '. Review before export. The validator and zip exporter will refuse a corrupt payload.');
+    } else {
+      setStatus('live', stopRequested ? 'STOPPED' : 'COMPLETE');
+    }
     lastOutput = getRawOutput();
     lastTaskText = userText;
     refineBtn.disabled = !lastOutput;
@@ -3492,11 +3664,23 @@ async function buildProjectZip(parts, opts = {}) {
     throw new Error(e);
   }
 
-  // 1. Duplicate-path + empty-body integrity scan
+  // 1. Duplicate-path + empty-path + malformed integrity scan. This is the
+  //    last line of defense before bytes reach JSZip — a half-written or
+  //    duplicate FILE block must never produce a corrupt archive.
   const seen = new Set();
   for (const f of files) {
+    if (!f || !f.path || !String(f.path).trim()) {
+      const e = 'Malformed FILE block: empty/missing path in payload.';
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
     if (seen.has(f.path)) {
       const e = 'Duplicate path in payload: ' + f.path;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+    if (f.body == null) {
+      const e = 'Truncated FILE block (null body): ' + f.path;
       (opts.onError || showErr)(e);
       throw new Error(e);
     }
@@ -3583,6 +3767,22 @@ async function buildProjectZip(parts, opts = {}) {
 window.downloadZip = async function() {
   const text = getRawOutput();
   if (!text) return;
+  // Guard: refuse to export a compromised payload (repetition loop tripped
+  // mid-generation, or a malformed/truncated/duplicate FILE block). Surface
+  // a clear error instead of silently producing a corrupt zip.
+  const scan = scanFileBlocks(text);
+  if (pfOutputCompromised) {
+    showErr('⚠ Cannot export — output is marked compromised (' + pfCompromiseReason + '). Re-forge or fix the output and re-validate.');
+    toast('Export blocked: output compromised');
+    return;
+  }
+  if (!scan.ok) {
+    const reason = scan.errors.map(e => e.kind + (e.path ? ' ' + e.path : '') + ' @line ' + e.line).join('; ')
+                 + (scan.openBlock ? '; open FILE block: ' + (scan.openBlock.path || '?') : '');
+    showErr('⚠ Cannot export — malformed FILE blocks: ' + reason + '. Fix the output and re-validate.');
+    toast('Export blocked: ' + scan.errors.length + ' FILE-block error(s)');
+    return;
+  }
   const files = parseProjectFiles(text);
   try {
     const blob = await buildProjectZip({
@@ -3662,6 +3862,22 @@ window.validateOutput = function() {
   const lines = [];
   const escape = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const push = (cls, txt) => lines.push(`<div class="${cls}">${escape(txt)}</div>`);
+
+  // Compromised-output banner: if the repetition detector tripped or a FILE
+  // block was malformed, surface it at the top of the validate panel so the
+  // user knows NOT to trust / export this output.
+  if (pfOutputCompromised) {
+    push('bad', '⚠ OUTPUT COMPROMISED — ' + pfCompromiseReason + '. Review before export; the zip exporter will refuse this payload.');
+  }
+  // FILE-block integrity scan (malformed/nested/orphan-end/open-block).
+  const fscan = scanFileBlocks(text);
+  if (!fscan.ok) {
+    push('section-name', '— FILE-block integrity —');
+    for (const e of fscan.errors) {
+      push('bad', '✗ ' + e.kind + (e.path ? ' ' + e.path : '') + ' @line ' + e.line);
+    }
+    if (fscan.openBlock) push('bad', '✗ open/truncated FILE block: ' + (fscan.openBlock.path || '?') + ' (no matching END FILE)');
+  }
 
   if (mode === 'project') {
     const files = parseProjectFiles(text);
@@ -4997,7 +5213,43 @@ const ASSEMBLY_ROLE_TIER_PREF = {
   plan: 'heavy', review_plan: 'heavy', taskout: 'heavy',
   execute: 'heavy', codereview: 'heavy', final: 'medium', custom: 'medium',
 };
+// Roles that MUST run on a capable model — if every model in the pool is
+// "light" tier and one of these roles is assigned a light model, the run is
+// refused unless the user explicitly sets the heavy-tier override below.
+const HEAVY_ROLES = new Set(['plan', 'review_plan', 'taskout', 'codereview']);
+// User override for the heavy-tier guardrail (persisted). When true, a heavy
+// role may run on a light model with a continued warning. Default false.
+let asHeavyTierOverride = false;
+(function loadHeavyOverride(){
+  try { asHeavyTierOverride = localStorage.getItem('pf.as.heavyOverride') === '1'; } catch {}
+})();
+function asSaveHeavyOverride() { try { localStorage.setItem('pf.as.heavyOverride', asHeavyTierOverride ? '1' : '0'); } catch {} }
+window.asSetHeavyOverride = function(v) {
+  asHeavyTierOverride = !!v;
+  asSaveHeavyOverride();
+  toast(asHeavyTierOverride ? 'Heavy-tier guardrail override ON' : 'Heavy-tier guardrail restored');
+  asRenderStages();
+};
 const TIER_LABEL = { light: 'LIGHT', medium: 'MED', heavy: 'HEAVY' };
+
+// Capability check: returns { ok, reason } describing whether the current
+// stage configuration satisfies the minimum-model-capability guardrail. If
+// every model in the pool is light tier AND a heavy role is assigned a light
+// model, ok=false unless the user override is set.
+function asCheckCapability() {
+  const pool = asPoolList();
+  const hasNonLight = pool.some(p => asModelTier(p.key) !== 'light');
+  if (hasNonLight) return { ok: true, reason: null };
+  for (const s of asStages) {
+    if (HEAVY_ROLES.has(s.role) && s.modelKey && asModelTier(s.modelKey) === 'light') {
+      return {
+        ok: false,
+        reason: 'Heavy role "' + (s.label || s.role) + '" is assigned a LIGHT model and no medium/heavy model is in the pool. Add a larger model, or enable the heavy-tier override.',
+      };
+    }
+  }
+  return { ok: true, reason: null };
+}
 
 function asModelTier(key) {
   const { src, id } = asParseKey(key);
@@ -5066,6 +5318,9 @@ function asEnsureInit() {
   // Restore persisted stages or fall back to defaults.
   const saved = asLoadStages();
   asStages = saved || asDefaultStages();
+  // Reflect persisted heavy-tier override state in the checkbox.
+  const ov = document.getElementById('asHeavyOverride');
+  if (ov) ov.checked = asHeavyTierOverride;
   asRenderBrowserPool();
   asRefreshModels();
   asRenderStages();
@@ -5222,11 +5477,15 @@ function asRenderStages() {
     const isBuiltIn = !isCustom;
     const st = asStageStatus(i);
     const tierTag = s.modelKey ? `<span class="stage-tier tier-${asModelTier(s.modelKey)}" title="model capability tier">${TIER_LABEL[asModelTier(s.modelKey)]}</span>` : '';
+    // Warn chip when a heavy role is assigned a light model (the MoA guardrail
+    // will refuse the run unless the heavy-tier override is enabled).
+    const lightHeavyWarn = (s.modelKey && HEAVY_ROLES.has(s.role) && asModelTier(s.modelKey) === 'light')
+      ? `<span class="stage-tier tier-light" title="heavy role on a LIGHT model — guardrail will block the run unless overridden" style="color:var(--amber);border-color:var(--amber)">⚠ GUARDRAIL</span>` : '';
     return `<div class="role-stage" data-i="${i}" draggable="true">
       <div class="stage-grip" title="Drag to reorder">⠿</div>
       <div class="stage-num">${i+1}</div>
       <div class="stage-main">
-        <div class="stage-role">${escapeHtmlShared(role.label)}<span class="role-sub">${escapeHtmlShared(role.sub)}</span>${tierTag}<span class="stage-pref" title="role prefers ${pref} tier">pref:${pref}</span></div>
+        <div class="stage-role">${escapeHtmlShared(role.label)}<span class="role-sub">${escapeHtmlShared(role.sub)}</span>${tierTag}${lightHeavyWarn}<span class="stage-pref" title="role prefers ${pref} tier">pref:${pref}</span></div>
         <input class="stage-name" type="text" value="${escapeHtmlShared(s.label || '')}" placeholder="Stage name (required)"
           oninput="asEditField(${i},'label',this.value)" onblur="asSaveStage(${i})" />
         <textarea class="stage-system" spellcheck="false" placeholder="Instructions / system prompt for this stage (required)"
@@ -5314,9 +5573,19 @@ window.asMoveStage = function(i, dir) {
 
 // MoA router: assign by role→tier preference when possible, with a diversity
 // guardrail (don't pile every stage onto the same model if alternatives exist).
+// Strengthened: if the pool is ALL light tier AND a heavy role exists, refuse
+// to auto-assign (the run would be blocked by the capability guardrail anyway)
+// unless the user has enabled the heavy-tier override.
 window.asAutoAssign = function() {
   const pool = asPoolList();
   if (!pool.length) { toast('Select models in the pool first'); return; }
+  const hasNonLight = pool.some(p => asModelTier(p.key) !== 'light');
+  const hasHeavyRole = asStages.some(s => HEAVY_ROLES.has(s.role));
+  if (!hasNonLight && hasHeavyRole && !asHeavyTierOverride) {
+    asShowErr('Cannot auto-assign: every pool model is LIGHT tier but a heavy role (Planner / Plan Reviewer / Task Architect / Code Reviewer) is present. Add a larger (medium/heavy) model to the pool, or enable the heavy-tier override to force-assign light models with a warning.');
+    toast('Auto-assign blocked: add a larger model or enable override');
+    return;
+  }
   // Group pool by tier.
   const byTier = { light: [], medium: [], heavy: [] };
   for (const p of pool) byTier[asModelTier(p.key)].push(p);
@@ -5623,14 +5892,28 @@ function asAppendChunk(stepEl, chunk) {
     const t = asStageTelemetry[asRunCursor] || (asStageTelemetry[asRunCursor] = { tokens: 0, startTs: performance.now() });
     t.tokens += approxTokens(chunk);
   }
-  // throttled repetition-loop guard
+  // Throttled repetition-loop guard (hardened). On a trip we stop the active
+  // stage, and — if the loop fired mid-FILE-block — truncate the partial
+  // block out of the raw output so a corrupt file never reaches the zip
+  // builder, then mark the stage + final output compromised.
   const now = performance.now();
   if (now - _asRepLast > 250) {
     _asRepLast = now;
-    if (detectRepetitionLoop(body.dataset.raw || '')) {
+    const raw = body.dataset.raw || '';
+    if (detectRepetitionLoop(raw)) {
       asStopReq = true;
       if (asAbort) { try { asAbort.abort(); } catch {} }
-      toast('Repetition loop detected at stage ' + (asRunCursor+1) + ' - stopping. Raise repeat_penalty or top_k.');
+      const scan = scanFileBlocks(raw);
+      if (scan.openBlock) {
+        const cut = raw.lastIndexOf('=== FILE:', raw.length - 1);
+        if (cut > 0) body.dataset.raw = raw.slice(0, cut).replace(/\s+$/, '');
+        body.innerHTML = tintMdInline(body.dataset.raw);
+        pfMarkCompromised('repetition loop mid-FILE-block at stage ' + (asRunCursor+1) + ' (' + (scan.openBlock.path || '(unnamed)') + ')');
+        toast('Repetition loop inside FILE block at stage ' + (asRunCursor+1) + ' — output marked compromised, file dropped.');
+      } else {
+        pfMarkCompromised('repetition loop at stage ' + (asRunCursor+1));
+        toast('Repetition loop detected at stage ' + (asRunCursor+1) + ' - stopping. Raise repeat_penalty or top_k.');
+      }
     }
   }
   asRenderTelemetry();
@@ -5650,27 +5933,57 @@ function asFinalizeStep(i, err) {
 // No model required — this is a structural summary that fits in a fraction
 // of the tokens the raw concatenation would consume. The immediately prior
 // stage's raw output is passed through UNcompacted so detail isn't lost.
+// File paths whose BODIES must survive compaction — these are the PRD/spec
+// essentials + the agent/drift scaffolding downstream stages (especially the
+// Executor and Code Reviewer) need verbatim. Paths are matched by suffix.
+const PF_COMPACT_KEEP_BODIES = /^(.*\/)?(prd|spec|tdd|agent|drift|capabilities|architectural|prompt-sequence|README|CLAUDE|AGENTS|DONE)\.md$/i;
+// Hard token-budget cap (approx) for the compacted context payload. If the
+// summary would exceed this, per-stage tails are trimmed before bodies, so
+// essentials are preserved last. Configurable via PF_GUARD_CFG.compact.
+const PF_COMPACT_TOKEN_CAP = 3500;
+
 function asCompactContext(i, userTask) {
   const summary = {
     user_task: userTask,
     stages: [],
   };
+  let budget = PF_COMPACT_TOKEN_CAP;
+  const approx = (s) => Math.ceil((String(s || '').length) / 4);
   for (let j = 0; j < i; j++) {
     const o = asStepOutputs[j];
     if (!o || !o.output) continue;
     const s = asStages[j];
-    const files = parseFilesShared(o.output).map(f => f.path);
+    const parsed = parseFilesShared(o.output);
+    const files = parsed.map(f => f.path);
+    // Preserve the BODIES of PRD/spec/essential docs verbatim (never drop
+    // FILE blocks needed downstream). Other files keep just the path list.
+    const keepBodies = {};
+    for (const f of parsed) {
+      if (PF_COMPACT_KEEP_BODIES.test(f.path)) keepBodies[f.path] = f.body;
+    }
     // pull ## headings as the per-stage "decisions" sketch
     const heads = (o.output.match(/^#{1,3}\s+.+$/gm) || []).slice(0, 8);
-    summary.stages.push({
+    let tail = o.output.slice(-400);
+    // budget trimming: drop the tail first if we're over budget, then heads,
+    // but NEVER drop the keepBodies (they're the downstream essentials).
+    let stageEntry = {
       n: j + 1,
       role: s.role,
       label: s.label || s.role,
       ok: !o.err,
       files,
       headings: heads,
-      tail: o.output.slice(-400),
-    });
+      tail,
+      keep_bodies: keepBodies,
+    };
+    let used = approx(JSON.stringify(stageEntry));
+    while (used > Math.max(400, budget / Math.max(1, (i - j))) && (stageEntry.tail || stageEntry.headings.length)) {
+      if (stageEntry.tail) { stageEntry.tail = stageEntry.tail.slice(0, Math.floor(stageEntry.tail.length / 2)); }
+      else if (stageEntry.headings.length) { stageEntry.headings = stageEntry.headings.slice(0, Math.max(0, stageEntry.headings.length - 1)); }
+      used = approx(JSON.stringify(stageEntry));
+    }
+    budget -= used;
+    summary.stages.push(stageEntry);
   }
   return JSON.stringify(summary, null, 2);
 }
@@ -5687,14 +6000,35 @@ function asBuildPrompt(i, userTask) {
   const fb = (stage && stage.role === 'codereview' && asLastSandboxResult)
     ? '\n\n' + sandboxFeedbackBlock(asLastSandboxResult) : '';
   if (compactOn && i > 0) {
-    const compact = asCompactContext(i, userTask);
+    let compact = '';
+    try {
+      compact = asCompactContext(i, userTask);
+      // Validate the compacted payload is parseable JSON before passing it
+      // onward. If compaction produced invalid JSON (shouldn't happen, but
+      // a corrupted summary must never silently reach the next stage), fall
+      // back to the legacy raw-concatenation format for this handoff.
+      JSON.parse(compact);
+    } catch (compactErr) {
+      compact = null;
+    }
     const prevIdx = i - 1;
     const prev = asStepOutputs[prevIdx];
     const prevLabel = asStages[prevIdx] ? (asStages[prevIdx].label || asStages[prevIdx].role) : ('Stage ' + (prevIdx+1));
     const prevBlock = prev && prev.output
       ? `\n--- PRIOR STAGE ${prevIdx+1}: ${prevLabel} (raw output) ---\n${prev.output}`
       : '';
-    return `USER TASK:\n${userTask}\n\n--- COMPACTED CONTEXT (prior stages) ---\n${compact}${prevBlock}${fb}`;
+    if (compact) {
+      return `USER TASK:\n${userTask}\n\n--- COMPACTED CONTEXT (prior stages) ---\n${compact}${prevBlock}${fb}`;
+    }
+    // Fallback: raw concatenation (compaction failed JSON validation).
+    const parts = ['USER TASK:\n' + userTask];
+    for (let j = 0; j < i; j++) {
+      const o = asStepOutputs[j];
+      if (!o) continue;
+      const role = ASSEMBLY_ROLES.find(r => r.id === asStages[j].role) || { label: 'Stage ' + (j+1) };
+      parts.push(`\n--- PRIOR STAGE ${j+1}: ${role.label} ---\n${o.output}`);
+    }
+    return parts.join('\n') + fb;
   }
   // Legacy: raw concatenation of every prior stage's full output.
   const parts = ['USER TASK:\n' + userTask];
@@ -5709,7 +6043,8 @@ function asBuildPrompt(i, userTask) {
 }
 
 // Validate stage configuration before run. Returns the first error string
-// or null if every stage is runnable (model assigned, non-empty name+system).
+// or null if every stage is runnable (model assigned, non-empty name+system,
+// AND the heavy-tier capability guardrail is satisfied unless overridden).
 function asValidateStages() {
   if (!asStages.length) return 'Add at least one stage.';
   for (let i = 0; i < asStages.length; i++) {
@@ -5717,6 +6052,14 @@ function asValidateStages() {
     if (!s.modelKey) return `Stage ${i+1} has no model assigned. Assign one (or use AUTO-ASSIGN).`;
     if (!(s.label || '').trim()) return `Stage ${i+1} needs a name.`;
     if (!(s.system || '').trim()) return `Stage ${i+1} needs instructions / a system prompt.`;
+  }
+  // Minimum-model-capability guardrail: refuse to run if every pool model is
+  // light tier and a heavy role (Planner / Plan Reviewer / Task Architect /
+  // Code Reviewer) would run on a light model — unless the user explicitly
+  // enabled the heavy-tier override.
+  if (!asHeavyTierOverride) {
+    const cap = asCheckCapability();
+    if (!cap.ok) return cap.reason;
   }
   return null;
 }
@@ -5732,6 +6075,7 @@ window.asRun = async function(opts) {
 
   asClearErr();
   asRunning = true; asStopReq = false; asPaused = false;
+  pfClearCompromised();   // reset output-compromised flag at the start of each assembly run
   const fromStage = Math.max(0, Math.min(asStages.length - 1, opts.from | 0));
   const isRerun = opts.from != null;
   // Fresh run: clear outputs+telemetry. Re-run: keep prior outputs < from.
@@ -5846,8 +6190,19 @@ window.asRun = async function(opts) {
           let result = await sandboxRunForExecutor(output);
           asLastSandboxResult = result;
           let iter = 0;
-          const maxIter = sandboxMaxIter();
+          // Hard cap (defensive): never exceed 5 auto-fix iterations even if
+          // the user-configured max is higher — guarantees the loop terminates
+          // and avoids burning tokens on a model that can't self-correct.
+          const userMax = sandboxMaxIter();
+          const maxIter = Math.max(0, Math.min(userMax, 5));
+          const seenStderr = new Set();   // stall detection: identical stderr twice → bail
           while (result && result.exit !== 0 && iter < maxIter && !asStopReq) {
+            const stderrSig = (result.stderr || '').trim().slice(0, 500);
+            if (seenStderr.has(stderrSig)) {
+              sandboxAppendLog('--- auto-fix stalled (identical stderr repeated) — stopping loop early ---');
+              break;
+            }
+            seenStderr.add(stderrSig);
             iter++;
             asSandboxIter = iter;
             sandboxAppendLog('--- auto-fix iteration ' + iter + '/' + maxIter + ' (re-running Executor with error) ---');
@@ -5900,9 +6255,17 @@ window.asRun = async function(opts) {
           }
           asSandboxIter = 0;
           if (result && result.exit !== 0) {
-            // Loop exhausted + tests still failing — surface clear state.
+            // Loop exhausted + tests still failing — surface clear state with
+            // the iteration count and the final stderr so the user can see
+            // exactly what the sandbox could not fix.
             sandboxSetStatus('fail', 'tests failing');
-            sandboxAppendLog('Auto-fix loop exhausted — tests still failing. Package will NOT be marked done.');
+            const finalStderr = (result.stderr || '').trim().slice(0, 1200);
+            sandboxAppendLog('Auto-fix loop exhausted after ' + iter + ' iteration' + (iter===1?'':'s') + ' — tests still failing. Package will NOT be marked done.');
+            sandboxAppendLog('Final stderr:\n' + (finalStderr || '(empty)'));
+            toast('Auto-fix exhausted after ' + iter + ' iter(s) — tests still failing');
+          } else if (result && result.exit === 0 && iter > 0) {
+            sandboxAppendLog('Auto-fix succeeded after ' + iter + ' iteration' + (iter===1?'':'s') + ' — tests pass.');
+            toast('Auto-fix succeeded after ' + iter + ' iter(s)');
           }
         }
       } catch (e) {
@@ -5917,16 +6280,51 @@ window.asRun = async function(opts) {
     // The final stage's output is the product.
     const lastGood = [...asStepOutputs].reverse().find(o => o && !o.err && !o.skipped && o.output);
     asFinalText = lastGood ? lastGood.output : (asStepOutputs.length ? (asStepOutputs[asStepOutputs.length-1] && asStepOutputs[asStepOutputs.length-1].output) : '');
+    // Hard guard: never let a half-written FILE block reach the zip. If the
+    // final text has an open === FILE: ... === with no matching END FILE,
+    // truncate the partial block out before anything consumes asFinalText.
+    if (asFinalText) {
+      const fscan = scanFileBlocks(asFinalText);
+      if (fscan.openBlock) {
+        const cut = asFinalText.lastIndexOf('=== FILE:', asFinalText.length - 1);
+        if (cut > 0) asFinalText = asFinalText.slice(0, cut).replace(/\s+$/, '');
+        pfMarkCompromised('truncated FILE block in final output (' + (fscan.openBlock.path || '(unnamed)') + ')');
+        asShowErr('⚠ Final output had an open FILE block ("' + (fscan.openBlock.path || '?') + '") — truncated to avoid a corrupt file. Output marked compromised.');
+      }
+      // Also surface any malformed (nested/orphan-end/duplicate) blocks.
+      if (fscan.errors.length) {
+        pfMarkCompromised('malformed FILE blocks: ' + fscan.errors.map(e => e.kind).join(','));
+        asShowErr('⚠ Malformed FILE blocks in final output: ' + fscan.errors.map(e => e.kind + (e.path ? ' ' + e.path : '') + ' @line ' + e.line).join('; '));
+      }
+    }
     if (asFinalText && !asStopReq) {
       const files = parseFilesShared(asFinalText);
-      document.getElementById('asZipBtn').disabled = !(files.length && outMode === 'project');
+      // Project-mode validation: required project files present? Missing ones
+      // surface a clear "incomplete" state (NOT "done") but do NOT hard-block
+      // the explicit export — the user may intentionally ship a partial pkg.
+      // The compromised/malformed gate (real corruption) is what blocks export.
+      const reqMissing = (outMode === 'project' && files.length)
+        ? REQUIRED_PROJECT_FILES.filter(r => !files.some(f => f.path === r))
+        : [];
+      // Hard block export only on corruption (compromised / malformed blocks).
+      const fscanFinal = scanFileBlocks(asFinalText);
+      const exportBlocked = !files.length || outMode !== 'project' || pfOutputCompromised || !fscanFinal.ok;
+      document.getElementById('asZipBtn').disabled = exportBlocked;
       document.getElementById('asMdBtn').disabled = !asFinalText;
       document.getElementById('asCharCount').textContent = asFinalText.length.toLocaleString() + ' chars';
       // Task 4: never present as "done" if the sandbox ran and tests are failing.
       const testsFailing = asLastSandboxResult && asLastSandboxResult.exit !== 0;
-      if (testsFailing) {
+      // Hard "done" gate: compromised output OR failing tests OR missing
+      // required project files all surface a clear "review before export" state.
+      if (pfOutputCompromised) {
+        asState(`⚠ compromised · ${files.length} files · review before export`);
+        toast('Assembly finished but output is COMPROMISED — review before export');
+      } else if (testsFailing) {
         asState(`tests failing · ${files.length} files · see sandbox log`);
         toast('Assembly complete but tests are failing — see sandbox log');
+      } else if (reqMissing.length) {
+        asState(`incomplete · ${files.length} files · missing ${reqMissing.length} required`);
+        toast('Assembly finished but ' + reqMissing.length + ' required file(s) missing — review before export');
       } else {
         asState(files.length ? `complete · ${files.length} files` : 'complete');
         toast('Assembly line complete');
@@ -5949,6 +6347,19 @@ window.asRun = async function(opts) {
 };
 
 window.asDownloadZip = async function() {
+  if (pfOutputCompromised) {
+    asShowErr('⚠ Cannot export — assembly output is marked compromised (' + pfCompromiseReason + '). Review and re-run the affected stage.');
+    toast('Export blocked: output compromised');
+    return;
+  }
+  const scan = scanFileBlocks(asFinalText);
+  if (!scan.ok) {
+    const reason = scan.errors.map(e => e.kind + (e.path ? ' ' + e.path : '') + ' @line ' + e.line).join('; ')
+                 + (scan.openBlock ? '; open FILE block: ' + (scan.openBlock.path || '?') : '');
+    asShowErr('⚠ Cannot export — malformed FILE blocks: ' + reason);
+    toast('Export blocked: ' + scan.errors.length + ' FILE-block error(s)');
+    return;
+  }
   const files = parseFilesShared(asFinalText);
   if (!files.length) { asShowErr('No FILE blocks in final output.'); return; }
   const task = document.getElementById('asTaskInput').value;
@@ -7864,6 +8275,13 @@ window.__pf = {
   asBuildPrompt, asCompactionEnabled, asValidateStages,
   scaleParamsForCtxFill, detectRepetitionLoop, ollamaOptions, browserChatParams,
   asModelTier, asDefaultStages, asStages: () => asStages,
+  // Hallucination/guard hardening surface (for tests / external introspection):
+  scanFileBlocks, PF_GUARD_CFG,
+  pfOutputCompromised: () => pfOutputCompromised,
+  pfCompromiseReason: () => pfCompromiseReason,
+  pfMarkCompromised, pfClearCompromised,
+  asCheckCapability, HEAVY_ROLES, asHeavyTierOverride: () => asHeavyTierOverride,
+  asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)
   setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
   getAsStepOutputs: () => asStepOutputs,
