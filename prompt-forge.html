@@ -793,6 +793,87 @@
     opacity: 0; transition: opacity 0.12s ease;
   }
   .pf-tip.show { opacity: 1; }
+
+  /* ── Task 4: edge models + sandbox ─────────────────────────────── */
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 4px;
+    padding: 14px 10px;
+    text-align: center;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+  .drop-zone:hover { border-color: var(--accent); color: var(--text); }
+  .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,200,255,0.07);
+    color: var(--text);
+  }
+  .drop-zone .dz-icon { font-size: 18px; display:block; margin-bottom: 4px; }
+  .drop-zone .dz-hint { font-size: 9.5px; color: var(--muted); margin-top:4px; }
+
+  .local-model-entry {
+    display:flex; align-items:center; gap:6px;
+    font-family: var(--mono); font-size: 11px;
+    padding: 4px 8px; border: 1px solid var(--border); border-radius: 3px;
+    margin-bottom: 4px; background: rgba(0,200,255,0.03);
+  }
+  .local-model-entry .lme-name { flex: 1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .local-model-entry .lme-badge {
+    font-size: 9px; letter-spacing: 1px; color: var(--accent);
+    border: 1px solid rgba(0,200,255,0.4); border-radius: 2px; padding: 1px 4px;
+  }
+  .local-model-entry button {
+    font-family: var(--mono); font-size: 10px; color: var(--red);
+    background: transparent; border: 1px solid rgba(255,59,59,0.3); border-radius: 2px;
+    cursor: pointer; padding: 1px 6px;
+  }
+  .local-model-entry button:hover { background: rgba(255,59,59,0.1); }
+
+  .hf-model-opt .rec { color: var(--green); font-weight: bold; font-size: 9px; }
+
+  #sandboxPanel {
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--panel); margin-top: 6px;
+    font-family: var(--mono); font-size: 11px;
+  }
+  #sandboxPanel .sb-head {
+    display:flex; align-items:center; gap:8px;
+    padding: 6px 10px; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  #sandboxPanel .sb-head .sb-chev { margin-left:auto; transition: transform .15s; }
+  #sandboxPanel.collapsed .sb-body { display:none; }
+  #sandboxPanel.collapsed .sb-chev { transform: rotate(-90deg); }
+  #sandboxPanel .sb-status {
+    font-size: 10px; padding: 1px 6px; border-radius: 2px;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  #sandboxPanel .sb-status.idle    { color: var(--muted); }
+  #sandboxPanel .sb-status.running { color: var(--amber); border-color: rgba(255,184,0,0.4); }
+  #sandboxPanel .sb-status.pass    { color: var(--green); border-color: rgba(78,201,125,0.4); }
+  #sandboxPanel .sb-status.fail    { color: var(--red);   border-color: rgba(255,59,59,0.4); }
+  #sandboxPanel .sb-body { padding: 8px 10px; }
+  #sandboxPanel .sb-log {
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 220px; overflow-y: auto;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+    padding: 6px 8px; font-size: 10.5px; color: var(--text); line-height: 1.5;
+    margin-top: 6px;
+  }
+  #sandboxPanel .sb-controls {
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+    font-size: 10px; color: var(--muted);
+  }
+  #sandboxPanel .sb-controls input[type=number] {
+    width: 52px; font-family: var(--mono); font-size: 10px;
+    background: var(--bg); border:1px solid var(--border); border-radius:2px;
+    color: var(--text); padding: 2px 4px;
+  }
 </style>
 </head>
 <body>
@@ -923,6 +1004,7 @@
               <div class="backend-toggle">
                 <button class="backend-btn active" id="btnOllama" onclick="setBackend('ollama')" title="Ollama (Local): Use a local Ollama server as the inference backend.">⚡ Ollama (Local)</button>
                 <button class="backend-btn" id="btnBrowser" onclick="setBackend('browser')" title="Browser AI (WebGPU): Run WebLLM models in-browser via WebGPU — no server needed.">🧠 Browser AI (WebGPU)</button>
+                <button class="backend-btn" id="btnHF" onclick="setBackend('hf')" title="Hugging Face (Cloud, optional): Route inference to the HF Inference API. Optional API key — never logged.">🤗 Hugging Face</button>
               </div>
 
               <div class="backend-config visible" id="ollamaConfig">
@@ -974,6 +1056,35 @@
                 <div class="model-progress" id="modelProgress">
                   <div class="progress-label" id="progressLabel">Downloading model...</div>
                   <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                </div>
+                <div class="drop-zone" id="localDropZone" tabindex="0" role="button" aria-label="Drop a local .gguf or .onnx model file to load it in-browser"
+                  ondragover="localDropHandle(event)" ondragleave="localDropLeave(event)" ondrop="localDropHandle(event)" onclick="document.getElementById('localFileInput').click()">
+                  <span class="dz-icon">⬇</span>
+                  Drop a <b>.gguf</b> or <b>.onnx</b> model here, or click to choose
+                  <div class="dz-hint">Loaded in-browser via transformers.js (WebGPU, CPU fallback). Cached locally. Not uploaded anywhere.</div>
+                </div>
+                <input type="file" id="localFileInput" accept=".gguf,.onnx" style="display:none" onchange="localFilePick(event)" />
+                <div id="localModelList"></div>
+              </div>
+
+              <div class="backend-config" id="hfConfig">
+                <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.55;margin-bottom:6px;">
+                  Route inference to the Hugging Face Inference API. <b>Optional</b> — public model lists work with no key. An API key (stored only in this browser's localStorage) enables authenticated / rate-limited models. Never logged.
+                </div>
+                <div class="row" style="margin-bottom:4px;">
+                  <select id="hfModel" style="flex:1;">
+                    <option value="">— fetch live model list —</option>
+                  </select>
+                  <button class="btn btn-ghost btn-small" onclick="fetchHFModels()" title="Refresh the Hugging Face model list">↻</button>
+                </div>
+                <input type="password" id="hfApiKey" placeholder="HF API key (optional)" oninput="saveHfCreds()" autocomplete="off" />
+                <div class="row" style="margin-top:4px;">
+                  <input type="text" id="hfUrl" placeholder="Inference URL (default: https://api-inference.huggingface.co)" style="flex:1;" oninput="saveHfCreds()" />
+                  <button class="btn btn-ghost btn-small" onclick="hfClearCreds()" title="Clear stored HF key + URL">✕ ERASE</button>
+                </div>
+                <div class="row" style="margin-top:4px;">
+                  <button class="btn btn-ghost btn-small" onclick="hfTestConnection()" title="Test HF connectivity">⇄ TEST CONNECTION</button>
+                  <span id="hfTestResult" style="font-family:var(--mono);font-size:10px;color:var(--muted);"></span>
                 </div>
               </div>
             </div>
@@ -1144,6 +1255,12 @@
                   </div>
                   <div class="model-pool-source"><span class="src-dot src-browser"></span>Browser AI · WebGPU (in-browser)</div>
                   <div class="model-pool-list" id="asBrowserPool"></div>
+                  <div class="model-pool-source"><span class="src-dot src-ollama"></span>Hugging Face (cloud, optional key)</div>
+                  <div class="model-pool-list" id="asHfPool" style="max-height:160px;"></div>
+                  <div class="row" style="margin-top:2px;">
+                    <button class="btn btn-ghost btn-small" onclick="asRefreshHfModels()" title="Refresh the Hugging Face model list">↻ refresh HF</button>
+                    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">live from HF Hub · public, no key needed</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1274,6 +1391,26 @@
             <div class="output-placeholder" style="display:flex;">
               <div class="icon">⚙</div>
               <p>Configure models & stages, then RUN ASSEMBLY LINE</p>
+            </div>
+          </div>
+          <div id="sandboxPanel" class="collapsed">
+            <div class="sb-head" onclick="sandboxToggle()">
+              <span>🧪 TDD SANDBOX (Pyodide / WASM)</span>
+              <span class="sb-status idle" id="sandboxStatus">idle</span>
+              <span class="sb-chev">▾</span>
+            </div>
+            <div class="sb-body">
+              <div class="sb-controls">
+                <label>auto-run tests after Executor
+                  <input type="checkbox" id="sandboxEnabled" onchange="sandboxSaveSettings()" checked />
+                </label>
+                <label>auto-fix loop max
+                  <input type="number" id="sandboxMaxIter" min="0" max="5" value="2" onchange="sandboxSaveSettings()" />
+                </label>
+                <button class="btn btn-ghost btn-small" onclick="sandboxRunNow()" title="Run the sandbox against the latest Executor output now">▶ RUN NOW</button>
+                <button class="btn btn-ghost btn-small" onclick="sandboxClearLog()" title="Clear the sandbox log">✕ CLEAR</button>
+              </div>
+              <div class="sb-log" id="sandboxLog">— no runs yet —</div>
             </div>
           </div>
           <div class="output-actions">
@@ -1922,6 +2059,7 @@ const progressLabel  = document.getElementById('progressLabel');
 const progressFill   = document.getElementById('progressFill');
 const ollamaConfig   = document.getElementById('ollamaConfig');
 const browserConfig  = document.getElementById('browserConfig');
+const hfConfig       = document.getElementById('hfConfig');
 const systemPromptEditor = document.getElementById('systemPromptEditor');
 const zipBtn         = document.getElementById('zipBtn');
 const toastEl        = document.getElementById('toast');
@@ -2337,17 +2475,20 @@ window.setBackend = function(b) {
   backend = b;
   document.getElementById('btnOllama').classList.toggle('active', b === 'ollama');
   document.getElementById('btnBrowser').classList.toggle('active', b === 'browser');
+  document.getElementById('btnHF').classList.toggle('active', b === 'hf');
   ollamaConfig.classList.toggle('visible', b === 'ollama');
   browserConfig.classList.toggle('visible', b === 'browser');
-  document.getElementById('backendBadge').textContent = b === 'ollama' ? 'OLLAMA' : 'WEBGPU';
+  if (hfConfig) hfConfig.classList.toggle('visible', b === 'hf');
+  const badge = document.getElementById('backendBadge');
+  if (badge) badge.textContent = b === 'ollama' ? 'OLLAMA' : (b === 'hf' ? 'HUGGINGFACE' : 'WEBGPU');
   clearErr();
-  // Show the file:// banner only when relevant.
   const banner = document.getElementById('fileProtoBanner');
   if (banner) banner.style.display =
     (b === 'browser' && window.location.protocol === 'file:') ? 'block' : 'none';
   if (b === 'browser' && !('gpu' in navigator)) {
     showErr('⚠ WebGPU not detected. Use Chrome 113+ or Edge 113+.');
   }
+  if (b === 'hf' && !hfModelsLoaded) { fetchHFModels().catch(function(){}); }
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2460,9 +2601,28 @@ async function loadWebLLM() {
 }
 
 async function runBrowser(userText) {
-  if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
-
   const modelId = document.getElementById('browserModel').value;
+
+  // Task 4: local .gguf/.onnx model loaded via transformers.js — route through
+  // the local pipeline (WebGPU where available, CPU fallback). No WebLLM.
+  if (modelId && modelId.indexOf('local:') === 0) {
+    const lm = LOCAL_MODELS.find(m => localModelId(m) === modelId);
+    if (!lm || !lm.pipeline) throw new Error('Local model not loaded. Unload and re-drop the file.');
+    setStatus('busy', 'GENERATING');
+    startOutput();
+    const p = getParams();
+    try {
+      await lm.pipeline.generate({
+        system: getActiveSystemPrompt(), prompt: userText,
+        temperature: p.temperature, maxTokens: p.maxTokens, topP: p.topP,
+        onChunk: c => appendOutput(c),
+        stopFlag: () => stopRequested,
+      });
+    } catch (e) { if (e.name !== 'AbortError') throw e; }
+    return;
+  }
+
+  if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
   setStatus('busy', 'LOADING MODEL');
 
   const webllm = await loadWebLLM();
@@ -2727,6 +2887,7 @@ window.forge = async function() {
   const startTs = Date.now();
   try {
     if (backend === 'ollama') await runOllama(userText);
+    else if (backend === 'hf') await runHF(userText);
     else                       await runBrowser(userText);
     setStatus('live', stopRequested ? 'STOPPED' : 'COMPLETE');
     lastOutput = getRawOutput();
@@ -3469,6 +3630,8 @@ document.addEventListener('keydown', (e) => {
   checkCtxOverflow();
   fetchOllamaModels();
   initTestTypesUI();
+  // Task 4: restore sandbox settings (autoload default-enabled, max-iter 2).
+  try { sandboxLoadSettings(); } catch (e) {}
   // test-types section is project-mode only; setMode handles toggle on switch.
   const ttSec0 = document.getElementById('sec-testtypes');
   if (ttSec0) ttSec0.style.display = (mode === 'project') ? '' : 'none';
@@ -3749,6 +3912,679 @@ async function browserGenerate({ modelId, system, prompt, temperature, maxTokens
 
 
 // ═════════════════════════════════════════════════════════════════════════════
+// TASK 4 — EDGE MODEL LOADING + SANDBOXED TDD EXECUTION
+// All additive, opt-in. Ollama stays the default and intact. transformers.js
+// and pyodide are lazy-loaded from CDN ONLY when their feature is activated.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Local-file model registry (.gguf / .onnx) ───────────────────────────────
+// Each entry: { id, name, file, url, ext, pipeline, bytes }
+// id is stable ("local:" + filename) and used in #browserModel + assembly pool.
+const LOCAL_MODELS = [];            // ordered list
+const LOCAL_MAX_BYTES = 4 * 1024 * 1024 * 1024; // 4 GB cap
+let _transformersMod = null;        // lazy CDN import cache
+
+// Lazy-load @huggingface/transformers (transformers.js) only when a local file
+// is actually loaded. Never imported at base-app boot → keeps app light + offline.
+async function sharedTransformers() {
+  if (_transformersMod) return _transformersMod;
+  _transformersMod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.6');
+  // Allow remote + local model resolution; keep default wasm backends.
+  try {
+    _transformersMod.env.allowLocalModels = true;
+    _transformersMod.env.allowRemoteModels = true;
+  } catch {}
+  return _transformersMod;
+}
+
+// Magic-byte validation. Avoids trusting the extension alone — a renamed
+// .txt or .exe would otherwise be fed to the parser.
+//  GGUF magic: 0x46554747 ("GGUF" little-endian) -> bytes 47 47 55 46
+//  ONNX is a protobuf; the first 8 bytes of an ONNX file are a protobuf
+//  header. We validate the ONNX-protobuf shape: a field tag (08) followed by
+//  a varint length, then a little-endian uint32 magic 0x0A == 'protobuf'.
+//  In practice every ONNX file starts with 0x08 and contains the model doc.
+async function validateLocalModelFile(file) {
+  const name = (file.name || '').toLowerCase();
+  const ext = name.endsWith('.gguf') ? 'gguf' : (name.endsWith('.onnx') ? 'onnx' : null);
+  if (!ext) throw new Error('Unsupported file type. Use .gguf or .onnx.');
+  if (file.size > LOCAL_MAX_BYTES)
+    throw new Error('File too large (' + (file.size/1073741824).toFixed(2) + ' GB). Cap is 4 GB.');
+  // Read first 8 bytes for magic-byte check.
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (ext === 'gguf') {
+    // bytes: 47 47 55 46 ("GGUF")
+    if (!(head[0] === 0x47 && head[1] === 0x47 && head[2] === 0x55 && head[3] === 0x46))
+      throw new Error('Not a valid GGUF file (bad magic bytes).');
+  } else {
+    // ONNX protobuf: first byte is a tag (commonly 0x08 for ir_version field).
+    // Reject obvious non-protobuf (e.g. PNG 89, PDF 25 50, ZIP 50 4B, ELF 7F).
+    const first = head[0];
+    if (first === 0x89 || first === 0x25 || first === 0x50 || first === 0x7F || first === 0x1F)
+      throw new Error('Not a valid ONNX file (bad magic bytes).');
+  }
+  return ext;
+}
+
+// Render the local-file model list under the drop zone (forge view).
+function renderLocalModelList() {
+  const el = document.getElementById('localModelList');
+  if (!el) return;
+  el.innerHTML = LOCAL_MODELS.map(m => {
+    const id = localModelId(m);
+    return '<div class="local-model-entry">'
+      + '<span class="lme-name">' + escapeHtmlShared(m.name) + '</span>'
+      + '<span class="lme-badge">LOCAL · ' + m.ext.toUpperCase() + '</span>'
+      + '<button onclick="unloadLocalModel(\'' + id.replace(/'/g, "\\'") + '\')" title="Unload this local model">unload</button>'
+      + '</div>';
+  }).join('');
+}
+
+function localModelId(m) { return 'local:' + m.name; }
+
+// Register a loaded local model into BOTH the forge #browserModel select and
+// the assembly pool (asRenderBrowserPool) with a clear LOCAL badge.
+function registerLocalModel(m) {
+  const id = localModelId(m);
+  // Forge dropdown
+  const sel = document.getElementById('browserModel');
+  if (sel) {
+    // remove stale option if re-loaded
+    for (const opt of Array.from(sel.options)) if (opt.value === id) opt.remove();
+    const grp = sel.querySelector('optgroup[label="Local files (loaded in-browser)"]')
+      || (() => {
+        const g = document.createElement('optgroup');
+        g.label = 'Local files (loaded in-browser)';
+        sel.appendChild(g); return g;
+      })();
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = m.name + ' · LOCAL ' + m.ext.toUpperCase() + ' · ' + (m.bytes/1048576).toFixed(1) + 'MB';
+    grp.appendChild(o);
+  }
+  // Mirror into the shared BROWSER_MODELS catalog so the assembly + agent-forge
+  // pools pick it up automatically (with a LOCAL group + badge).
+  if (!BROWSER_MODELS.some(x => x.id === id)) {
+    BROWSER_MODELS.push({ id, name: m.name + ' (LOCAL)', grp: 'Local files (in-browser)' });
+  }
+  // Re-render the assembly + agent-forge browser pools if they exist.
+  try { asRenderBrowserPool(); } catch {}
+  try { afRenderBrowserPool(); } catch {}
+}
+
+window.unloadLocalModel = function(id) {
+  const i = LOCAL_MODELS.findIndex(m => localModelId(m) === id);
+  if (i < 0) return;
+  const m = LOCAL_MODELS[i];
+  try { if (m.pipeline && m.pipeline.dispose) m.pipeline.dispose(); } catch {}
+  try { URL.revokeObjectURL(m.url); } catch {}
+  LOCAL_MODELS.splice(i, 1);
+  // remove from catalog + dropdown
+  const bidx = BROWSER_MODELS.findIndex(x => x.id === id);
+  if (bidx >= 0) BROWSER_MODELS.splice(bidx, 1);
+  const sel = document.getElementById('browserModel');
+  if (sel) { for (const opt of Array.from(sel.options)) if (opt.value === id) opt.remove(); }
+  try { asRenderBrowserPool(); } catch {}
+  try { afRenderBrowserPool(); } catch {}
+  renderLocalModelList();
+  toast('Unloaded ' + m.name);
+};
+
+// Build a transformers.js text-generation pipeline for a local file. We point
+// env.localModelPath at the object URL's origin and use the filename as the
+// model id; transformers.js will fetch the onnx/gguf weights from the blob URL.
+// Falls back to wasm (CPU) if WebGPU is unavailable. Returns a wrapper with a
+// chat-completions-style .generate(messages) method.
+async function buildLocalPipeline(m, progressCb) {
+  const tr = await sharedTransformers();
+  const device = ('gpu' in navigator) ? 'webgpu' : 'wasm';
+  progressCb && progressCb(0.05, 'Loading ' + m.ext.toUpperCase() + ' via transformers.js (' + device + ')…');
+  let pipe;
+  try {
+    pipe = await tr.pipeline('text-generation', m.url, {
+      device,
+      dtype: m.ext === 'gguf' ? 'q4' : 'fp32',
+      progress_callback: (p) => {
+        try { progressCb && progressCb(0.5, (p.data && p.data.file) || 'loading…'); } catch {}
+      },
+    });
+  } catch (e) {
+    // Retry on CPU (wasm) — common when WebGPU backend missing/blocked.
+    progressCb && progressCb(0.3, 'WebGPU load failed — retrying on CPU (wasm)…');
+    pipe = await tr.pipeline('text-generation', m.url, {
+      device: 'wasm',
+      dtype: m.ext === 'gguf' ? 'q4' : 'fp32',
+      progress_callback: (p) => { try { progressCb && progressCb(0.6, (p.data && p.data.file) || 'loading…'); } catch {} },
+    });
+  }
+  progressCb && progressCb(1, 'Ready');
+  return {
+    pipe,
+    generate: async ({ system, prompt, temperature, maxTokens, topP, onChunk, stopFlag }) => {
+      const messages = [
+        { role: 'system', content: system },
+        { role: 'user', content: prompt },
+      ];
+      const opts = { max_new_tokens: maxTokens, temperature, top_p: topP, return_full_text: false };
+      let out = '';
+      // transformers.js generate is non-streaming in v3; we emit the whole
+      // text as one chunk. stopFlag still cancels before decode if set.
+      if (stopFlag && stopFlag()) return '';
+      const r = await pipe(messages, opts);
+      out = Array.isArray(r) ? (r[0]?.generated_text?.slice(-1)?.[0]?.content
+            || (typeof r[0]?.generated_text === 'string' ? r[0].generated_text : ''))
+            : (typeof r?.generated_text === 'string' ? r.generated_text : '');
+      if (out && !stopFlag?.()) onChunk && onChunk(out);
+      return out;
+    },
+  };
+}
+
+// Drag-and-drop handlers (ondragover / ondragleave / ondrop) + file input pick.
+window.localDropHandle = function(ev) {
+  ev.preventDefault(); ev.stopPropagation();
+  if (ev.type === 'dragover') {
+    document.getElementById('localDropZone').classList.add('dragover');
+    return;
+  }
+  document.getElementById('localDropZone').classList.remove('dragover');
+  const files = (ev.dataTransfer && ev.dataTransfer.files) ? Array.from(ev.dataTransfer.files) : [];
+  if (!files.length) return;
+  for (const f of files) loadLocalModelFile(f).catch(e => {
+    showErr('Local model load failed: ' + e.message);
+  });
+};
+window.localDropLeave = function(ev) {
+  ev.preventDefault();
+  document.getElementById('localDropZone').classList.remove('dragover');
+};
+window.localFilePick = function(ev) {
+  const files = Array.from(ev.target.files || []);
+  for (const f of files) loadLocalModelFile(f).catch(e => {
+    showErr('Local model load failed: ' + e.message);
+  });
+  ev.target.value = '';
+};
+
+async function loadLocalModelFile(file) {
+  let ext;
+  try { ext = await validateLocalModelFile(file); }
+  catch (e) { showErr(e.message); return; }
+  const url = URL.createObjectURL(file);
+  const entry = { name: file.name, file, url, ext, pipeline: null, bytes: file.size };
+  LOCAL_MODELS.push(entry);
+  registerLocalModel(entry);
+  renderLocalModelList();
+  toast('Loading ' + file.name + ' …');
+  // Show the forge model-progress bar during local load.
+  try {
+    modelProgress.classList.add('visible');
+    progressLabel.textContent = 'Loading local ' + ext.toUpperCase() + '…';
+    progressFill.style.width = '0%';
+  } catch {}
+  try {
+    entry.pipeline = await buildLocalPipeline(entry, (p, txt) => {
+      try { progressFill.style.width = Math.round(p*100) + '%'; progressLabel.textContent = txt; } catch {}
+    });
+    toast('Loaded ' + file.name);
+  } catch (e) {
+    // Degrade gracefully: keep the entry registered but mark pipeline null.
+    entry.pipeline = null;
+    showErr('Could not initialize ' + file.name + ': ' + e.message + '. Entry kept for retry; unload to remove.');
+  } finally {
+    try { modelProgress.classList.remove('visible'); } catch {}
+  }
+}
+
+// ── Hugging Face backend (cloud, optional API key) ───────────────────────────
+// Third backend alongside Ollama + WebGPU. Public model list needs no key;
+// the optional key + custom inference URL are stored ONLY in localStorage.
+// The key is NEVER logged or sent anywhere except the HF inference endpoint.
+
+const HF_LS = { KEY: 'pf.hf.key.v1', URL: 'pf.hf.url.v1', MODEL: 'pf.hf.model.v1' };
+let hfModelsLoaded = false;
+// July-2026 leading open text-generation models surfaced as recommended
+// defaults (the live list still loads from the Hub; these are pinned so the
+// dropdown is useful even when offline).
+const HF_RECOMMENDED = [
+  'meta-llama/Meta-Llama-3.1-8B-Instruct',
+  'Qwen/Qwen2.5-Coder-7B-Instruct',
+  'Qwen/Qwen2.5-7B-Instruct',
+  'deepseek-ai/DeepSeek-V3',
+  'mistralai/Mistral-7B-Instruct-v0.3',
+  'HuggingFaceH4/zephyr-7b-beta',
+];
+
+function hfKey()   { try { return localStorage.getItem(HF_LS.KEY) || ''; } catch { return ''; } }
+function hfUrlVal(){ try { return localStorage.getItem(HF_LS.URL) || 'https://api-inference.huggingface.co'; } catch { return 'https://api-inference.huggingface.co'; } }
+
+window.saveHfCreds = function() {
+  const k = document.getElementById('hfApiKey').value;
+  const u = document.getElementById('hfUrl').value.trim();
+  try {
+    if (k) localStorage.setItem(HF_LS.KEY, k); else localStorage.removeItem(HF_LS.KEY);
+    if (u && u !== 'https://api-inference.huggingface.co')
+      localStorage.setItem(HF_LS.URL, u); else localStorage.removeItem(HF_LS.URL);
+  } catch {}
+};
+window.hfClearCreds = function() {
+  try { localStorage.removeItem(HF_LS.KEY); localStorage.removeItem(HF_LS.URL); } catch {}
+  const k = document.getElementById('hfApiKey'); if (k) k.value = '';
+  const u = document.getElementById('hfUrl'); if (u) u.value = 'https://api-inference.huggingface.co';
+  toast('HF credentials cleared');
+};
+
+// Restore saved HF creds into the inputs on load (key masked as password).
+(function restoreHfCreds() {
+  try {
+    const k = document.getElementById('hfApiKey'); if (k) k.value = hfKey();
+    const u = document.getElementById('hfUrl');
+    if (u) u.value = hfUrlVal();
+  } catch {}
+})();
+
+// Fetch top open text-generation models from the public HF Hub API.
+// No key required. Cached + graceful degradation when offline.
+window.fetchHFModels = async function() {
+  const sel = document.getElementById('hfModel');
+  if (!sel) return;
+  const prev = (sel.value || '').trim();
+  sel.innerHTML = '<option value="">— loading… —</option>';
+  let list = [];
+  try {
+    const r = await fetch('https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1&limit=40', { headers: { 'Accept': 'application/json' } });
+    if (r.ok) list = await r.json();
+  } catch (e) {
+    // offline / blocked — fall back to the recommended defaults only
+  }
+  const ids = list.length ? list.map(m => m.id) : HF_RECOMMENDED.slice();
+  // ensure recommended are present + marked
+  const recommended = new Set(HF_RECOMMENDED);
+  for (const rid of HF_RECOMMENDED) if (!ids.includes(rid)) ids.unshift(rid);
+  let html = '';
+  html += '<optgroup label="Recommended (leading open models, mid-2026)">';
+  for (const id of ids) {
+    if (recommended.has(id))
+      html += '<option value="' + escapeHtmlShared(id) + '" class="hf-model-opt">' + escapeHtmlShared(id) + ' · recommended</option>';
+  }
+  html += '</optgroup>';
+  html += '<optgroup label="All (live from HF Hub, sorted by downloads)">';
+  for (const id of ids) if (!recommended.has(id))
+    html += '<option value="' + escapeHtmlShared(id) + '">' + escapeHtmlShared(id) + '</option>';
+  html += '</optgroup>';
+  sel.innerHTML = html;
+  if (prev) sel.value = prev;
+  hfModelsLoaded = true;
+};
+
+window.hfTestConnection = async function() {
+  const out = document.getElementById('hfTestResult');
+  if (out) { out.textContent = 'testing…'; out.style.color = 'var(--muted)'; }
+  const key = hfKey();
+  const url = hfUrlVal();
+  const headers = key ? { 'Authorization': 'Bearer ' + key } : {};
+  try {
+    // Hit the /api/whoami-v2 endpoint with the key if present (verifies key),
+    // otherwise just probe the public models API.
+    const target = key ? (url.replace(/\/$/, '') + '/api/whoami-v2')
+                       : 'https://huggingface.co/api/models?filter=text-generation&limit=1';
+    const r = await fetch(target, { headers });
+    if (r.ok) {
+      if (out) { out.textContent = '✓ reachable' + (key ? ' · key valid' : ' · no key (public)'); out.style.color = 'var(--green)'; }
+    } else if (r.status === 401 || r.status === 403) {
+      if (out) { out.textContent = '✗ key rejected (' + r.status + ')'; out.style.color = 'var(--red)'; }
+    } else {
+      if (out) { out.textContent = '⚠ HTTP ' + r.status; out.style.color = 'var(--amber)'; }
+    }
+  } catch (e) {
+    if (out) { out.textContent = '✗ unreachable: ' + e.message; out.style.color = 'var(--red)'; }
+  }
+};
+
+// Run one HF inference generation. Uses the HF Inference API text-generation
+// route (SSE streaming when supported, falls back to a single JSON response).
+async function hfGenerate({ model, system, prompt, temperature, maxTokens, topP, topK, onChunk, stopFlag, signal }) {
+  const key = hfKey();
+  const base = hfUrlVal().replace(/\/$/, '');
+  const inputs = (system ? system + '\n\n' : '') + prompt;
+  const body = JSON.stringify({
+    inputs,
+    parameters: {
+      temperature: temperature ?? 0.4,
+      max_new_tokens: maxTokens ?? 512,
+      top_p: topP ?? 0.9,
+      top_k: topK ?? 40,
+      return_full_text: false,
+    },
+    options: { wait_for_model: true },
+  });
+  const headers = { 'Content-Type': 'application/json' };
+  if (key) headers['Authorization'] = 'Bearer ' + key;   // key never logged
+  // Try streaming (SSE) first; HF router supports stream=true for text-generation.
+  let res;
+  try {
+    res = await fetch(base + '/models/' + model, {
+      method: 'POST', headers: { ...headers, 'Accept': 'text/event-stream' },
+      body: JSON.stringify({ inputs, parameters: { temperature: temperature ?? 0.4, max_new_tokens: maxTokens ?? 512, top_p: topP ?? 0.9, top_k: topK ?? 40, return_full_text: false }, options: { wait_for_model: true }, stream: true }),
+      signal,
+    });
+  } catch (e) { if (e.name === 'AbortError') return ''; throw e; }
+  if (!res.ok) {
+    // Fall back to non-streaming request
+    res = await fetch(base + '/models/' + model, { method: 'POST', headers, body, signal });
+    if (!res.ok) throw new Error('HF HTTP ' + res.status + ' ' + (res.statusText || ''));
+    const obj = await res.json();
+    const txt = Array.isArray(obj) ? (obj[0]?.generated_text || '') : (obj?.generated_text || '');
+    if (txt && !(stopFlag && stopFlag())) onChunk && onChunk(txt);
+    return txt;
+  }
+  // Parse SSE stream
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', full = '';
+  while (true) {
+    if (stopFlag && stopFlag()) { try { await reader.cancel(); } catch {} return full; }
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop() || '';
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s || !s.startsWith('data:')) continue;
+      const payload = s.slice(5).trim();
+      if (payload === '[DONE]') return full;
+      try {
+        const obj = JSON.parse(payload);
+        const delta = obj.token?.text || obj.generated_text || '';
+        if (delta) { full += delta; onChunk && onChunk(delta); }
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// Forge-view HF runner (mirrors runOllama / runBrowser shape).
+async function runHF(userText) {
+  const model = document.getElementById('hfModel').value;
+  if (!model) { showErr('Select a Hugging Face model first.'); return; }
+  setStatus('busy', 'GENERATING');
+  startOutput();
+  const p = getParams();
+  try {
+    await hfGenerate({
+      model, system: getActiveSystemPrompt(), prompt: userText,
+      temperature: p.temperature, maxTokens: p.maxTokens, topP: p.topP, topK: p.topK,
+      onChunk: c => appendOutput(c),
+      stopFlag: () => stopRequested,
+      signal: (abortCtl = new AbortController()).signal,
+    });
+  } catch (e) {
+    if (e.name !== 'AbortError') throw e;
+  }
+}
+
+// ── Sandboxed TDD execution (Pyodide in a Web Worker) ────────────────────────
+// Isolation boundary: generated code is NEVER eval'd on the main thread.
+// We spin up a dedicated Web Worker (created from a blob URL) that lazy-loads
+// Pyodide from the CDN and runs the project's test command inside the worker's
+// in-memory FS. Only stdout/stderr/exit code cross back. For JS/TS projects we
+// run the generated test file with a no-importMap `import()` guard inside the
+// same worker (Node built-ins are unavailable, so we surface a clear message).
+let _sandboxWorker = null;
+let _sandboxSeq = 0;
+const _sandboxCallbacks = new Map(); // seq -> resolve/reject
+
+function sandboxWorkerSrc() {
+  // The worker is built from a blob URL so it has no same-origin import map;
+  // it loads pyodide from the CDN on demand. Generated code is NEVER eval'd
+  // on the main thread — only inside this worker's isolated JS + Pyodide WASM.
+  return [
+    "self.pyodideReady = null;",
+    "async function ensurePyodide() {",
+    "  if (self.pyodideReady) return self.pyodideReady;",
+    "  self.pyodideReady = (async () => {",
+    "    importScripts('https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js');",
+    "    const py = await loadPyodide();",
+    "    return py;",
+    "  })();",
+    "  return self.pyodideReady;",
+    "}",
+    "async function runPython(py, files, testCmd) {",
+    "  // Reset the in-memory FS under /home/pyodide so re-runs (auto-fix loop)",
+    "  // don't see stale files from the previous iteration.",
+    "  try {",
+    "    const entries = py.FS.readdir('/home/pyodide').filter(n => n !== '.' && n !== '..');",
+    "    for (const n of entries) { try { py.FS.unlink('/home/pyodide/' + n); } catch(e){ try { py.FS.rmdir('/home/pyodide/' + n); } catch(e2){} } }",
+    "    // recurse into subdirs",
+    "    const walk = (d) => { try { for (const n of py.FS.readdir(d).filter(x => x!=='.' && x!=='..')) { const p = d + '/' + n; try { py.FS.unlink(p); } catch(e){ try { walk(p); py.FS.rmdir(p); } catch(e2){} } } } catch(e){} };",
+    "    walk('/home/pyodide');",
+    "  } catch(e){}",
+    "  for (const f of files) {",
+    "    const parts = f.path.split('/');",
+    "    let dir = '/home/pyodide';",
+    "    for (let i = 0; i < parts.length - 1; i++) { dir += '/' + parts[i]; try { py.FS.mkdir(dir); } catch(e){} }",
+    "    py.FS.writeFile('/home/pyodide/' + f.path, f.body);",
+    "  }",
+    "  py.FS.chdir('/home/pyodide');",
+    "  // Pyodide has no 'python' executable / subprocess — run pytest IN-PROCESS.",
+    "  let stdout = '', stderr = '', exit = 0;",
+    "  try { await py.loadPackage('pytest'); }",
+    "  catch(e) {",
+    "    try { await py.loadPackage('micropip'); await py.runPythonAsync('import micropip; await micropip.install(\"pytest\")'); }",
+    "    catch(e2) { return { stdout: '', stderr: 'pytest unavailable: ' + String(e2), exit: 2 }; }",
+    "  }",
+    "  try {",
+    "    const code = await py.runPythonAsync(" +
+      "`import sys, io, contextlib, importlib\n" +
+      "# Drop cached project modules so re-runs see fresh source.\n" +
+      "for _k in list(sys.modules):\n" +
+      "    if _k.startswith('src') or _k.startswith('tests') or _k.startswith('test'):\n" +
+      "        del sys.modules[_k]\n" +
+      "importlib.invalidate_caches()\n" +
+      "_o, _e = io.StringIO(), io.StringIO()\n" +
+      "with contextlib.redirect_stdout(_o), contextlib.redirect_stderr(_e):\n" +
+      "    import pytest\n" +
+      "    rc = pytest.main(['-q', '--rootdir=/home/pyodide', '--import-mode=importlib', '/home/pyodide'])\n" +
+      "_o.seek(0); _e.seek(0)\n" +
+      "(rc, _o.read(), _e.read())`);",
+    "    let arr = code;",
+    "    try { if (code && code.toJs) arr = code.toJs(); } catch(e){}",
+    "    if (Array.isArray(arr)) { exit = arr[0] | 0; stdout = String(arr[1] || ''); stderr = String(arr[2] || ''); }",
+    "    else { exit = 1; stderr = 'unexpected pytest result: ' + String(arr); }",
+    "  } catch(e) { stderr = 'pytest run error: ' + String(e && (e.message || e)); exit = 1; }",
+    "  return { stdout, stderr, exit };",
+    "}",
+    "self.onmessage = async function(e) {",
+    "  const { seq, lang, files, testCmd } = e.data;",
+    "  try {",
+    "    let result;",
+    "    if (lang === 'python') {",
+    "      const py = await ensurePyodide();",
+    "      result = await runPython(py, files, testCmd);",
+    "    } else {",
+    "      const test = files.find(f => /test.*\\.js$/i.test(f.path));",
+    "      const impl = files.filter(f => !/test.*\\.js$/i.test(f.path) && /\\.(js|mjs)$/i.test(f.path));",
+    "      let stdout = '', stderr = ''; let exit = 0;",
+    "      try {",
+    "        const results = [];",
+    "        const log = (...a) => { results.push(a.join(' ')); };",
+    "        const assert = (cond, msg) => { if (!cond) throw new Error('Assertion failed: ' + (msg||'')); };",
+    "        const testFile = test ? test.body : '';",
+    "        const fn = new Function('console', 'require', 'assert', testFile);",
+    "        const fakeRequire = (name) => { throw new Error('Cannot require external module: ' + name + ' (sandbox is isolated)'); };",
+    "        fn({log, error: log, warn: log, info: log}, fakeRequire, assert);",
+    "        stdout = results.join('\\n') + '\\nOK'; exit = 0;",
+    "      } catch (e2) { stderr = String(e2 && e2.stack || e2); exit = 1; }",
+    "      result = { stdout, stderr, exit };",
+    "    }",
+    "    self.postMessage({ seq, ok: true, result });",
+    "  } catch (err) {",
+    "    self.postMessage({ seq, ok: false, error: String(err && err.message || err) });",
+    "  }",
+    "};",
+  ].join('\n');
+}
+
+function sandboxEnsureWorker() {
+  if (_sandboxWorker) return _sandboxWorker;
+  const blob = new Blob([sandboxWorkerSrc()], { type: 'application/javascript' });
+  _sandboxWorker = new Worker(URL.createObjectURL(blob));
+  _sandboxWorker.onmessage = (ev) => {
+    const { seq, ok, result, error } = ev.data;
+    const cb = _sandboxCallbacks.get(seq);
+    if (!cb) return;
+    _sandboxCallbacks.delete(seq);
+    if (ok) cb.resolve(result); else cb.reject(new Error(error));
+  };
+  _sandboxWorker.onerror = (e) => {
+    // reject all pending
+    for (const [seq, cb] of _sandboxCallbacks) { cb.reject(new Error('Worker error: ' + (e.message || 'unknown'))); }
+    _sandboxCallbacks.clear();
+  };
+  return _sandboxWorker;
+}
+
+// Detect project language from file extensions.
+function sandboxDetectLang(files) {
+  const exts = files.map(f => (f.path.split('.').pop() || '').toLowerCase());
+  if (exts.some(e => e === 'py')) return 'python';
+  if (exts.some(e => ['js','mjs','ts','jsx','tsx'].includes(e))) return 'javascript';
+  return 'unknown';
+}
+
+// Build a test command from the selected test types + language. Conservative:
+// we only auto-run if a pytest/test_*.py (python) or test_*.js (js) pattern is
+// present so we never run unrelated commands.
+function sandboxBuildCmd(lang, files) {
+  if (lang === 'python') {
+    const hasPytest = files.some(f => /test_.*\.py$|_test\.py$/.test(f.path));
+    if (hasPytest) return 'python -m pytest -q';
+    // fall back to running the first test file directly
+    const t = files.find(f => /test_.*\.py$|_test\.py$/.test(f.path));
+    if (t) return 'python ' + t.path;
+    return null;
+  }
+  if (lang === 'javascript') {
+    const t = files.find(f => /test.*\.js$/i.test(f.path));
+    if (t) return 'node ' + t.path;
+    return null;
+  }
+  return null;
+}
+
+// Run the sandbox against a set of FILE blocks. Returns { stdout, stderr, exit, lang, cmd }.
+async function sandboxRunFiles(files) {
+  if (!files || !files.length) return { stdout: '', stderr: 'No FILE blocks to run.', exit: 2, lang: 'unknown', cmd: null };
+  const lang = sandboxDetectLang(files);
+  const cmd = sandboxBuildCmd(lang, files);
+  if (!cmd) return { stdout: '', stderr: 'No recognizable test file for lang=' + lang + '.', exit: 2, lang, cmd: null };
+  const w = sandboxEnsureWorker();
+  const seq = ++_sandboxSeq;
+  return new Promise((resolve, reject) => {
+    _sandboxCallbacks.set(seq, { resolve, reject });
+    w.postMessage({ seq, lang, files: files.map(f => ({ path: f.path, body: f.body })), testCmd: cmd });
+  }).then(result => ({ ...result, lang, cmd }));
+}
+
+// UI helpers
+function sandboxStatusEl() { return document.getElementById('sandboxStatus'); }
+function sandboxLogEl()    { return document.getElementById('sandboxLog'); }
+function sandboxSetStatus(s, text) {
+  const el = sandboxStatusEl(); if (!el) return;
+  el.className = 'sb-status ' + s;
+  el.textContent = text || s;
+}
+function sandboxAppendLog(line) {
+  const el = sandboxLogEl(); if (!el) return;
+  if (el.textContent === '— no runs yet —') el.textContent = '';
+  el.textContent += (el.textContent ? '\n' : '') + line;
+  el.scrollTop = el.scrollHeight;
+}
+window.sandboxToggle = function() {
+  const p = document.getElementById('sandboxPanel');
+  if (p) p.classList.toggle('collapsed');
+};
+window.sandboxClearLog = function() {
+  const el = sandboxLogEl(); if (el) el.textContent = '— no runs yet —';
+};
+window.sandboxSaveSettings = function() {
+  try {
+    localStorage.setItem('pf.sandbox.enabled', document.getElementById('sandboxEnabled').checked ? '1' : '0');
+    localStorage.setItem('pf.sandbox.maxiter', String(parseInt(document.getElementById('sandboxMaxIter').value, 10) || 0));
+  } catch {}
+};
+function sandboxLoadSettings() {
+  try {
+    const en = localStorage.getItem('pf.sandbox.enabled');
+    const mi = localStorage.getItem('pf.sandbox.maxiter');
+    const e = document.getElementById('sandboxEnabled'); if (e) e.checked = (en === null) ? true : (en === '1');
+    const m = document.getElementById('sandboxMaxIter'); if (m && mi != null) m.value = mi;
+  } catch {}
+}
+function sandboxEnabled() {
+  const e = document.getElementById('sandboxEnabled');
+  return e ? e.checked : true;
+}
+function sandboxMaxIter() {
+  const m = document.getElementById('sandboxMaxIter');
+  return m ? (parseInt(m.value, 10) || 0) : 2;
+}
+
+// Manual "RUN NOW" — runs the latest Executor stage output through the sandbox.
+window.sandboxRunNow = async function() {
+  const exec = (asStepOutputs || []).find(o => o && o.output && /===\s*FILE:/.test(o.output));
+  if (!exec) { toast('No Executor output to test'); return; }
+  const files = parseFilesShared(exec.output);
+  if (!files.length) { toast('No FILE blocks in Executor output'); return; }
+  sandboxSetStatus('running', 'running…');
+  sandboxAppendLog('$ ' + (sandboxBuildCmd(sandboxDetectLang(files), files) || '(no cmd)') + '  [' + sandboxDetectLang(files) + ']');
+  try {
+    const r = await sandboxRunFiles(files);
+    sandboxAppendLog((r.stdout || '').trim() + (r.stderr ? '\n── stderr ──\n' + r.stderr.trim() : '') + '\n[exit ' + r.exit + ']');
+    sandboxSetStatus(r.exit === 0 ? 'pass' : 'fail', r.exit === 0 ? 'pass' : 'fail');
+  } catch (e) {
+    sandboxAppendLog('ERROR: ' + e.message);
+    sandboxSetStatus('fail', 'error');
+  }
+};
+
+// Hook the sandbox into the assembly run. After the Executor stage emits FILE
+// blocks and BEFORE the Code Reviewer finalizes, run the tests and inject the
+// literal stdout/stderr as a RUNTIME FEEDBACK block into the reviewer's prompt.
+// Returns the sandbox result so the caller can drive an auto-fix loop.
+async function sandboxRunForExecutor(executorOutput) {
+  const files = parseFilesShared(executorOutput);
+  if (!files.length) return null;
+  sandboxSetStatus('running', 'running tests…');
+  const lang = sandboxDetectLang(files);
+  const cmd = sandboxBuildCmd(lang, files);
+  sandboxAppendLog('$ ' + (cmd || '(no cmd)') + '  [' + lang + ']');
+  let r;
+  try { r = await sandboxRunFiles(files); }
+  catch (e) { r = { stdout: '', stderr: 'Sandbox error: ' + e.message, exit: 1, lang, cmd }; }
+  sandboxAppendLog((r.stdout || '').trim() + (r.stderr ? '\n── stderr ──\n' + r.stderr.trim() : '') + '\n[exit ' + r.exit + ']');
+  sandboxSetStatus(r.exit === 0 ? 'pass' : 'fail', r.exit === 0 ? 'pass' : 'fail');
+  return r;
+}
+
+// Format the runtime feedback as an extra context block for the Code Reviewer.
+function sandboxFeedbackBlock(r) {
+  if (!r) return '';
+  const lines = [];
+  lines.push('--- RUNTIME FEEDBACK (sandboxed TDD execution) ---');
+  lines.push('Language: ' + (r.lang || 'unknown'));
+  lines.push('Command: ' + (r.cmd || '(none)'));
+  lines.push('Exit code: ' + r.exit);
+  if (r.stdout) { lines.push('stdout:'); lines.push(r.stdout.trim().slice(0, 4000)); }
+  if (r.stderr) { lines.push('stderr:'); lines.push(r.stderr.trim().slice(0, 4000)); }
+  lines.push('Use this feedback to recommend concrete fixes. If tests fail, set your verdict to FIX-REQUIRED and cite the failing test + the error.');
+  return lines.join('\n');
+}
+
+// TASK 4 END
+
+
+// ═════════════════════════════════════════════════════════════════════════════
 // ASSEMBLY LINE TAB
 // An ordered pipeline of LLM stages. Each stage is one model from the pool
 // playing a role: Plan → Review Plan → Task Out → Execute → Code Review →
@@ -3867,6 +4703,14 @@ const ASSEMBLY_MODEL_TIERS = {
     if (b <= 4)   return 'medium';
     return 'heavy';
   },
+  // Task 4: Hugging Face cloud models — same param-count heuristic, default heavy.
+  hf: (id) => {
+    const m = (id || '').toLowerCase().match(/(\d+(?:\.\d+)b)/);
+    if (!m) return 'heavy';
+    const b = parseFloat(m[1]);
+    if (b <= 3)   return 'medium';
+    return 'heavy';
+  },
 };
 const ASSEMBLY_ROLE_TIER_PREF = {
   plan: 'heavy', review_plan: 'heavy', taskout: 'heavy',
@@ -3894,6 +4738,8 @@ let asStopReq = false;
 let asAbort = null;
 let asStepOutputs = [];       // [{role,label,model,output,err}]
 let asFinalText = '';
+let asLastSandboxResult = null; // Task 4: last TDD-sandbox run result (fed to Code Reviewer)
+let asSandboxIter = 0;             // Task 4: auto-fix loop iteration counter
 let asPaused = false;         // per-run pause flag (pause before next stage)
 let asRunCursor = -1;        // index of the currently-running stage (-1 if idle)
 let asRunFromStage = 0;       // resume / re-run-from-here index
@@ -3997,12 +4843,54 @@ function asRenderBrowserPool() {
     }
   }
   pool.innerHTML = html;
+  asRenderHfPool();
+}
+
+// Task 4: Hugging Face model pool (cloud, optional API key). Public list is
+// fetched live from the HF Hub; the recommended defaults are always shown
+// even when offline. Selected keys are "hf:<model_id>".
+let asHfModels = [];
+window.asRefreshHfModels = async function() {
+  let list = [];
+  try {
+    const r = await fetch('https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1&limit=30', { headers: { 'Accept': 'application/json' } });
+    if (r.ok) list = await r.json();
+  } catch (e) { /* offline — fall back to recommended defaults */ }
+  const ids = list.length ? list.map(m => m.id) : HF_RECOMMENDED.slice();
+  for (const rid of HF_RECOMMENDED) if (!ids.includes(rid)) ids.unshift(rid);
+  asHfModels = ids;
+  asRenderHfPool();
+};
+function asRenderHfPool() {
+  const pool = document.getElementById('asHfPool');
+  if (!pool) return;
+  if (!asHfModels.length) asHfModels = HF_RECOMMENDED.slice();
+  const recommended = new Set(HF_RECOMMENDED);
+  let html = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">Recommended (mid-2026 leading open models)</div>';
+  for (const id of asHfModels) if (recommended.has(id)) {
+    const k = asModelKey('hf', id);
+    const tier = asModelTier(k);
+    html += `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k.replace(/'/g,"\\'")}')">
+      <span class="chip-name">${escapeHtmlShared(id)}</span>
+      <span class="chip-tier tier-${tier}" title="${tier} capability tier">${TIER_LABEL[tier]}</span>
+      <span class="chip-src">HF</span><span class="chip-check">✓</span></div>`;
+  }
+  html += '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;">Live from HF Hub (top by downloads)</div>';
+  for (const id of asHfModels) if (!recommended.has(id)) {
+    const k = asModelKey('hf', id);
+    const tier = asModelTier(k);
+    html += `<div class="model-chip${asPool.has(k)?' selected':''}" data-key="${k}" onclick="asTogglePool('${k.replace(/'/g,"\\'")}')">
+      <span class="chip-name">${escapeHtmlShared(id)}</span>
+      <span class="chip-tier tier-${tier}" title="${tier} capability tier">${TIER_LABEL[tier]}</span>
+      <span class="chip-src">HF</span><span class="chip-check">✓</span></div>`;
+  }
+  pool.innerHTML = html;
 }
 
 window.asTogglePool = function(k) {
   if (asPool.has(k)) asPool.delete(k); else asPool.add(k);
   // Refresh chip visuals
-  document.querySelectorAll('#asOllamaPool .model-chip, #asBrowserPool .model-chip').forEach(el => {
+  document.querySelectorAll('#asOllamaPool .model-chip, #asBrowserPool .model-chip, #asHfPool .model-chip').forEach(el => {
     el.classList.toggle('selected', asPool.has(el.dataset.key));
   });
   asUpdatePoolCount();
@@ -4012,7 +4900,9 @@ window.asTogglePool = function(k) {
 function asPoolList() {
   return [...asPool].map(k => {
     const { src, id } = asParseKey(k);
-    const label = src === 'ollama' ? id : (BROWSER_MODELS.find(m => m.id === id)?.name || id);
+    const label = src === 'ollama' ? id
+      : (src === 'hf' ? id
+         : (BROWSER_MODELS.find(m => m.id === id)?.name || id));
     return { key: k, src, id, label };
   });
 }
@@ -4510,6 +5400,11 @@ function asCompactContext(i, userTask) {
 // format is used (kept for back-compat / tests that assert it).
 function asBuildPrompt(i, userTask) {
   const compactOn = asCompactionEnabled();
+  // Runtime feedback (sandboxed TDD) is appended for the Code Reviewer stage
+  // when a sandbox run produced output. Task 4: stderr/stdout -> reviewer.
+  const stage = asStages[i];
+  const fb = (stage && stage.role === 'codereview' && asLastSandboxResult)
+    ? '\n\n' + sandboxFeedbackBlock(asLastSandboxResult) : '';
   if (compactOn && i > 0) {
     const compact = asCompactContext(i, userTask);
     const prevIdx = i - 1;
@@ -4518,7 +5413,7 @@ function asBuildPrompt(i, userTask) {
     const prevBlock = prev && prev.output
       ? `\n--- PRIOR STAGE ${prevIdx+1}: ${prevLabel} (raw output) ---\n${prev.output}`
       : '';
-    return `USER TASK:\n${userTask}\n\n--- COMPACTED CONTEXT (prior stages) ---\n${compact}${prevBlock}`;
+    return `USER TASK:\n${userTask}\n\n--- COMPACTED CONTEXT (prior stages) ---\n${compact}${prevBlock}${fb}`;
   }
   // Legacy: raw concatenation of every prior stage's full output.
   const parts = ['USER TASK:\n' + userTask];
@@ -4528,7 +5423,8 @@ function asBuildPrompt(i, userTask) {
     const role = ASSEMBLY_ROLES.find(r => r.id === asStages[j].role) || { label: 'Stage ' + (j+1) };
     parts.push(`\n--- PRIOR STAGE ${j+1}: ${role.label} ---\n${o.output}`);
   }
-  return parts.join('\n');
+  const joined = parts.join('\n');
+  return fb ? joined + fb : joined;
 }
 
 // Validate stage configuration before run. Returns the first error string
@@ -4623,6 +5519,26 @@ window.asRun = async function(opts) {
             stopFlag: () => asStopReq,
             signal: asAbort.signal,
           });
+        } else if (src === 'hf') {
+          asAbort = new AbortController();
+          output = await hfGenerate({
+            model: id, system, prompt,
+            temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+            topP: scaled.topP, topK: scaled.topK,
+            onChunk: c => asAppendChunk(stepEl, c),
+            stopFlag: () => asStopReq,
+            signal: asAbort.signal,
+          });
+        } else if (id && id.indexOf('local:') === 0) {
+          // Task 4: in-browser local .gguf/.onnx model (transformers.js).
+          const lm = LOCAL_MODELS.find(m => localModelId(m) === id);
+          if (!lm || !lm.pipeline) throw new Error('Local model not loaded: ' + id + '. Unload and re-drop the file.');
+          output = await lm.pipeline.generate({
+            system, prompt,
+            temperature: scaled.temperature, maxTokens: scaled.maxTokens, topP: scaled.topP,
+            onChunk: c => asAppendChunk(stepEl, c),
+            stopFlag: () => asStopReq,
+          });
         } else {
           output = await browserGenerate({
             modelId: id, system, prompt,
@@ -4641,6 +5557,73 @@ window.asRun = async function(opts) {
         if (asStopReq) { asFinalizeStep(i, true); asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output, err: true }; break; }
         asFinalizeStep(i, false);
         asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output };
+        // Task 4: after the Executor emits FILE blocks, run the sandboxed TDD
+        // tests BEFORE the Code Reviewer stage so its prompt carries the real
+        // stdout/stderr. Auto-fix loop re-runs the Executor with the error
+        // appended (max sandboxMaxIter() iterations, default 2).
+        if (role.id === 'execute' && sandboxEnabled() && /===\s*FILE:/.test(output || '')) {
+          let result = await sandboxRunForExecutor(output);
+          asLastSandboxResult = result;
+          let iter = 0;
+          const maxIter = sandboxMaxIter();
+          while (result && result.exit !== 0 && iter < maxIter && !asStopReq) {
+            iter++;
+            asSandboxIter = iter;
+            sandboxAppendLog('--- auto-fix iteration ' + iter + '/' + maxIter + ' (re-running Executor with error) ---');
+            const errAppend = '\n\n### SANDBOX FAILURE — FIX REQUIRED\n' + sandboxFeedbackBlock(result)
+              + '\nRe-emit the complete, corrected project files. Resolve the failing test(s).';
+            const execIdx = i;
+            const execStage = asStages[execIdx];
+            const execSys = (execStage.system && execStage.system.trim()) ? execStage.system
+                          : (ASSEMBLY_SYSTEMS.execute || ASSEMBLY_SYSTEMS.custom);
+            const execPrompt = asBuildPrompt(execIdx, task) + errAppend;
+            const { src: esrc, id: eid } = asParseKey(execStage.modelKey);
+            let reout = '';
+            try {
+              if (esrc === 'ollama') {
+                reout = await ollamaGenerate({
+                  base, model: eid, system: execSys, prompt: execPrompt,
+                  temperature: scaled.temperature, maxTokens: scaled.maxTokens, numCtx: scaled.numCtx,
+                  topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+                  repeatLastN: scaled.repeatLastN, presencePenalty: scaled.presencePenalty,
+                  frequencyPenalty: scaled.frequencyPenalty, minP: scaled.minP,
+                  onChunk: c => asAppendChunk(stepEl, c), stopFlag: () => asStopReq,
+                  signal: asAbort && asAbort.signal,
+                });
+              } else if (esrc === 'hf') {
+                reout = await hfGenerate({
+                  model: eid, system: execSys, prompt: execPrompt,
+                  temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+                  topP: scaled.topP, topK: scaled.topK,
+                  onChunk: c => asAppendChunk(stepEl, c), stopFlag: () => asStopReq,
+                });
+              } else {
+                reout = await browserGenerate({
+                  modelId: eid, system: execSys, prompt: execPrompt,
+                  temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+                  topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+                  presencePenalty: scaled.presencePenalty, frequencyPenalty: scaled.frequencyPenalty,
+                  onChunk: c => asAppendChunk(stepEl, c), stopFlag: () => asStopReq,
+                  progressCb: (p, txt) => { const st = stepEl.querySelector('.as-step-state'); if (st && p < 1) st.textContent = 'reloading model ' + Math.round(p*100) + '%'; },
+                });
+              }
+              asStepOutputs[execIdx] = { role: 'execute', label: execStage.label || 'Executor', model: execStage.modelKey, output: reout };
+              if (reout && /===\s*FILE:/.test(reout)) {
+                result = await sandboxRunForExecutor(reout);
+                asLastSandboxResult = result;
+              } else { break; }
+            } catch (e2) {
+              sandboxAppendLog('Auto-fix re-run failed: ' + e2.message);
+              break;
+            }
+          }
+          asSandboxIter = 0;
+          if (result && result.exit !== 0) {
+            // Loop exhausted + tests still failing — surface clear state.
+            sandboxSetStatus('fail', 'tests failing');
+            sandboxAppendLog('Auto-fix loop exhausted — tests still failing. Package will NOT be marked done.');
+          }
+        }
       } catch (e) {
         asFinalizeStep(i, true);
         asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output: '', err: true };
@@ -4658,8 +5641,15 @@ window.asRun = async function(opts) {
       document.getElementById('asZipBtn').disabled = !(files.length && outMode === 'project');
       document.getElementById('asMdBtn').disabled = !asFinalText;
       document.getElementById('asCharCount').textContent = asFinalText.length.toLocaleString() + ' chars';
-      asState(files.length ? `complete · ${files.length} files` : 'complete');
-      toast('Assembly line complete');
+      // Task 4: never present as "done" if the sandbox ran and tests are failing.
+      const testsFailing = asLastSandboxResult && asLastSandboxResult.exit !== 0;
+      if (testsFailing) {
+        asState(`tests failing · ${files.length} files · see sandbox log`);
+        toast('Assembly complete but tests are failing — see sandbox log');
+      } else {
+        asState(files.length ? `complete · ${files.length} files` : 'complete');
+        toast('Assembly line complete');
+      }
     } else {
       asState(asStopReq ? 'stopped' : 'incomplete');
     }
@@ -5211,6 +6201,21 @@ window.afGenerate = async function() {
             onChunk: c => { body.dataset.raw = (body.dataset.raw||'') + c; body.innerHTML = tintMdInline(body.dataset.raw); log.scrollTop = log.scrollHeight; },
             stopFlag: () => afStopReq, signal: afAbort.signal,
           });
+        } else if (p.src === 'hf') {
+          afAbort = new AbortController();
+          accumulated = await hfGenerate({
+            model: p.id, system: sys, prompt, temperature, maxTokens,
+            onChunk: c => { body.dataset.raw = (body.dataset.raw||'') + c; body.innerHTML = tintMdInline(body.dataset.raw); log.scrollTop = log.scrollHeight; },
+            stopFlag: () => afStopReq, signal: afAbort.signal,
+          });
+        } else if (p.id && p.id.indexOf('local:') === 0) {
+          const lm = LOCAL_MODELS.find(m => localModelId(m) === p.id);
+          if (!lm || !lm.pipeline) throw new Error('Local model not loaded: ' + p.id);
+          accumulated = await lm.pipeline.generate({
+            system: sys, prompt, temperature, maxTokens,
+            onChunk: c => { body.dataset.raw = (body.dataset.raw||'') + c; body.innerHTML = tintMdInline(body.dataset.raw); log.scrollTop = log.scrollHeight; },
+            stopFlag: () => afStopReq,
+          });
         } else {
           if (stEl) stEl.textContent = 'loading model…';
           accumulated = await browserGenerate({
@@ -5343,6 +6348,13 @@ window.__pf = {
   getParams, // Forge view extended params (for tests)
   setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
   getAsStepOutputs: () => asStepOutputs,
+  // Task-4 hooks (edge models + sandbox):
+  sandboxRunFiles, sandboxDetectLang, sandboxBuildCmd, sandboxFeedbackBlock,
+  sandboxRunForExecutor, hfGenerate, buildLocalPipeline, validateLocalModelFile,
+  registerLocalModel, localModelId, LOCAL_MODELS: () => LOCAL_MODELS,
+  HF_RECOMMENDED, fetchHFModels,
+  getAsLastSandboxResult: () => asLastSandboxResult,
+  setAsLastSandboxResult: (r) => { asLastSandboxResult = r; },
 };
 
 function afInitSplitter() {
