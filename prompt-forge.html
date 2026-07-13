@@ -223,6 +223,31 @@
     letter-spacing: 1px; text-transform: uppercase;
   }
 
+  /* Test-type selector (project mode) */
+  .testtype-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 10px;
+    margin-top: 6px;
+  }
+  .testtype-opt {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--text);
+    padding: 3px 6px; border: 1px solid transparent; border-radius: 3px;
+    cursor: pointer; user-select: none;
+  }
+  .testtype-opt:hover { background: rgba(0,200,255,0.05); }
+  .testtype-opt input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .testtype-opt .tt-desc { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
+  .testtype-all-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--text);
+  }
+  .testtype-all-row input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .testtype-badge {
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+    letter-spacing: 1px; margin-left: auto;
+  }
+
   .slider-row {
     display: flex; align-items: center; gap: 8px;
     font-family: var(--mono); font-size: 11px; color: var(--text);
@@ -806,6 +831,28 @@
             </div>
           </div>
 
+          <!-- TEST TYPES (project mode only) -->
+          <div class="section open" id="sec-testtypes">
+            <button type="button" class="section-head" onclick="toggleSection('sec-testtypes')" aria-expanded="true" aria-controls="sec-testtypes-body">
+              <span>PROGRAMMATIC TEST TYPES</span>
+              <span id="testTypesBadge" class="testtype-badge">all</span>
+              <span class="section-chev">›</span>
+            </button>
+            <div class="section-body" id="sec-testtypes-body">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;">
+                Type / coverage of programmatic testing the agent must write specs and tests for (Red→Green). Not a library choice — the runner is still picked from the detected stack.
+              </div>
+              <div class="testtype-grid" id="testTypesGrid"></div>
+              <div class="testtype-all-row">
+                <label class="testtype-opt" style="border:none;padding:0;">
+                  <input type="radio" name="testTypeAll" id="testTypeAllRadio" onchange="onTestTypeAllChange()" />
+                  <span>All / Custom combo</span>
+                </label>
+                <span class="testtype-badge" id="testTypeSelSummary" style="margin-left:auto;">all</span>
+              </div>
+            </div>
+          </div>
+
           <!-- BACKEND -->
           <div class="section open" id="sec-backend">
             <button type="button" class="section-head" onclick="toggleSection('sec-backend')" aria-expanded="true" aria-controls="sec-backend-body">
@@ -1056,6 +1103,19 @@
                     <option value="project" selected>Complete project package (files → zip)</option>
                     <option value="prompt">Consolidated system prompt (.md)</option>
                   </select>
+                </div>
+                <div id="asTestTypesWrap" style="margin-top:6px;">
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;">
+                    Programmatic test types (defaults from Forge):
+                  </div>
+                  <div class="testtype-grid" id="asTestTypesGrid"></div>
+                  <div class="testtype-all-row">
+                    <label class="testtype-opt" style="border:none;padding:0;">
+                      <input type="radio" name="asTestTypeAll" id="asTestTypeAllRadio" onchange="onAsTestTypeAllChange()" />
+                      <span>All / Custom combo</span>
+                    </label>
+                    <span class="testtype-badge" id="asTestTypeSelSummary" style="margin-left:auto;">all</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1314,7 +1374,7 @@ Rules you MUST follow:
 5. DONE WHEN criteria must be binary and verifiable, not subjective.`;
 
 
-const SYSTEM_PROMPT_PROJECT = `You are an expert agentic AI workflow architect. Your job: emit a COMPLETE downloadable project package from the user's raw task.
+const SYSTEM_PROMPT_PROJECT = `You are an expert agentic AI workflow architect operating under rigorous Agentic Test-Driven Development (ATDD) and Spec-Driven Development (SDD). Your job: translate the user's raw task into a COMPLETE, downloadable agentic repo package.
 
 You must output a multi-file payload. Each file is wrapped by markers EXACTLY like this:
 
@@ -1324,7 +1384,14 @@ You must output a multi-file payload. Each file is wrapped by markers EXACTLY li
 
 Do NOT wrap the whole payload in code fences. Do NOT add any prose before, between, or after the file blocks. The first character of your output must be "=" of the first marker. The last line must be "=== END FILE ===".
 
-Emit ALL of the following files, in this order. Fill every section with task-specific, non-generic content derived from the user's input. Where a value is genuinely unknown, write [CONFIRM WITH USER: <specific question>].
+METHODOLOGY — RED→GREEN, NO DRIFT:
+1. PRD first: distill the user's task into literal, measurable requirements (prd.md).
+2. Executable spec second: derive machine-executable specifications (spec.md) — strict pass/fail validation scripts with exact expected outputs. The spec is the source of truth, NOT the implementation.
+3. Tests third (RED): write the test/spec files under tests/ that import from src/after/ (which is stubbed with raise NotImplementedError). Tests MUST FAIL initially. Tests assert behavior FROM THE SPEC — they must NOT mirror or import the implementation's internal logic. Tautological tests (that duplicate the code under test) are FORBIDDEN.
+4. Implementation last (GREEN): fill src/after/ strictly until every spec/test passes. Do not edit tests. Do not change assertions.
+5. Record the red→green transition in tdd.md and check off DONE.md.
+
+Emit ALL of the following files, in this order. Fill every section with task-specific, non-generic content derived from the user's input. Where a value is genuinely unknown, write [CONFIRM WITH USER: <specific question>]. No empty sections. No generic filler.
 
 === FILE: README.md ===
 # <Concise Project Title>
@@ -1338,15 +1405,131 @@ One-paragraph description of what this project does and why it exists.
 ## Quick start
 \`\`\`bash
 make install
-make test
+make test      # must be RED until src/after/ is implemented, then GREEN
 make run
 \`\`\`
 
-## Structure
-Brief tree of the directories below.
+## Repo layout
+Brief tree of the directories/files below and what each holds.
+
+## Test plan
+Which test types are covered (functional / unit / integration / E2E / contract / property) and how to run each.
 
 ## Status
-Single-line: green/yellow/red + what blocks shipping.
+Single-line: RED / GREEN / YELLOW + what blocks shipping.
+=== END FILE ===
+
+=== FILE: prd.md ===
+# Product Requirements Document
+
+## Problem
+[One paragraph — the user's actual problem.]
+
+## Inputs
+[Exact input shapes, formats, sources.]
+
+## Outputs
+[Exact output shapes, formats, schemas. Thresholds where applicable.]
+
+## Functional requirements
+- [FR-1] [literal, testable requirement]
+- [FR-2] ...
+
+## Non-functional requirements
+[Performance, security, portability constraints with numbers.]
+
+## Out of scope
+[Explicit exclusions with one-line reasons.]
+
+## Success criteria
+[Binary, verifiable acceptance criteria — each maps to one or more tests.]
+=== END FILE ===
+
+=== FILE: spec.md ===
+# Machine-Executable Specifications
+
+Strict pass/fail validation scripts derived from prd.md. Each spec names the capability, the exact input, the exact expected output, and the test that enforces it. The spec is the source of truth — implementation must conform to it, never the reverse.
+
+## Spec table
+| ID | Capability | Input | Expected output | Enforcing test | Type |
+|----|-----------|-------|-----------------|----------------|------|
+| S1 | ... | ... | ... | tests/test_<name>::test_<case> | functional |
+| S2 | ... | ... | ... | ... | unit |
+
+## Validation scripts
+[For each spec, a literal command or code snippet a machine can run to produce a binary pass/fail. Example: \`python -c "assert f(x)==y"\` or a pytest case id.]
+=== END FILE ===
+
+=== FILE: agent.md ===
+# Generated Agent — System Prompt + Operational Parameters
+
+## Role
+[One sentence — the role the agent plays on this repo.]
+
+## System prompt
+[The full system prompt the implementer agent runs under — derived from this task.]
+
+## Operational parameters
+- Model: [name or class]
+- Temperature: [n]
+- Max tokens: [n]
+- Test types in scope: [list from the PROGRAMMATIC TEST TYPES block at the end of this prompt]
+
+## Tools / permissions
+[Files the agent may read, write, execute. Hard boundaries.]
+=== END FILE ===
+
+=== FILE: drift.md ===
+# Drift / State Tracking
+
+Seed state for future context compaction. Update on every agent run.
+
+## Initial state
+- Task: [one-line summary of the user task]
+- Created: [ISO timestamp placeholder]
+- Model: [name/version]
+- Params: temperature=..., max_tokens=..., num_ctx=...
+- Test types: [list]
+- prd_hash: [short hash of prd.md contents — agent recomputes]
+- spec_hash: [short hash of spec.md contents — agent recomputes]
+
+## Run log
+| Run # | Phase | Result | Notes |
+|-------|-------|--------|-------|
+| 1 | RED | pending | tests written, src/after stubbed |
+| 2 | GREEN | pending | src/after implemented |
+
+## Open questions
+[Any [CONFIRM WITH USER] items carried forward.]
+=== END FILE ===
+
+=== FILE: capabilities.md ===
+# Capabilities → Pass/Fail Criteria Matrix
+
+| Capability | Test (file::case) | Expected | Status |
+|-----------|-------------------|----------|--------|
+| [from prd FR-1] | tests/test_main.py::test_<case> | [exact expected] | RED |
+| [from prd FR-2] | ... | ... | RED |
+
+Status moves RED → GREEN as src/after/ is implemented. Every capability maps to at least one enforcing test. No capability without a test.
+=== END FILE ===
+
+=== FILE: architectural.md ===
+# Architectural Design
+
+Output of the architect stage. The architect owns this file and never edits code.
+
+## Components
+[Named components/modules and their responsibilities.]
+
+## Data flow
+[How inputs move through components to outputs.]
+
+## Boundaries
+[Trust boundaries, I/O edges, failure modes.]
+
+## Decisions
+[Key design decisions and one-line rationale each.]
 === END FILE ===
 
 === FILE: CLAUDE.md ===
@@ -1362,7 +1545,7 @@ Single-line: green/yellow/red + what blocks shipping.
 [Exact hardware, OS, runtimes, versions.]
 
 ## OBJECTIVE — EXACT
-[Specific inputs → specific outputs. Thresholds. Schemas.]
+[Specific inputs → specific outputs. Thresholds. Schemas. Mirrors prd.md success criteria.]
 
 ## WHAT TO BUILD
 [Ordered concrete list.]
@@ -1374,7 +1557,7 @@ Single-line: green/yellow/red + what blocks shipping.
 [Paths/symbols to delete with reasons.]
 
 ## PRESERVE — DO NOT TOUCH
-[Working contracts that must not change.]
+[Working contracts that must not change — tests are immutable.]
 
 ## NEW FILES TO CREATE
 [path  # purpose]
@@ -1384,7 +1567,7 @@ Single-line: green/yellow/red + what blocks shipping.
 Read every file under src/before/. Log broken calls, CPU-bound ops, stubs, dead paths as inline comments. Zero implementation code in this step.
 
 ### Step 2 — Tests already exist
-File: tests/test_main.py — pre-written, currently RED. All must turn GREEN with no edits to assertions.
+File: tests/test_main.<ext> — pre-written, currently RED. All must turn GREEN with no edits to assertions.
 
 ### Step 3 — Implement under src/after/
 In dependency order. No edits to tests. No mock returns.
@@ -1408,14 +1591,16 @@ Complete files. No TODO. No truncation. No placeholders.
 # Agent Workflow
 
 ## Roles
-- **Architect** — owns CLAUDE.md, never edits code.
-- **Implementer** — edits only src/after/, tests/conftest.py if absolutely needed.
-- **Reviewer** — runs make test, make lint, fills DONE.md checkboxes.
+- **Architect** — owns CLAUDE.md, architectural.md, capabilities.md; never edits code.
+- **Spec author** — owns prd.md, spec.md, prompt-sequence.md; never edits code.
+- **Implementer** — edits only src/after/, tests/conftest.<ext> if absolutely needed. Never edits tests or spec.
+- **Reviewer** — runs make test, fills DONE.md checkboxes, updates drift.md.
 
 ## Handoffs
-1. Architect → Implementer: CLAUDE.md frozen.
-2. Implementer → Reviewer: all tests green locally.
-3. Reviewer → Done: DONE.md fully checked.
+1. Spec author → Architect: prd.md + spec.md frozen.
+2. Architect → Implementer: CLAUDE.md + capabilities.md frozen.
+3. Implementer → Reviewer: all tests green locally.
+4. Reviewer → Done: DONE.md fully checked, drift.md updated, capabilities.md all GREEN.
 
 ## Communication contract
 - Every PR description names: which DONE.md items it closes, which tests changed (should be none), which guardrails were tested against.
@@ -1428,6 +1613,43 @@ Complete files. No TODO. No truncation. No placeholders.
 - [ ] <specific verifiable thing>
 === END FILE ===
 
+=== FILE: tdd.md ===
+# Red → Green → Refactor Log
+
+## RED — tests written, implementation stubbed
+- Date: [placeholder]
+- Tests: tests/test_main.<ext> (+ per-type test files)
+- Result: all FAIL (NotImplementedError)
+- Command: \`make test\`
+
+## GREEN — implementation complete
+- Date: [pending]
+- Result: all PASS
+- Command: \`make test\`
+
+## Refactor notes
+[Changes made during green phase that did not alter behavior. None if unchanged.]
+
+## Anti-tautology check
+[Confirm tests assert behavior from spec.md, not from the implementation. List any test that imports implementation internals — there should be none.]
+=== END FILE ===
+
+=== FILE: prompt-sequence.md ===
+# Prompt Sequence — Master Build Order
+
+Ordered list of prompts an agent runner executes to take this repo from RED to GREEN. Each step has build order, what to build, pass/fail criteria, and guardrails.
+
+| # | Prompt | Build | Pass criteria | Fail criteria | Guardrails |
+|---|--------|-------|---------------|---------------|------------|
+| 1 | "Audit src/before and write prd.md + spec.md" | prd.md, spec.md | spec table covers every FR in prd.md | any FR lacks an enforcing test | do not write implementation |
+| 2 | "Write tests for each spec (RED)" | tests/test_main.<ext>, tests/test_*.<ext> | tests FAIL with NotImplementedError | tests pass before impl | tests must import from src.after, never mirror impl |
+| 3 | "Implement src/after until GREEN" | src/after/main.<ext> | make test exits 0 | any test fails | do not edit tests or spec |
+| 4 | "Update DONE.md, drift.md, capabilities.md" | DONE.md, drift.md, capabilities.md | all capabilities GREEN, DONE.md fully checked | any unchecked item | reviewer only |
+
+## Per-step pass/fail summary
+[One bullet per step restating the binary pass condition.]
+=== END FILE ===
+
 === FILE: Makefile ===
 .PHONY: install test lint run clean
 
@@ -1435,7 +1657,7 @@ install:
 \t<install command for detected stack>
 
 test:
-\t<test command — must run tests/ directory>
+\t<test command — must run the tests/ directory; must be RED before src/after is implemented and GREEN after>
 
 lint:
 \t<lint command for detected stack>
@@ -1451,16 +1673,41 @@ clean:
 [Reasonable gitignore for the detected stack.]
 === END FILE ===
 
+=== FILE: src/before/README.md ===
+# src/before
+
+The CURRENT or BROKEN code as described by the user. For reference only — never import from here in tests or src/after. If greenfield, put a minimal failing stub that demonstrates the gap, with inline comments marking what is wrong / what must change.
+=== END FILE ===
+
 === FILE: src/before/main.<ext> ===
 [The CURRENT or BROKEN code as described by the user. If user described a refactor, put the old/broken version here. If greenfield, put a minimal failing stub that demonstrates the gap. Add inline comments marking what is wrong / what must change.]
+=== END FILE ===
+
+=== FILE: src/after/README.md ===
+# src/after
+
+The TARGET implementation. Bodies start as \`raise NotImplementedError("...")\` (or equivalent). Public surface must match what tests import. Implementer fills these until tests go GREEN.
 === END FILE ===
 
 === FILE: src/after/main.<ext> ===
 [The TARGET shape — function/class signatures and module structure that the implementer must fill. Bodies are \`raise NotImplementedError("...")\` or equivalent. Public surface must match what tests import.]
 === END FILE ===
 
+=== FILE: src/after/__init__.py ===
+[For Python projects: empty or re-export of main. For non-Python projects, emit the equivalent module init or omit.]
+=== END FILE ===
+
+=== FILE: tests/README.md ===
+# tests
+
+Executable specs + test suite. Tests import from src.after ONLY. They assert behavior derived from spec.md — they must never mirror the implementation. Currently RED (NotImplementedError); GREEN once src/after is implemented.
+
+## Test types included
+[List which of functional / unit / integration / E2E / contract / property are represented, and in which file.]
+=== END FILE ===
+
 === FILE: tests/test_main.<ext> ===
-[8–12 specific, named, task-derived tests. They import from src.after. They MUST currently fail (because src/after has NotImplementedError). They MUST be the exact pass-criteria for done. No generic placeholders.]
+[8–12 specific, named, task-derived tests covering the selected PROGRAMMATIC TEST TYPES. They import from src.after. They MUST currently FAIL (because src/after has NotImplementedError). They MUST be the exact pass-criteria for done. No generic placeholders. Each test maps to a row in spec.md / capabilities.md.]
 === END FILE ===
 
 === FILE: tests/conftest.<ext> ===
@@ -1473,12 +1720,15 @@ clean:
 
 Hard rules:
 1. EVERY file marker must appear, in order. No omissions.
-2. Choose file extensions (<ext>) based on the user's stack. Python → .py. TypeScript → .ts. Rust → .rs. Etc.
+2. Choose file extensions (<ext>) based on the user's stack. Python → .py. TypeScript → .ts. Rust → .rs. Go → .go. Etc.
 3. If the user's task implies JS/TS, replace requirements.txt with package.json containing valid JSON.
-4. Tests must currently FAIL against src/after (stubs) and PASS once filled. This is the TDD contract.
-5. src/before vs src/after must be meaningfully different — before = current/broken, after = target shape.
-6. No prose outside the FILE blocks. No backtick fences around the whole payload.
-7. Output starts with "=== FILE: README.md ===" as its first characters.`;
+4. Tests MUST currently FAIL against src/after (stubs raise NotImplementedError) and PASS once filled. This is the TDD contract — RED first, GREEN after.
+5. Tests MUST import from src.after and assert behavior from spec.md. Tautological tests that mirror the implementation are FORBIDDEN.
+6. src/before vs src/after must be meaningfully different — before = current/broken, after = target shape.
+7. Every capability in capabilities.md maps to at least one enforcing test in tests/.
+8. No prose outside the FILE blocks. No backtick fences around the whole payload.
+9. Every directory in the tree has a README.md (or index) explaining its role. No empty directories.
+10. Output starts with "=== FILE: README.md ===" as its first characters.`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -1497,7 +1747,24 @@ const LS = {
   SYS_PROMPT: 'pf.sysprompt.v1',
   DRAFT:      'pf.draft.v1',
   PREFS:      'pf.prefs.v1',
+  TEST_TYPES: 'pf.testtypes.v1',
 };
+
+// ── PROGRAMMATIC TEST TYPES (project mode)
+// TYPES/COVERAGE of programmatic testing the agent must spec + write Red→Green.
+// NOT a library choice — the runner is selected from the detected stack.
+const TEST_TYPES = [
+  { id: 'functional',   label: 'Functional',     desc: 'black-box behavior vs spec' },
+  { id: 'unit',         label: 'Unit',           desc: 'isolated functions/modules' },
+  { id: 'integration',  label: 'Integration',    desc: 'component composition' },
+  { id: 'e2e',          label: 'End-to-End',     desc: 'full user-facing path' },
+  { id: 'contract',     label: 'Contract',       desc: 'API/IO shape assertions' },
+  { id: 'property',     label: 'Property-based', desc: 'invariant / random input' },
+];
+
+// Selected test types for the Forge view. Empty set is treated as "all".
+// (loadTestTypes is a hoisted function declaration, safe to call here.)
+let testTypes = loadTestTypes();
 
 let abortCtl     = null;       // AbortController for in-flight Ollama fetch
 let stopRequested = false;     // soft cancel for browser pipeline
@@ -1585,16 +1852,172 @@ window.setMode = function(m) {
     ? 'Outputs one structured system prompt for Claude Code. Copy / save .md.'
     : 'Outputs a complete multi-file project (README, CLAUDE.md, AGENTS.md, src/before, src/after, tests, Makefile, DONE.md). Download as .zip.';
   zipBtn.style.display = m === 'project' ? '' : 'none';
+  const ttSec = document.getElementById('sec-testtypes');
+  if (ttSec) ttSec.style.display = m === 'project' ? '' : 'none';
   // refresh editor if it's still showing default
   if (systemPromptEditor.dataset.dirty !== '1') {
     systemPromptEditor.value = baseSystemPrompt();
   }
 };
 
+// ── TEST TYPES: persistence + rendering ────────────────────────────────────
+
+function loadTestTypes() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS.TEST_TYPES) || 'null');
+    if (Array.isArray(raw)) {
+      const valid = raw.filter(t => TEST_TYPES.some(tt => tt.id === t));
+      if (valid.length) return valid;
+    }
+  } catch {}
+  return TEST_TYPES.map(t => t.id);  // default = all
+}
+
+function saveTestTypes(arr) {
+  try { localStorage.setItem(LS.TEST_TYPES, JSON.stringify(arr)); } catch {}
+}
+
+function isAllTestTypes(arr) {
+  return arr.length === TEST_TYPES.length;
+}
+
+function testTypeLabel(arr) {
+  if (!arr.length || isAllTestTypes(arr)) return 'all';
+  if (arr.length === 1) return arr[0];
+  return arr.length + '-combo';
+}
+
+// Build the prompt fragment that tells the model which test types to emit.
+function testTypesPromptFragment(arr) {
+  const sel = (!arr.length || isAllTestTypes(arr))
+    ? TEST_TYPES
+    : TEST_TYPES.filter(t => arr.includes(t.id));
+  const lines = sel.map(t => `- ${t.label} — ${t.desc}`);
+  return `PROGRAMMATIC TEST TYPES REQUIRED (write executable specs AND tests for EACH):
+${lines.join('\n')}
+
+For each type above, emit at least one named test in tests/ that exercises that coverage dimension. Tests must currently FAIL against src/after (stubs raise NotImplementedError) and PASS once src/after is implemented. Tests must assert behavior derived from the spec/PRD — NEVER mirror the implementation. The test RUNNER is chosen from the detected stack (pytest for Python, jest/vitest for JS/TS, cargo test for Rust, go test for Go, etc.) — do NOT switch languages for tests.`;
+}
+
+function renderTestTypesGrid(gridId, summaryId, arr, onChange) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const all = isAllTestTypes(arr);
+  grid.innerHTML = TEST_TYPES.map(t => {
+    const checked = all || arr.includes(t.id) ? 'checked' : '';
+    return `<label class="testtype-opt">
+      <input type="checkbox" value="${t.id}" ${checked} onchange="${onChange}" />
+      <span>${t.label}</span>
+      <span class="tt-desc">${t.desc}</span>
+    </label>`;
+  }).join('');
+  const sum = document.getElementById(summaryId);
+  if (sum) sum.textContent = testTypeLabel(arr);
+}
+
+window.onTestTypeCheckboxChange = function() {
+  const boxes = document.querySelectorAll('#testTypesGrid input[type=checkbox]');
+  // If user deselects everything, treat as all
+  let arr = Array.from(boxes).filter(b => b.checked).map(b => b.value);
+  if (!arr.length) arr = TEST_TYPES.map(t => t.id);
+  testTypes = arr;
+  const all = isAllTestTypes(arr);
+  document.getElementById('testTypeAllRadio').checked = all;
+  saveTestTypes(arr);
+  const badge = document.getElementById('testTypesBadge');
+  if (badge) badge.textContent = testTypeLabel(arr);
+  const sum = document.getElementById('testTypeSelSummary');
+  if (sum) sum.textContent = testTypeLabel(arr);
+  // mirror to Assembly view
+  syncAsTestTypes(arr);
+  // refresh editor if not dirty
+  if (mode === 'project' && systemPromptEditor.dataset.dirty !== '1') {
+    systemPromptEditor.value = baseSystemPrompt();
+  }
+};
+
+window.onTestTypeAllChange = function() {
+  const radio = document.getElementById('testTypeAllRadio');
+  if (radio.checked) {
+    testTypes = TEST_TYPES.map(t => t.id);
+    saveTestTypes(testTypes);
+    renderTestTypesGrid('testTypesGrid', 'testTypeSelSummary', testTypes, 'onTestTypeCheckboxChange()');
+    const badge = document.getElementById('testTypesBadge');
+    if (badge) badge.textContent = 'all';
+    const sum = document.getElementById('testTypeSelSummary');
+    if (sum) sum.textContent = 'all';
+    syncAsTestTypes(testTypes);
+    if (mode === 'project' && systemPromptEditor.dataset.dirty !== '1') {
+      systemPromptEditor.value = baseSystemPrompt();
+    }
+  }
+};
+
+// ── ASSEMBLY test-types mirror ──────────────────────────────────────────────
+
+function syncAsTestTypes(arr) {
+  const grid = document.getElementById('asTestTypesGrid');
+  if (!grid) return;
+  const all = isAllTestTypes(arr);
+  grid.innerHTML = TEST_TYPES.map(t => {
+    const checked = all || arr.includes(t.id) ? 'checked' : '';
+    return `<label class="testtype-opt">
+      <input type="checkbox" value="${t.id}" ${checked} onchange="onAsTestTypeCheckboxChange()" />
+      <span>${t.label}</span>
+      <span class="tt-desc">${t.desc}</span>
+    </label>`;
+  }).join('');
+  const radio = document.getElementById('asTestTypeAllRadio');
+  if (radio) radio.checked = all;
+  const sum = document.getElementById('asTestTypeSelSummary');
+  if (sum) sum.textContent = testTypeLabel(arr);
+}
+
+window.onAsTestTypeCheckboxChange = function() {
+  const boxes = document.querySelectorAll('#asTestTypesGrid input[type=checkbox]');
+  let arr = Array.from(boxes).filter(b => b.checked).map(b => b.value);
+  if (!arr.length) arr = TEST_TYPES.map(t => t.id);
+  const all = isAllTestTypes(arr);
+  document.getElementById('asTestTypeAllRadio').checked = all;
+  const sum = document.getElementById('asTestTypeSelSummary');
+  if (sum) sum.textContent = testTypeLabel(arr);
+  // keep Forge in sync too (single source of truth)
+  testTypes = arr;
+  saveTestTypes(arr);
+  renderTestTypesGrid('testTypesGrid', 'testTypeSelSummary', arr, 'onTestTypeCheckboxChange()');
+  const badge = document.getElementById('testTypesBadge');
+  if (badge) badge.textContent = testTypeLabel(arr);
+};
+
+window.onAsTestTypeAllChange = function() {
+  const radio = document.getElementById('asTestTypeAllRadio');
+  if (radio.checked) {
+    const arr = TEST_TYPES.map(t => t.id);
+    syncAsTestTypes(arr);
+    testTypes = arr;
+    saveTestTypes(arr);
+    renderTestTypesGrid('testTypesGrid', 'testTypeSelSummary', arr, 'onTestTypeCheckboxChange()');
+    const badge = document.getElementById('testTypesBadge');
+    if (badge) badge.textContent = 'all';
+  }
+};
+
+function initTestTypesUI() {
+  renderTestTypesGrid('testTypesGrid', 'testTypeSelSummary', testTypes, 'onTestTypeCheckboxChange()');
+  const radio = document.getElementById('testTypeAllRadio');
+  if (radio) radio.checked = isAllTestTypes(testTypes);
+  const badge = document.getElementById('testTypesBadge');
+  if (badge) badge.textContent = testTypeLabel(testTypes);
+  syncAsTestTypes(testTypes);
+}
+
 function baseSystemPrompt() {
   let p = mode === 'project' ? SYSTEM_PROMPT_PROJECT : SYSTEM_PROMPT_SINGLE;
   const tpl = document.getElementById('templateSel').value;
   if (tpl) p = TEMPLATE_PREFIX[tpl] + '\n\n' + p;
+  if (mode === 'project') {
+    p = p + '\n\n' + testTypesPromptFragment(testTypes);
+  }
   return p;
 }
 
@@ -2037,6 +2460,7 @@ window.exportWorkspace = function() {
       temperature: document.getElementById('temperature').value,
       maxTokens: document.getElementById('maxTokens').value,
       numCtx: document.getElementById('numCtx').value,
+      test_types: testTypes,
     },
   };
   saveBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
@@ -2070,6 +2494,12 @@ window.importWorkspace = async function(ev) {
     if (p.temperature != null) document.getElementById('temperature').value = p.temperature;
     if (p.maxTokens != null)   document.getElementById('maxTokens').value = p.maxTokens;
     if (p.numCtx != null)      document.getElementById('numCtx').value = p.numCtx;
+    if (Array.isArray(p.test_types) && p.test_types.length) {
+      testTypes = p.test_types.filter(t => TEST_TYPES.some(tt => tt.id === t));
+      if (!testTypes.length) testTypes = TEST_TYPES.map(t => t.id);
+      saveTestTypes(testTypes);
+      initTestTypesUI();
+    }
     updateInputMeter();
     updateParamsBadge();
     toast('Workspace imported');
@@ -2421,36 +2851,124 @@ async function loadJSZip() {
   return jszipMod;
 }
 
+// ── Shared project-zip builder ───────────────────────────────────────────────
+// Single source of truth for Forge, Assembly Line, and Agent Forge exports.
+// parts: { files: [{path, body}], manifest: {...extra manifest fields}, task: str }
+// opts : { safeName, onError(msg), onToast(msg) }
+// Returns the generated Blob, or throws.
+async function buildProjectZip(parts, opts = {}) {
+  const files = parts.files || [];
+  if (!files.length) {
+    const e = 'No `=== FILE: ... ===` blocks found in output. Are you sure mode was COMPLETE PROJECT and generation finished?';
+    (opts.onError || showErr)(e);
+    throw new Error(e);
+  }
+
+  // 1. Duplicate-path + empty-body integrity scan
+  const seen = new Set();
+  for (const f of files) {
+    if (seen.has(f.path)) {
+      const e = 'Duplicate path in payload: ' + f.path;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+    seen.add(f.path);
+  }
+
+  const jszipLoader = opts.jszipLoader || loadJSZip;
+  const JSZip = await jszipLoader();
+  const zip = new JSZip();
+  for (const f of files) {
+    zip.file(f.path, f.body == null ? '' : String(f.body));
+    // mark install scripts executable when requested (Agent Forge)
+    if (opts.execPattern && opts.execPattern.test(f.path.split('/').pop())) {
+      try { zip.file(f.path).unixPermissions = 0o755; } catch {}
+    }
+  }
+
+  // 2. Manifest (extended: test_types, prd_hash, spec_hash)
+  const prdFile = files.find(f => f.path === 'prd.md');
+  const specFile = files.find(f => f.path === 'spec.md');
+  const sha1ish = (s) => {
+    // short, stable fingerprint (not cryptographic — just a drift/identity tag)
+    let h = 0x811c9dc5 >>> 0;
+    const str = String(s || '');
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return ('00000000' + h.toString(16)).slice(-8);
+  };
+  const manifest = Object.assign({
+    forged_at: new Date().toISOString(),
+    schema: 'prompt-forge.project.v2',
+    test_types: testTypes || TEST_TYPES.map(t => t.id),
+    file_count: files.length,
+    prd_hash: prdFile ? sha1ish(prdFile.body) : null,
+    spec_hash: specFile ? sha1ish(specFile.body) : null,
+  }, parts.manifest || {});
+
+  zip.file('prompt-forge.json', JSON.stringify(manifest, null, 2));
+
+  const genOpts = { type: 'blob' };
+  if (opts.platform) genOpts.platform = opts.platform;
+  const blob = await zip.generateAsync(genOpts);
+
+  // 3. ZIP integrity re-open check: re-inflate and confirm every entry is
+  //    present, non-empty (unless allow-empty like __init__.py), and matches.
+  const reZip = await JSZip.loadAsync(blob);
+  const entries = {};
+  await Promise.all(Object.keys(reZip.files).map(async (name) => {
+    const ent = reZip.files[name];
+    if (ent.dir) return;
+    entries[name] = await ent.async('string');
+  }));
+  for (const f of files) {
+    if (!(f.path in entries)) {
+      const e = 'ZIP integrity check failed — entry missing after reopen: ' + f.path;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+    const allowEmpty = /(^|\/)__init__\.py$/.test(f.path) || f.body === '';
+    if (!allowEmpty && entries[f.path].length === 0) {
+      const e = 'ZIP integrity check failed — empty entry: ' + f.path;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+  }
+  if (!('prompt-forge.json' in entries)) {
+    const e = 'ZIP integrity check failed — manifest missing after reopen.';
+    (opts.onError || showErr)(e);
+    throw new Error(e);
+  }
+
+  return blob;
+}
+
 window.downloadZip = async function() {
   const text = getRawOutput();
   if (!text) return;
   const files = parseProjectFiles(text);
-  if (!files.length) {
-    showErr('No `=== FILE: ... ===` blocks found in output. Are you sure mode was COMPLETE PROJECT and generation finished?');
-    return;
-  }
   try {
-    const JSZip = await loadJSZip();
-    const zip = new JSZip();
-    for (const f of files) zip.file(f.path, f.body);
-    zip.file('prompt-forge.json', JSON.stringify({
-      forged_at: new Date().toISOString(),
-      mode, backend,
-      model: backend === 'ollama'
-        ? document.getElementById('ollamaModel').value
-        : document.getElementById('browserModel').value,
-      template: document.getElementById('templateSel').value || null,
-      params: getParams(),
+    const blob = await buildProjectZip({
+      files,
       task: taskInput.value,
-      file_count: files.length,
-    }, null, 2));
-    const blob = await zip.generateAsync({ type: 'blob' });
+      manifest: {
+        mode, backend,
+        model: backend === 'ollama'
+          ? document.getElementById('ollamaModel').value
+          : document.getElementById('browserModel').value,
+        template: document.getElementById('templateSel').value || null,
+        params: getParams(),
+        task: taskInput.value,
+      },
+    });
     const safeName = (taskInput.value.trim().split('\n')[0] || 'project')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'project';
     saveBlob(blob, `${safeName}.zip`);
     toast(`Packaged ${files.length} files`);
   } catch (e) {
-    showErr('ZIP error: ' + e.message);
+    // error already surfaced via buildProjectZip onError
   }
 };
 
@@ -2467,8 +2985,16 @@ const REQUIRED_SECTIONS_SINGLE = [
 ];
 
 const REQUIRED_PROJECT_FILES = [
-  'README.md', 'CLAUDE.md', 'AGENTS.md', 'DONE.md', 'Makefile', '.gitignore',
+  // Root docs (agentic TDD/SDD scaffolding)
+  'README.md', 'prd.md', 'spec.md', 'tdd.md', 'agent.md', 'drift.md',
+  'capabilities.md', 'architectural.md', 'prompt-sequence.md',
+  'CLAUDE.md', 'AGENTS.md', 'DONE.md',
+  // Build / tooling
+  'Makefile', '.gitignore',
+  // Per-directory READMEs (every folder has an index — no empty dirs)
+  'src/before/README.md', 'src/after/README.md', 'tests/README.md',
   // src/before/main.* + src/after/main.* + tests/test_main.* + tests/conftest.* + requirements.txt|package.json
+  // are matched by extension below (stack-dependent).
 ];
 
 function extractSections(text) {
@@ -2524,6 +3050,31 @@ window.validateOutput = function() {
          (haveAny(p => /^tests\/conftest\./.test(p)) ? '✓ ' : '⚠ optional missing — ') + 'tests/conftest.<ext>');
     push(haveAny(p => /^(requirements\.txt|package\.json)$/.test(p)) ? 'ok' : 'bad',
          (haveAny(p => /^(requirements\.txt|package\.json)$/.test(p)) ? '✓ ' : '✗ MISSING — ') + 'requirements.txt OR package.json');
+
+    // Duplicate-path check
+    const pathCounts = {};
+    for (const f of files) pathCounts[f.path] = (pathCounts[f.path] || 0) + 1;
+    const dups = Object.keys(pathCounts).filter(p => pathCounts[p] > 1);
+    push('section-name', '— ZIP integrity —');
+    push(!dups.length ? 'ok' : 'bad',
+         !dups.length ? 'no duplicate paths' : ('duplicate paths: ' + dups.join(', ')));
+
+    // Post-parse TDD validator: tests/ files reference the implementation
+    // module and contain real assertion/expect calls (not tautological stubs).
+    const testFiles = files.filter(f => /^tests\//.test(f.path) && /(^|\/)test_/.test(f.path));
+    push('section-name', '— TDD post-parse check —');
+    push(testFiles.length ? 'ok' : 'bad',
+         testFiles.length ? `${testFiles.length} test file(s) found` : '✗ no tests/ files matching test_*.<ext>');
+    const implRefs = testFiles.filter(f => /src\.after|src\/after|from\s+["']\.\.\/src\/after|require\(["']\.\.\/src\/after/.test(f.body));
+    push(implRefs.length ? 'ok' : 'bad',
+         implRefs.length ? `${implRefs.length} test file(s) reference src/after implementation` : '✗ no test imports src/after — tests must exercise the implementation, not stubs');
+    const hasAssertions = testFiles.filter(f => /\bassert\b|\.expect\(|\.should\.|expect\(|\btoEqual\(|\btoBe\(/.test(f.body));
+    push(hasAssertions.length ? 'ok' : 'bad',
+         hasAssertions.length ? `${hasAssertions.length} test file(s) contain assertion/expect calls` : '✗ no assertion/expect calls found in tests');
+    // Anti-tautology: tests should NOT import implementation internals beyond the public module
+    const tautological = testFiles.filter(f => /import\s+\*\s+as\s+_from_impl|from\s+src\.after\.main\s+import\s+\*/.test(f.body));
+    push(!tautological.length ? 'ok' : 'warn',
+         !tautological.length ? 'no tautological wildcard imports' : '⚠ wildcard imports from implementation — risk of tautological tests');
 
     // CLAUDE.md should contain the canonical sections too
     const claude = files.find(f => f.path === 'CLAUDE.md');
@@ -2714,6 +3265,10 @@ document.addEventListener('keydown', (e) => {
   updateParamsBadge();
   checkCtxOverflow();
   fetchOllamaModels();
+  initTestTypesUI();
+  // test-types section is project-mode only; setMode handles toggle on switch.
+  const ttSec0 = document.getElementById('sec-testtypes');
+  if (ttSec0) ttSec0.style.display = (mode === 'project') ? '' : 'none';
 })();
 
 
@@ -3405,22 +3960,22 @@ window.asRun = async function() {
 window.asDownloadZip = async function() {
   const files = parseFilesShared(asFinalText);
   if (!files.length) { asShowErr('No FILE blocks in final output.'); return; }
+  const task = document.getElementById('asTaskInput').value;
   try {
-    const JSZip = await sharedJSZip();
-    const zip = new JSZip();
-    for (const f of files) zip.file(f.path, f.body);
-    zip.file('assembly-line.json', JSON.stringify({
-      generated_at: new Date().toISOString(),
-      task: document.getElementById('asTaskInput').value,
-      stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, ok: !asStepOutputs[i]?.err })),
-      file_count: files.length,
-    }, null, 2));
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const safe = (document.getElementById('asTaskInput').value.trim().split('\n')[0] || 'assembly-project')
+    const blob = await buildProjectZip({
+      files,
+      task,
+      manifest: {
+        source: 'assembly-line',
+        task,
+        stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, ok: !asStepOutputs[i]?.err })),
+      },
+    }, { jszipLoader: sharedJSZip, onError: asShowErr });
+    const safe = (task.trim().split('\n')[0] || 'assembly-project')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0,40) || 'assembly-project';
     saveBlobShared(blob, safe + '.zip');
     toast(`Packaged ${files.length} files`);
-  } catch (e) { asShowErr('ZIP error: ' + e.message); }
+  } catch (e) { /* surfaced via onError */ }
 };
 
 window.asDownloadMd = function() {
@@ -3994,27 +4549,24 @@ window.afSelectFile = function(i) {
 window.afDownloadZip = async function() {
   if (!afFiles.length) { afShowErr('No files to package.'); return; }
   try {
-    const JSZip = await sharedJSZip();
-    const zip = new JSZip();
-    for (const f of afFiles) zip.file(f.path, f.body);
-    // make install scripts executable in the zip
-    for (const f of afFiles) {
-      if (/^install.*\.sh$/.test(f.path.split('/').pop())) {
-        try { zip.file(f.path).unixPermissions = 0o755; } catch {}
-      }
-    }
-    zip.file('agent-forge-spec.json', JSON.stringify({
-      generated_at: new Date().toISOString(),
-      answers: afAnswers,
-      generator_models: afPoolList().map(p => p.key),
-      file_count: afFiles.length,
-    }, null, 2));
-    const blob = await zip.generateAsync({ type: 'blob', platform: 'UNIX' });
+    const blob = await buildProjectZip({
+      files: afFiles,
+      manifest: {
+        source: 'agent-forge',
+        answers: afAnswers,
+        generator_models: afPoolList().map(p => p.key),
+      },
+    }, {
+      jszipLoader: sharedJSZip,
+      onError: afShowErr,
+      platform: 'UNIX',
+      execPattern: /^install.*\.sh$/,
+    });
     const safe = (afAnswers.goal || 'agent').trim().split(/\s+/).slice(0,4).join('-')
       .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0,40) || 'agent';
     saveBlobShared(blob, safe + '.zip');
     toast(`Packaged ${afFiles.length} files`);
-  } catch (e) { afShowErr('ZIP error: ' + e.message); }
+  } catch (e) { /* surfaced via onError */ }
 };
 
 window.afCopyLog = async function() {

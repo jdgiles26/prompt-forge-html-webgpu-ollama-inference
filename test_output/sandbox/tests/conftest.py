@@ -1,1 +1,0 @@
-# Minimal — fixtures are inline in test_main.py via tmp_path.

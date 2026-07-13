@@ -43,7 +43,9 @@ new AdmZip(ZIP).extractAllTo(SANDBOX, true);
 rec('extracted to sandbox', fs.existsSync(path.join(SANDBOX, 'tests/test_main.py')));
 
 // 2. Install pytest (uses any available pip)
-const pipResult = shAllowFail('python3 -m pip install --quiet --user pytest');
+// --break-system-packages is required on PEP 668 externally-managed
+// environments (e.g. Debian/Ubuntu 12+) where bare --user is refused.
+const pipResult = shAllowFail('python3 -m pip install --quiet --break-system-packages pytest');
 rec('pytest installed', pipResult.ok, pipResult.ok ? '' : pipResult.out.slice(-200));
 
 // 3. RED: tests must FAIL before implementation

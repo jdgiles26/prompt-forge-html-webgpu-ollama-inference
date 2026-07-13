@@ -28,8 +28,144 @@ make test
 make run
 \`\`\`
 
+## Repo layout
+- src/before/ — broken reference implementation (do not import)
+- src/after/ — target implementation (RED until filled, then GREEN)
+- tests/ — executable specs, import from src.after only
+- prd.md / spec.md / capabilities.md — requirements + pass/fail matrix
+
+## Test plan
+Functional + unit coverage via tests/test_main.py. Run: make test.
+
 ## Status
 RED — src/after/main.py raises NotImplementedError until you fill it in.
+=== END FILE ===
+
+=== FILE: prd.md ===
+# Product Requirements Document
+
+## Problem
+Count unique whitespace-separated tokens in a UTF-8 file and return them as a dict[token, count].
+
+## Inputs
+- Path to a UTF-8 text file.
+
+## Outputs
+- dict[str, int] mapping each whitespace-separated token to its count.
+
+## Functional requirements
+- [FR-1] count_tokens(path) returns a dict mapping each token to its occurrence count.
+- [FR-2] Tokens are split on any whitespace (space, tab, newline).
+- [FR-3] UTF-8 input is decoded correctly.
+- [FR-4] Missing file raises FileNotFoundError or OSError.
+- [FR-5] main(argv) CLI prints "token<TAB>count" lines sorted desc by count.
+
+## Non-functional requirements
+- Small files only; no streaming required.
+
+## Out of scope
+- Large-file / streaming optimization.
+
+## Success criteria
+- make test exits 0 with all tests green after src/after is implemented.
+=== END FILE ===
+
+=== FILE: spec.md ===
+# Machine-Executable Specifications
+
+## Spec table
+| ID | Capability | Input | Expected output | Enforcing test | Type |
+|----|-----------|-------|-----------------|----------------|------|
+| S1 | count empty file | "" | {} | tests/test_main.py::test_empty_file | functional |
+| S2 | count single token | "hello" | {"hello":1} | tests/test_main.py::test_single_token | unit |
+| S3 | count repeated | "a a b" | {"a":2,"b":1} | tests/test_main.py::test_repeated_tokens | unit |
+| S4 | whitespace variants | "a\\tb\\nc  d" | {"a":1,"b":1,"c":1,"d":1} | tests/test_main.py::test_whitespace_variants | functional |
+| S5 | utf8 tokens | "café café naïve" | {"café":2,"naïve":1} | tests/test_main.py::test_utf8_tokens | functional |
+| S6 | returns dict | "x y z" | isinstance dict | tests/test_main.py::test_returns_dict | unit |
+| S7 | missing file raises | absent path | FileNotFoundError|OSError | tests/test_main.py::test_missing_file_raises | contract |
+| S8 | large file | 10000 x | {"x":10000} | tests/test_main.py::test_large_file | property |
+
+## Validation scripts
+\`\`\`bash
+python -m pytest tests/test_main.py -v
+\`\`\`
+=== END FILE ===
+
+=== FILE: agent.md ===
+# Generated Agent — System Prompt + Operational Parameters
+
+## Role
+Implementer that turns the RED TDD scaffold under src/after green.
+
+## System prompt
+You are a senior Python engineer. Implement src/after/main.py so every test in tests/test_main.py passes. Do not edit tests.
+
+## Operational parameters
+- Model: any capable code model
+- Temperature: 0.2
+- Max tokens: 2000
+- Test types in scope: functional, unit, contract, property
+
+## Tools / permissions
+- Read: src/before/, tests/, prd.md, spec.md
+- Write: src/after/main.py only
+- Execute: make test
+=== END FILE ===
+
+=== FILE: drift.md ===
+# Drift / State Tracking
+
+## Initial state
+- Task: Python token counter (TDD)
+- Created: 2026-07-01T00:00:00Z
+- Model: test-fixture
+- Params: temperature=0.2, max_tokens=2000, num_ctx=8192
+- Test types: functional, unit, contract, property
+- prd_hash: 0a1b2c3d
+- spec_hash: 1b2c3d4e
+
+## Run log
+| Run # | Phase | Result | Notes |
+|-------|-------|--------|-------|
+| 1 | RED | done | tests written, src/after stubbed |
+| 2 | GREEN | pending | src/after to be implemented |
+
+## Open questions
+- none
+=== END FILE ===
+
+=== FILE: capabilities.md ===
+# Capabilities → Pass/Fail Criteria Matrix
+
+| Capability | Test (file::case) | Expected | Status |
+|-----------|-------------------|----------|--------|
+| count empty file | tests/test_main.py::test_empty_file | {} | RED |
+| count single token | tests/test_main.py::test_single_token | {"hello":1} | RED |
+| count repeated | tests/test_main.py::test_repeated_tokens | {"a":2,"b":1} | RED |
+| whitespace variants | tests/test_main.py::test_whitespace_variants | {"a":1,"b":1,"c":1,"d":1} | RED |
+| utf8 tokens | tests/test_main.py::test_utf8_tokens | {"café":2,"naïve":1} | RED |
+| returns dict | tests/test_main.py::test_returns_dict | isinstance dict | RED |
+| missing file raises | tests/test_main.py::test_missing_file_raises | FileNotFoundError|OSError | RED |
+| large file | tests/test_main.py::test_large_file | {"x":10000} | RED |
+=== END FILE ===
+
+=== FILE: architectural.md ===
+# Architectural Design
+
+## Components
+- count_tokens(path) — pure function: read UTF-8, split whitespace, count.
+- main(argv) — CLI thin wrapper over count_tokens.
+
+## Data flow
+file path -> open UTF-8 -> text -> split() -> Counter-style dict -> (CLI) sorted print.
+
+## Boundaries
+- I/O edge: file read; raise on missing file.
+- No network, no globals.
+
+## Decisions
+- Use str.split() (any whitespace) per FR-2.
+- Sort by count desc for CLI output.
 === END FILE ===
 
 === FILE: CLAUDE.md ===
@@ -108,6 +244,44 @@ Complete files. No TODO. No placeholders.
 - [ ] CLI behavior matches spec
 === END FILE ===
 
+=== FILE: tdd.md ===
+# Red → Green → Refactor Log
+
+## RED — tests written, implementation stubbed
+- Date: 2026-07-01
+- Tests: tests/test_main.py
+- Result: all FAIL (NotImplementedError)
+- Command: make test
+
+## GREEN — implementation complete
+- Date: pending
+- Result: pending
+- Command: make test
+
+## Refactor notes
+None yet.
+
+## Anti-tautology check
+Tests import only count_tokens from src.after.main and assert behavior derived from spec.md. No internal mirroring.
+=== END FILE ===
+
+=== FILE: prompt-sequence.md ===
+# Prompt Sequence — Master Build Order
+
+| # | Prompt | Build | Pass criteria | Fail criteria | Guardrails |
+|---|--------|-------|---------------|---------------|------------|
+| 1 | "Audit src/before and write prd.md + spec.md" | prd.md, spec.md | spec table covers every FR | any FR lacks an enforcing test | do not write implementation |
+| 2 | "Write tests for each spec (RED)" | tests/test_main.py | tests FAIL with NotImplementedError | tests pass before impl | tests import from src.after only |
+| 3 | "Implement src/after until GREEN" | src/after/main.py | make test exits 0 | any test fails | do not edit tests or spec |
+| 4 | "Update DONE.md, drift.md, capabilities.md" | DONE.md, drift.md, capabilities.md | all capabilities GREEN | any unchecked item | reviewer only |
+
+## Per-step pass/fail summary
+- Step 1 passes when every FR in prd.md has a row in spec.md.
+- Step 2 passes when tests fail with NotImplementedError before impl.
+- Step 3 passes when make test exits 0.
+- Step 4 passes when DONE.md is fully checked.
+=== END FILE ===
+
 === FILE: Makefile ===
 .PHONY: install test lint run clean
 
@@ -136,6 +310,12 @@ build/
 .venv/
 === END FILE ===
 
+=== FILE: src/before/README.md ===
+# src/before
+
+Broken reference implementation. Do not import from here in tests or src/after.
+=== END FILE ===
+
 === FILE: src/before/main.py ===
 # BROKEN — for reference only. Do not import.
 def count_tokens(path):
@@ -148,6 +328,12 @@ def count_tokens(path):
     for p in parts:
         out[p] = out.get(p, 0) + 1
     return out
+=== END FILE ===
+
+=== FILE: src/after/README.md ===
+# src/after
+
+Target implementation. Bodies start as raise NotImplementedError. Public surface must match what tests import.
 === END FILE ===
 
 === FILE: src/after/main.py ===
@@ -165,6 +351,18 @@ if __name__ == "__main__":
 === END FILE ===
 
 === FILE: src/after/__init__.py ===
+=== END FILE ===
+
+=== FILE: tests/README.md ===
+# tests
+
+Executable specs + test suite. Tests import from src.after ONLY. Currently RED; GREEN once src/after is implemented.
+
+## Test types included
+- functional: test_empty_file, test_whitespace_variants, test_utf8_tokens
+- unit: test_single_token, test_repeated_tokens, test_returns_dict
+- contract: test_missing_file_raises
+- property: test_large_file
 === END FILE ===
 
 === FILE: tests/test_main.py ===
@@ -213,8 +411,7 @@ def test_large_file(tmp_path):
 === FILE: requirements.txt ===
 pytest>=7.0
 ruff>=0.1
-=== END FILE ===
-`;
+=== END FILE ===`;
 
 let passed = 0, failed = 0;
 const rec = (n, ok, d) => { if (ok) { passed++; console.log(' ✓ ' + n); } else { failed++; console.log(' ✗ ' + n + (d ? ' → ' + d : '')); } };
@@ -278,9 +475,13 @@ const rec = (n, ok, d) => { if (ok) { passed++; console.log(' ✓ ' + n); } else
   await page.waitForSelector('#fileViewer.visible');
   const tree = await page.locator('.file-tree-item').evaluateAll(els => els.map(e => e.firstChild.textContent.trim()));
   const REQUIRED = [
-    'README.md','CLAUDE.md','AGENTS.md','DONE.md','Makefile','.gitignore',
-    'src/before/main.py','src/after/main.py','src/after/__init__.py',
-    'tests/test_main.py','tests/conftest.py','requirements.txt'
+    'README.md','prd.md','spec.md','tdd.md','agent.md','drift.md',
+    'capabilities.md','architectural.md','prompt-sequence.md',
+    'CLAUDE.md','AGENTS.md','DONE.md','Makefile','.gitignore',
+    'src/before/README.md','src/before/main.py',
+    'src/after/README.md','src/after/main.py','src/after/__init__.py',
+    'tests/README.md','tests/test_main.py','tests/conftest.py',
+    'requirements.txt'
   ];
   for (const f of REQUIRED) rec('file tree contains ' + f, tree.includes(f), 'tree=' + tree.join(','));
 
@@ -297,7 +498,7 @@ const rec = (n, ok, d) => { if (ok) { passed++; console.log(' ✓ ' + n); } else
   await page.waitForSelector('#validateModal.visible');
   const report = await page.textContent('#validateBody');
   fs.writeFileSync(path.join(OUT, 'validation_report.txt'), report);
-  rec('validator reports 12 file blocks', /12 file blocks parsed/.test(report), report.slice(0,300));
+  rec('validator reports 23 file blocks', /23 file blocks parsed/.test(report), report.slice(0,300));
   rec('CLAUDE.md present',  /✓ CLAUDE\.md/.test(report));
   rec('README.md present',  /✓ README\.md/.test(report));
   rec('AGENTS.md present',  /✓ AGENTS\.md/.test(report));
