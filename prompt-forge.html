@@ -943,6 +943,39 @@
                 <input type="range" id="numCtx" min="2048" max="32768" step="1024" value="8192" oninput="updateParamsBadge()" />
                 <span class="val" id="ctxVal">8192</span>
               </div>
+              <div class="slider-row">
+                <span class="lbl">Top P</span>
+                <input type="range" id="topP" min="0" max="1" step="0.05" value="0.9" oninput="updateParamsBadge()" />
+                <span class="val" id="topPVal">0.90</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Top K</span>
+                <input type="range" id="topK" min="0" max="100" step="1" value="40" oninput="updateParamsBadge()" />
+                <span class="val" id="topKVal">40</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Repeat penalty</span>
+                <input type="range" id="repeatPenalty" min="1" max="1.5" step="0.01" value="1.1" oninput="updateParamsBadge()" />
+                <span class="val" id="repeatPenaltyVal">1.10</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Presence</span>
+                <input type="range" id="presencePenalty" min="-1" max="1" step="0.05" value="0" oninput="updateParamsBadge()" />
+                <span class="val" id="presencePenaltyVal">0.00</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Frequency</span>
+                <input type="range" id="frequencyPenalty" min="-1" max="1" step="0.05" value="0" oninput="updateParamsBadge()" />
+                <span class="val" id="frequencyPenaltyVal">0.00</span>
+              </div>
+              <div class="slider-row">
+                <span class="lbl">Min P</span>
+                <input type="range" id="minP" min="0" max="1" step="0.01" value="0.05" oninput="updateParamsBadge()" />
+                <span class="val" id="minPVal">0.05</span>
+              </div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">
+                Anti-loop: repeat_penalty / presence / frequency auto-scale up as context fills (&gt;70% ctx). Detected repetition loops auto-bump penalties.
+              </div>
             </div>
           </div>
 
@@ -1096,6 +1129,43 @@
                   <span class="lbl">Ctx (Ollama)</span>
                   <input type="range" id="asNumCtx" min="2048" max="32768" step="1024" value="8192" oninput="asUpdateParamsBadge()" />
                   <span class="val" id="asCtxVal">8192</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Top P</span>
+                  <input type="range" id="asTopP" min="0" max="1" step="0.05" value="0.9" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asTopPVal">0.90</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Top K</span>
+                  <input type="range" id="asTopK" min="0" max="100" step="1" value="40" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asTopKVal">40</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Repeat penalty</span>
+                  <input type="range" id="asRepeatPenalty" min="1" max="1.5" step="0.01" value="1.1" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asRepeatPenaltyVal">1.10</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Presence</span>
+                  <input type="range" id="asPresencePenalty" min="-1" max="1" step="0.05" value="0" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asPresencePenaltyVal">0.00</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Frequency</span>
+                  <input type="range" id="asFrequencyPenalty" min="-1" max="1" step="0.05" value="0" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asFrequencyPenaltyVal">0.00</span>
+                </div>
+                <div class="slider-row">
+                  <span class="lbl">Min P</span>
+                  <input type="range" id="asMinP" min="0" max="1" step="0.01" value="0.05" oninput="asUpdateParamsBadge()" />
+                  <span class="val" id="asMinPVal">0.05</span>
+                </div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">
+                  Compaction:
+                  <label style="display:inline-flex;align-items:center;gap:4px;">
+                    <input type="checkbox" id="asCompaction" checked onchange="asRenderStages()" /> compact context between stages
+                  </label>
+                  <div style="margin-top:4px;">Anti-loop: penalties auto-scale as ctx fills; repetition loops auto-bump + toast.</div>
                 </div>
                 <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px;">
                   Final output mode:
@@ -2129,18 +2199,72 @@ window.updateParamsBadge = function() {
   const t = parseFloat(document.getElementById('temperature').value);
   const m = parseInt(document.getElementById('maxTokens').value, 10);
   const c = parseInt(document.getElementById('numCtx').value, 10);
+  const rp = parseFloat(document.getElementById('repeatPenalty').value);
+  const pp = parseFloat(document.getElementById('presencePenalty').value);
   document.getElementById('tempVal').textContent = t.toFixed(2);
   document.getElementById('maxVal').textContent  = m;
   document.getElementById('ctxVal').textContent  = c;
-  document.getElementById('paramsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c}`;
+  const setVal = (id, v, d=2) => { const el = document.getElementById(id); if (el) el.textContent = (+v).toFixed(d); };
+  setVal('topPVal', document.getElementById('topP').value);
+  setVal('topKVal', document.getElementById('topK').value, 0);
+  setVal('repeatPenaltyVal', rp);
+  setVal('presencePenaltyVal', pp);
+  setVal('frequencyPenaltyVal', document.getElementById('frequencyPenalty').value);
+  setVal('minPVal', document.getElementById('minP').value);
+  document.getElementById('paramsBadge').textContent = `T=${t.toFixed(2)} · ${m} tok · ctx ${c} · rp ${rp.toFixed(2)}`;
 };
 
+// Read the extended sampling param set from the Forge PARAMS sliders.
 function getParams() {
   return {
-    temperature: parseFloat(document.getElementById('temperature').value),
-    maxTokens:   parseInt(document.getElementById('maxTokens').value, 10),
-    numCtx:      parseInt(document.getElementById('numCtx').value, 10),
+    temperature:        parseFloat(document.getElementById('temperature').value),
+    maxTokens:          parseInt(document.getElementById('maxTokens').value, 10),
+    numCtx:             parseInt(document.getElementById('numCtx').value, 10),
+    topP:               parseFloat(document.getElementById('topP').value),
+    topK:               parseInt(document.getElementById('topK').value, 10),
+    repeatPenalty:      parseFloat(document.getElementById('repeatPenalty').value),
+    repeatLastN:        256,
+    presencePenalty:    parseFloat(document.getElementById('presencePenalty').value),
+    frequencyPenalty:   parseFloat(document.getElementById('frequencyPenalty').value),
+    minP:               parseFloat(document.getElementById('minP').value),
   };
+}
+
+// Dynamic anti-repetition scaling. As the running token budget fills toward
+// numCtx, progressively raise repeat_penalty (cap 1.3) and presence/frequency
+// (cap 0.5) and slightly lower top_p. `usedTokens` is the current running
+// token estimate for the active generation; `numCtx` is the context window.
+// Returns an UPDATED param object (does not mutate sliders).
+function scaleParamsForCtxFill(p, usedTokens) {
+  const fill = Math.max(0, Math.min(1, (usedTokens || 0) / Math.max(1, p.numCtx || 8192)));
+  if (fill < 0.7) return p;
+  // ramp from 0.7..1.0 → 0..1 extra pressure
+  const ramp = (fill - 0.7) / 0.3;
+  return Object.assign({}, p, {
+    repeatPenalty:    Math.min(1.3, (p.repeatPenalty || 1.1) + ramp * 0.2),
+    presencePenalty:  Math.min(0.5, (p.presencePenalty || 0) + ramp * 0.3),
+    frequencyPenalty: Math.min(0.5, (p.frequencyPenalty || 0) + ramp * 0.3),
+    topP:             Math.max(0.5, (p.topP || 0.9) - ramp * 0.15),
+  });
+}
+
+// Client-side repetition-loop detector. Inspects the trailing text and
+// returns true if the last few lines/tokens repeat beyond a threshold.
+// `window` is how many chars to inspect; `minRepeats` is the count of
+// repetitions of the dominant line required to flag a loop.
+function detectRepetitionLoop(text, opts) {
+  opts = opts || {};
+  const win = opts.window || 1200;
+  const minRepeats = opts.minRepeats || 4;
+  if (!text || text.length < 40) return false;
+  const tail = text.slice(-win);
+  const lines = tail.split('\n').filter(l => l.trim().length > 0);
+  if (lines.length < minRepeats) return false;
+  const last = lines.slice(-minRepeats);
+  const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const first = norm(last[0]);
+  if (!first) return false;
+  return last.every(l => norm(l) === first);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2197,7 +2321,7 @@ async function runOllama(userText) {
   const model = document.getElementById('ollamaModel').value;
   if (!model) { showErr('Select an Ollama model first.'); return; }
 
-  const { temperature, maxTokens, numCtx } = getParams();
+  const p = getParams();
   setStatus('busy', 'GENERATING');
   startOutput();
 
@@ -2206,11 +2330,7 @@ async function runOllama(userText) {
     system: getActiveSystemPrompt(),
     prompt: userText,
     stream: true,
-    options: {
-      temperature,
-      num_ctx: numCtx,
-      num_predict: maxTokens,
-    }
+    options: ollamaOptions(p),
   });
 
   abortCtl = new AbortController();
@@ -2305,18 +2425,15 @@ async function runBrowser(userText) {
   setStatus('busy', 'GENERATING');
   startOutput();
 
-  const { temperature, maxTokens } = getParams();
+  const p = getParams();
   const messages = [
     { role: 'system', content: getActiveSystemPrompt() },
     { role: 'user',   content: userText },
   ];
 
-  const chunks = await webllmEngine.chat.completions.create({
-    messages,
-    temperature,
-    max_tokens: maxTokens,
-    stream: true,
-  });
+  const chunks = await webllmEngine.chat.completions.create(
+    Object.assign(browserChatParams(p), { messages })
+  );
 
   for await (const chunk of chunks) {
     if (stopRequested) {
@@ -2325,6 +2442,11 @@ async function runBrowser(userText) {
     }
     const delta = chunk.choices?.[0]?.delta?.content || '';
     if (delta) appendOutput(delta);
+    if (detectRepetitionLoop(outputContent.dataset.raw || '')) {
+      try { await webllmEngine.interruptGenerate(); } catch {}
+      toast('Repetition loop detected - stopping. Raise repeat_penalty or top_k.');
+      return;
+    }
   }
 }
 
@@ -2365,6 +2487,7 @@ function showOutput(text) {
   outputContent.appendChild(outputTextNode);
   updateOutputMeter();
 }
+let _repLoopLastCheck = 0;
 function appendOutput(chunk) {
   ensureTextNode();
   outputTextNode.appendData(chunk);
@@ -2378,6 +2501,17 @@ function appendOutput(chunk) {
     });
   }
   tokCount += approxTokens(chunk);
+  // Throttled repetition-loop detector (<=1 check / 250ms). If the trailing
+  // output is clearly repeating, soft-stop the active generation and toast.
+  const now = performance.now();
+  if (now - _repLoopLastCheck > 250) {
+    _repLoopLastCheck = now;
+    if (detectRepetitionLoop(outputContent.dataset.raw || '')) {
+      stopRequested = true;
+      if (abortCtl) { try { abortCtl.abort(); } catch {} }
+      toast('Repetition loop detected - stopping. Raise repeat_penalty or top_k.');
+    }
+  }
 }
 
 function startTokRate() {
@@ -3452,12 +3586,28 @@ async function fetchOllamaTagsRaw(base) {
   return (data.models || []).map(m => m.name).sort();
 }
 
+// Build the Ollama `options` object from the extended sampling param set.
+// All penalty/sampling fields are OPTIONAL — callers that only pass the
+// legacy {temperature, maxTokens, numCtx} get exactly the old behavior, so
+// Task 4's HF-backend work and the Forge view keep working unchanged.
+function ollamaOptions({ temperature, maxTokens, numCtx, topP, topK, repeatPenalty, repeatLastN, presencePenalty, frequencyPenalty, minP }) {
+  const o = { temperature, num_ctx: numCtx, num_predict: maxTokens };
+  if (topP != null && !Number.isNaN(topP)) o.top_p = topP;
+  if (topK != null && !Number.isNaN(topK)) o.top_k = topK;
+  if (repeatPenalty != null && !Number.isNaN(repeatPenalty)) o.repeat_penalty = repeatPenalty;
+  if (repeatLastN != null && !Number.isNaN(repeatLastN)) o.repeat_last_n = repeatLastN;
+  if (presencePenalty != null && !Number.isNaN(presencePenalty)) o.presence_penalty = presencePenalty;
+  if (frequencyPenalty != null && !Number.isNaN(frequencyPenalty)) o.frequency_penalty = frequencyPenalty;
+  if (minP != null && !Number.isNaN(minP)) o.min_p = minP;
+  return o;
+}
+
 // Run one Ollama generation, streaming chunks to an onChunk callback.
 // Returns the full accumulated text. Aborts if stopFlag() returns true.
-async function ollamaGenerate({ base, model, system, prompt, temperature, maxTokens, numCtx, onChunk, stopFlag, signal }) {
+async function ollamaGenerate({ base, model, system, prompt, temperature, maxTokens, numCtx, topP, topK, repeatPenalty, repeatLastN, presencePenalty, frequencyPenalty, minP, onChunk, stopFlag, signal }) {
   const body = JSON.stringify({
     model, system, prompt, stream: true,
-    options: { temperature, num_ctx: numCtx, num_predict: maxTokens },
+    options: ollamaOptions({ temperature, maxTokens, numCtx, topP, topK, repeatPenalty, repeatLastN, presencePenalty, frequencyPenalty, minP }),
   });
   const res = await fetch(base + '/api/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3489,9 +3639,23 @@ async function ollamaGenerate({ base, model, system, prompt, temperature, maxTok
   return full;
 }
 
+// Build a WebLLM/OpenAI-style chat.completions request body from the extended
+// sampling param set. WebLLM's chat.completions.create accepts OpenAI-style
+// fields; penalty params map to presence_penalty/frequency_penalty and the
+// repetition penalty is forwarded under both names WebLLM understands.
+function browserChatParams({ temperature, maxTokens, topP, topK, repeatPenalty, presencePenalty, frequencyPenalty }) {
+  const p = { temperature, max_tokens: maxTokens, stream: true };
+  if (topP != null && !Number.isNaN(topP)) p.top_p = topP;
+  if (topK != null && !Number.isNaN(topK)) p.top_k = topK;
+  if (repeatPenalty != null && !Number.isNaN(repeatPenalty)) { p.repetition_penalty = repeatPenalty; p.repeat_penalty = repeatPenalty; }
+  if (presencePenalty != null && !Number.isNaN(presencePenalty)) p.presence_penalty = presencePenalty;
+  if (frequencyPenalty != null && !Number.isNaN(frequencyPenalty)) p.frequency_penalty = frequencyPenalty;
+  return p;
+}
+
 // Run one WebGPU generation, streaming to onChunk. Loads the model on first
 // use (one engine per model id, cached). progressCb gets 0..1 + text.
-async function browserGenerate({ modelId, system, prompt, temperature, maxTokens, onChunk, stopFlag, progressCb }) {
+async function browserGenerate({ modelId, system, prompt, temperature, maxTokens, topP, topK, repeatPenalty, presencePenalty, frequencyPenalty, onChunk, stopFlag, progressCb }) {
   if (!('gpu' in navigator)) throw new Error('WebGPU not supported. Use Chrome/Edge 113+.');
   const webllm = await sharedWebLLM();
   if (!_engines[modelId]) {
@@ -3503,9 +3667,8 @@ async function browserGenerate({ modelId, system, prompt, temperature, maxTokens
     { role: 'system', content: system },
     { role: 'user',   content: prompt },
   ];
-  const chunks = await _engines[modelId].chat.completions.create({
-    messages, temperature, max_tokens: maxTokens, stream: true,
-  });
+  const request = { messages, ...browserChatParams({ temperature, maxTokens, topP, topK, repeatPenalty, presencePenalty, frequencyPenalty }) };
+  const chunks = await _engines[modelId].chat.completions.create(request);
   let full = '';
   for await (const chunk of chunks) {
     if (stopFlag && stopFlag()) { try { await _engines[modelId].interruptGenerate(); } catch {} return full; }
