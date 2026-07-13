@@ -3734,14 +3734,32 @@ async function buildProjectZip(parts, opts = {}) {
   const blob = await zip.generateAsync(genOpts);
 
   // 3. ZIP integrity re-open check: re-inflate and confirm every entry is
-  //    present, non-empty (unless allow-empty like __init__.py), and matches.
+  //    present, non-empty (unless allow-empty like __init__.py), and that
+  //    there are no truly-empty directories and no duplicate paths.
+  //    (Re-inflation catches collisions JSZip would silently overwrite.)
+  //
+  //    JSZip auto-emits zero-byte `foo/` folder-marker entries for every
+  //    intermediate folder of a nested file (e.g. `src/`, `src/before/`).
+  //    These are NOT empty directories in the "folder with no files" sense —
+  //    they are standard zip folder markers and every one of them contains
+  //    real files (each prompt-forge folder has its own README). We therefore
+  //    verify that every directory marker has at least one file beneath it,
+  //    and reject only genuinely empty folders.
   const reZip = await JSZip.loadAsync(blob);
+  const allNames = Object.keys(reZip.files);
+  const fileNames = allNames.filter(n => !reZip.files[n].dir);
+  const dirNames  = allNames.filter(n => reZip.files[n].dir);
+  for (const d of dirNames) {
+    const prefix = d.replace(/\/+$/, '') + '/';
+    const hasChild = fileNames.some(n => n.startsWith(prefix));
+    if (!hasChild) {
+      const e = 'ZIP integrity check failed — empty directory in archive: ' + d;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+  }
   const entries = {};
-  await Promise.all(Object.keys(reZip.files).map(async (name) => {
-    const ent = reZip.files[name];
-    if (ent.dir) return;
-    entries[name] = await ent.async('string');
-  }));
+  await Promise.all(fileNames.map(async (name) => { entries[name] = await reZip.files[name].async('string'); }));
   for (const f of files) {
     if (!(f.path in entries)) {
       const e = 'ZIP integrity check failed — entry missing after reopen: ' + f.path;
@@ -3751,6 +3769,14 @@ async function buildProjectZip(parts, opts = {}) {
     const allowEmpty = /(^|\/)__init__\.py$/.test(f.path) || f.body === '';
     if (!allowEmpty && entries[f.path].length === 0) {
       const e = 'ZIP integrity check failed — empty entry: ' + f.path;
+      (opts.onError || showErr)(e);
+      throw new Error(e);
+    }
+  }
+  // Extra sidecar files (e.g. assembly-line.json) must also survive the round-trip.
+  for (const f of extra) {
+    if (!(f.path in entries)) {
+      const e = 'ZIP integrity check failed — sidecar missing after reopen: ' + f.path;
       (opts.onError || showErr)(e);
       throw new Error(e);
     }
@@ -6370,6 +6396,7 @@ window.asDownloadZip = async function() {
       manifest: {
         source: 'assembly-line',
         task,
+        test_types: testTypes || TEST_TYPES.map(t => t.id),
         stages: asStages.map((s,i) => ({ n: i+1, role: s.role, model: s.modelKey, label: s.label, ok: !asStepOutputs[i]?.err })),
       },
       // Legacy stage manifest sidecar (kept for back-compat with consumers
@@ -6982,6 +7009,7 @@ window.afDownloadZip = async function() {
       manifest: {
         source: 'agent-forge',
         answers: afAnswers,
+        test_types: testTypes || TEST_TYPES.map(t => t.id),
         generator_models: afPoolList().map(p => p.key),
       },
       // Legacy agent spec sidecar (back-compat; canonical manifest is
@@ -8277,6 +8305,7 @@ window.__pf = {
   asModelTier, asDefaultStages, asStages: () => asStages,
   // Hallucination/guard hardening surface (for tests / external introspection):
   scanFileBlocks, PF_GUARD_CFG,
+  buildProjectZip, downloadZip: window.downloadZip, saveBlob,
   pfOutputCompromised: () => pfOutputCompromised,
   pfCompromiseReason: () => pfCompromiseReason,
   pfMarkCompromised, pfClearCompromised,
