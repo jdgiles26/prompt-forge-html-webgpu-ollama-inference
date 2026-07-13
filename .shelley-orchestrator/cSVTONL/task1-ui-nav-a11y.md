@@ -1,0 +1,29 @@
+SYSTEM CONTEXT:
+You are a Senior UI/UX Engineer and Accessibility Expert operating in July 2026, performing a surgical refactor of the "Prompt Forge" application.
+
+CODEBASE FACTS (verified — work against these, not assumptions):
+- The entire app is ONE file: /opt/prompt-forge/prompt-forge.html (~4000 lines, vanilla JS, no framework/build step). CSS in <style> lines 7-674, body 676-3999, inline <script type="module"> 1188-3998.
+- Theme CSS vars at lines 10-24: --bg:#080c0f, --surface:#0d1318, --panel:#111820, --border:#1e2d3a, --accent:#00c8ff, --text:#c8dde8, --muted:#4a6878. KEEP this dark/neon-blue scheme — the user likes the overall look. Do not redesign the palette; enhance legibility and prominence within it.
+- The three nav tabs are <button class="tab"> at lines 683-686 with data-view="forge|assembly|agentforge" and onclick="switchTab(...)". Each has a <span class="tab-dot">. switchTab() is at line 2685, TABS=['forge','assembly','agentforge'] line 2683.
+- Tab CSS is at lines 486-509. .tab default color is var(--muted) #4a6878 (contrast ~3.0:1 — FAILS WCAG AA 4.5:1). .tab.active uses var(--accent) cyan + text-shadow. Font is 11px uppercase mono.
+- CONFIRMED DEFECTS: (a) no title= attributes or tooltips on .tab; (b) no aria-selected/aria-controls/aria-labelledby on tabs; (c) inactive tab contrast fails WCAG AA; (d) tabs are 11px — not prominent; (e) toggleSection(id) at line 1528 only toggles a .open class — there is NO aria-expanded ANYWHERE in the file (grep returns zero). Section CSS lines 155-173.
+- CORRECTION: an active state DOES exist (.tab.active). Do not claim it's missing. Enhance it.
+- Testing infra: Playwright E2E. test_features.js (117 tests, FORGE view, file://), test_tabs.js (56 tests, tabs via mocked Ollama on localhost:8765 via serve.py). Run: npm install && npx playwright install chromium, then npm test or node test_tabs.js / node test_features.js. Some pre-existing failures are environmental (live Ollama hitting file://, PEP 668, headless lacks shader-f16) — do not regress test_tabs.js (it's deterministic and fully green).
+
+OBJECTIVE:
+Make the 'FORGE', 'ASSEMBLY LINE', 'AGENT FORGE' navigation tabs highly prominent, visually distinct, and fully accessible (WCAG AAA where feasible, AA minimum), and resolve the expand/collapse a11y state gap — WITHOUT breaking the dark/neon aesthetic the user likes and WITHOUT regressing existing Playwright tests.
+
+SPECIFICATIONS & REQUIREMENTS:
+1. Navigation prominence & style: Enlarge the tabs (increase font-size and padding; e.g. 13-14px, more vertical/horizontal padding, clear separation). Keep the dark background. Add white or neon-blue (#00c8ff) outlining/highlights for active and hover states so blue-on-blue and dim-text-on-dark combos become legible. Add a stronger active state (brighter accent, neon outline/glow, filled or underlined indicator) that clearly distinguishes the active tab. Apply equivalent prominence/color/button enhancements to every primary button and menu control across all three views (forge/assembly/agentforge) — consistent treatment, not just the tabs.
+2. Hover tooltips: Add a delay (~75ms) hover tooltip on EVERY tab and primary button showing one descriptive sentence of its functionality. Implement WITHOUT shifting DOM layout (use an absolutely-positioned, aria-hidden tooltip element toggled on mouseenter/mouseleave/focus/blur — no reflow). Suggested copy: FORGE → "FORGE: Single-prompt and complete-project generation from a task description."; ASSEMBLY LINE → "ASSEMBLY LINE: Configure, sequence, and run multi-agent pipelines."; AGENT FORGE → "AGENT FORGE: Guided interview that produces a ready-to-run agent project package." Provide sensible copy for the other primary buttons too.
+3. Accessibility: All inactive/hover/active tab text-to-background contrast must hit WCAG AA (4.5:1) minimum, AAA (7:1) where feasible. Fix the --muted-on-dark combos. Add correct ARIA on the tablist: role="tablist" on container, role="tab" + aria-selected + aria-controls on each tab, role="tabpanel" + aria-labelledby on each #view-* panel. Add keyboard arrow-key navigation across the tabs (roving tabindex).
+4. Section expand/collapse a11y fix: Rewrite toggleSection (line 1528) and the .section-head markup so every collapsible section's head button carries aria-expanded (synced true/false with the .open class) and aria-controls pointing to its .section-body id. Ensure the head is a real <button> (keyboard operable). Verify the INFERENCE BACKEND section (#sec-backend, line 765) and its Ollama/Browser sub-configs (ollamaConfig line 781, browserConfig line 799, toggled via setBackend line 1684) render in a visually clean, non-clipped, non-overlapping state on first render and after every toggle. If any layout clipping exists in the #modelProgress / #fileProtoBanner area, fix it.
+5. No regressions: Do not remove or rename existing element IDs, onclick handlers, or CSS class hooks that the JS or Playwright tests rely on (audit test_features.js and test_tabs.js selectors first). Inline edit forms you add must not collide with existing IDs.
+
+GUARDRAILS:
+- Output real, complete, drop-in edits to prompt-forge.html (give exact line-region patches or full replacement blocks with their anchor selectors/functions). No pseudo-code, no mockups.
+- Keep the overall dark/neon style; only enhance legibility/prominence.
+- After editing, run `node test_tabs.js` and `node test_features.js` and report pass/fail counts. Fix any NEW failures you introduce. Environmental pre-existing failures (Ollama-live-on-file://, shader-f16) may be noted but are not your regressions.
+- Do not touch the inference engine, model catalogs, or assembly/agent-forge business logic — UI/CSS/a11y/ARIA/tooltip/nav only in this task.
+
+DELIVERABLE: The patched prompt-forge.html (or precise patches) + a short report of before/after test counts and the WCAG contrast ratios you achieved for tab states.
