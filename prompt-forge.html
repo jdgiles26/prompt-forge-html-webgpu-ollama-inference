@@ -1253,6 +1253,8 @@
             <div class="row">
               <button class="btn btn-primary" id="asRunBtn" onclick="asRun()" title="Run Assembly Line: Execute the configured multi-stage agent pipeline.">▶ RUN ASSEMBLY LINE</button>
               <button class="btn btn-amber" id="asStopBtn" onclick="asStop()" style="display:none" title="Stop: Cancel the running assembly line.">■ STOP</button>
+              <button class="btn btn-ghost btn-small" id="asPauseBtn" onclick="asPauseRun()" style="display:none" title="Pause: Pause after the current stage finishes.">⏸ PAUSE</button>
+              <button class="btn btn-ghost btn-small" id="asResumeBtn" onclick="asResumeRun()" style="display:none" title="Resume: Continue the paused run.">▶ RESUME</button>
               <button class="btn btn-ghost btn-small" onclick="asClearLog()" title="Clear: Clear the assembly line output log.">✕ CLEAR</button>
             </div>
           </div>
@@ -1266,6 +1268,7 @@
             <div class="panel-label">// Assembly Line · Live Pipeline</div>
             <div class="panel-meta" id="asStateMeta">idle</div>
           </div>
+          <div class="as-telemetry" id="asTelemetry"><span class="tel">tokens: <b id="asTelTokens">0</b></span><span class="tel">rate: <b id="asTelRate">0 tok/s</b></span><span class="tel">ctx fill: <b id="asTelFill">0%</b></span><span class="tel">compaction: <b id="asTelCompact">on</b></span></div>
           <div class="as-progress-track" id="asProgressTrack"></div>
           <div class="as-stream" id="asStream">
             <div class="output-placeholder" style="display:flex;">
@@ -4062,6 +4065,9 @@ function asRenderStages() {
           <select onchange="asSetStageModel(${i}, this.value)">${opts(s.modelKey)}</select>
           <button class="stage-move" title="Move up" onclick="asMoveStage(${i},-1)">▲</button>
           <button class="stage-move" title="Move down" onclick="asMoveStage(${i},1)">▼</button>
+          <button class="stage-skip" title="Skip this stage on next run" onclick="asToggleSkip(${i})">⤼</button>
+          <button class="stage-rerun" title="Re-run from this stage (keep prior outputs)" onclick="asRerunFrom(${i})">↻</button>
+          ${asStepOutputs[i] && asStepOutputs[i].output != null ? `<button class="stage-edit" title="Edit this stage's output" onclick="asEditStageOutput(${i})">✎</button>` : ''}
           ${isBuiltIn ? `<button class="stage-reset" title="Reset name+instructions to default" onclick="asResetStage(${i})">↺</button>` : ''}
           <button class="stage-save" title="Save (auto-saves on blur too)" onclick="asSaveStage(${i})">💾</button>
           <button class="stage-del" title="Remove stage" onclick="asDelStage(${i})">✕</button>
@@ -4272,15 +4278,54 @@ function asCompactionEnabled() {
   return el ? el.checked : true;
 }
 
+// Per-stage status -> progress-track class.
+function asStatusClass(i) {
+  const st = asStageStatus(i);
+  if (st === 'done') return 'pstep done';
+  if (st === 'error') return 'pstep status-error';
+  if (st === 'skipped') return 'pstep status-skipped';
+  if (st === 'running') return 'pstep status-running';
+  if (asRunning && i === asRunCursor) return 'pstep status-running';
+  return 'pstep';
+}
+
 function asRenderProgressTrack() {
   const track = document.getElementById('asProgressTrack');
+  const compactOn = asCompactionEnabled();
   track.innerHTML = asStages.map((s, i) => {
-    const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: 'Custom' };
-    const cls = asStepOutputs[i] ? (asStepOutputs[i].err ? 'pstep' : 'pstep done')
-              : (asRunning && i === asStepOutputs.filter(o => o).length ? 'pstep active' : 'pstep');
-    return `<span class="${cls}">${i+1}. ${escapeHtmlShared(role.label)}</span>` +
+    const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: s.label || 'Custom' };
+    const label = s.label || role.label;
+    const st = asStageStatus(i);
+    const tel = asStageTelemetry[i];
+    const meta = tel ? `<span class="pstep-meta">${tel.tokens} tok</span>` : '';
+    // compaction badge on handoffs into this stage (not stage 0)
+    const badge = (compactOn && i > 0) ? '<span class="compact-badge" title="context compacted before this stage">⟡</span>' : '';
+    return `<span class="${asStatusClass(i)}" data-i="${i}" onclick="asOpenStage(${i})" style="cursor:pointer">${i+1}. ${escapeHtmlShared(label)}${badge}${meta}</span>` +
            (i < asStages.length-1 ? '<span class="psep">›</span>' : '');
   }).join('');
+  // Refresh the per-stage status badges in the stage list WITHOUT re-rendering
+  // the whole list (avoids clobbering focus in editable inputs / recursion).
+  asStages.forEach((s, i) => {
+    const row = document.querySelector('.role-stage[data-i="' + i + '"]');
+    if (!row) return;
+    const badgeEl = row.querySelector('.stage-status');
+    if (badgeEl) { const st = asStageStatus(i); badgeEl.textContent = st; badgeEl.dataset.status = st; }
+  });
+  asRenderTelemetry();
+}
+
+// Per-stage telemetry bar (cumulative tokens, current tok/s, ctx fill %).
+function asRenderTelemetry() {
+  const cum = (asStageTelemetry || []).reduce((a, t) => a + ((t && t.tokens) || 0), 0);
+  const cur = asRunCursor >= 0 ? asStageTelemetry[asRunCursor] : null;
+  const rate = cur && cur.startTs ? (((cur.tokens || 0) / Math.max(0.1, (performance.now() - cur.startTs) / 1000))).toFixed(1) : '0';
+  const numCtx = parseInt(document.getElementById('asNumCtx').value, 10) || 8192;
+  const fill = Math.min(100, Math.round((cum / numCtx) * 100));
+  const t = id => document.getElementById(id);
+  if (t('asTelTokens')) t('asTelTokens').textContent = cum.toLocaleString();
+  if (t('asTelRate'))   t('asTelRate').textContent = rate + ' tok/s';
+  if (t('asTelFill'))   t('asTelFill').textContent = fill + '%';
+  if (t('asTelCompact')) t('asTelCompact').textContent = asCompactionEnabled() ? 'on' : 'off';
 }
 
 function asShowErr(msg) {
@@ -4298,6 +4343,9 @@ window.asClearLog = function() {
   document.getElementById('asStream').innerHTML =
     '<div class="output-placeholder" style="display:flex;"><div class="icon">⚙</div><p>Configure models & stages, then RUN ASSEMBLY LINE</p></div>';
   asStepOutputs = [];
+  asStageTelemetry = [];
+  asSkipStages = new Set();
+  asRunCursor = -1;
   asFinalText = '';
   document.getElementById('asZipBtn').disabled = true;
   document.getElementById('asMdBtn').disabled = true;
@@ -4308,16 +4356,71 @@ window.asClearLog = function() {
 
 window.asStop = function() {
   asStopReq = true;
+  asPaused = false;
   if (asAbort) { try { asAbort.abort(); } catch {} }
   toast('Stop requested');
 };
+
+// Per-stage pause: stops before the NEXT stage begins (the current stage
+// finishes its in-flight generation, then the run waits at asPaused).
+window.asPauseRun = function() {
+  if (!asRunning) return;
+  asPaused = true;
+  asState('paused');
+  document.getElementById('asPauseBtn').style.display = 'none';
+  document.getElementById('asResumeBtn').style.display = '';
+  asRenderProgressTrack();
+  toast('Pausing after current stage');
+};
+window.asResumeRun = function() {
+  if (!asPaused) return;
+  asPaused = false;
+  asState('running');
+  document.getElementById('asPauseBtn').style.display = '';
+  document.getElementById('asResumeBtn').style.display = 'none';
+  asRenderProgressTrack();
+  toast('Resumed');
+};
+
+// Skip a stage for this run (toggleable pre-run; clears its output).
+window.asToggleSkip = function(i) {
+  if (asRunning) { toast('Stop the run first'); return; }
+  if (asSkipStages.has(i)) asSkipStages.delete(i); else asSkipStages.add(i);
+  asStepOutputs[i] = undefined;
+  asRenderProgressTrack();
+};
+
+// Open a stage's output panel (scroll to its step block).
+window.asOpenStage = function(i) {
+  const div = document.getElementById('asStep-' + i);
+  if (div) div.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  else if (asStepOutputs[i] && asStepOutputs[i].output) asEditStageOutput(i);
+};
+
+// Edit a prior stage's accumulated output mid-run / post-run. The edited text
+// replaces asStepOutputs[i].output and is used by downstream stages.
+window.asEditStageOutput = function(i) {
+  const cur = asStepOutputs[i] && asStepOutputs[i].output != null ? asStepOutputs[i].output : '';
+  const edited = prompt('Edit stage ' + (i+1) + ' output (applied to downstream stages):', cur);
+  if (edited == null) return;
+  if (!asStepOutputs[i]) asStepOutputs[i] = { role: asStages[i].role, label: asStages[i].label, model: asStages[i].modelKey, output: edited };
+  else asStepOutputs[i].output = edited;
+  // refresh the step block body if present
+  const div = document.getElementById('asStep-' + i);
+  if (div) { const body = div.querySelector('.as-step-body'); body.dataset.raw = edited; body.innerHTML = tintMdInline(edited); }
+  toast('Stage ' + (i+1) + ' output updated');
+};
+
+// Re-run from a specific stage: keep prior outputs, re-run from i onward.
+window.asRerunFrom = async function(i) { await asRun({ from: i }); };
 
 function asAppendStepBlock(i) {
   const stream = document.getElementById('asStream');
   // remove placeholder if present
   const ph = stream.querySelector('.output-placeholder'); if (ph) ph.remove();
-  const role = ASSEMBLY_ROLES.find(r => r.id === asStages[i].role) || { label: 'Custom' };
-  const mk = asStages[i].modelKey;
+  const s = asStages[i];
+  const role = ASSEMBLY_ROLES.find(r => r.id === s.role) || { label: s.label || 'Custom' };
+  const mk = s.modelKey;
   const ml = mk ? asParseKey(mk) : null;
   const modelLabel = ml ? (ml.src === 'ollama' ? ml.id : (BROWSER_MODELS.find(m=>m.id===ml.id)?.name || ml.id)) : '— unassigned —';
   const div = document.createElement('div');
@@ -4325,7 +4428,7 @@ function asAppendStepBlock(i) {
   div.id = 'asStep-' + i;
   div.innerHTML = `<div class="as-step-head">
       <span class="as-step-num">▸ Stage ${i+1}</span>
-      <span class="as-step-role">${escapeHtmlShared(role.label)}</span>
+      <span class="as-step-role">${escapeHtmlShared(s.label || role.label)}</span>
       <span class="as-step-model">${escapeHtmlShared(modelLabel)} · ${ml?ml.src.toUpperCase():'NONE'}</span>
       <span class="as-step-state">running…</span>
     </div>
@@ -4336,24 +4439,88 @@ function asAppendStepBlock(i) {
   return div;
 }
 
+// Throttled repetition-loop detector shared by the assembly stream.
+let _asRepLast = 0;
 function asAppendChunk(stepEl, chunk) {
   const body = stepEl.querySelector('.as-step-body');
   body.dataset.raw = (body.dataset.raw || '') + chunk;
   body.innerHTML = tintMdInline(body.dataset.raw);
   const stream = document.getElementById('asStream');
   stream.scrollTop = stream.scrollHeight;
+  // telemetry: count tokens for the running stage
+  if (asRunCursor >= 0) {
+    const t = asStageTelemetry[asRunCursor] || (asStageTelemetry[asRunCursor] = { tokens: 0, startTs: performance.now() });
+    t.tokens += approxTokens(chunk);
+  }
+  // throttled repetition-loop guard
+  const now = performance.now();
+  if (now - _asRepLast > 250) {
+    _asRepLast = now;
+    if (detectRepetitionLoop(body.dataset.raw || '')) {
+      asStopReq = true;
+      if (asAbort) { try { asAbort.abort(); } catch {} }
+      toast('Repetition loop detected at stage ' + (asRunCursor+1) + ' - stopping. Raise repeat_penalty or top_k.');
+    }
+  }
+  asRenderTelemetry();
 }
 
 function asFinalizeStep(i, err) {
   const div = document.getElementById('asStep-' + i);
   if (!div) return;
   div.classList.remove('running');
-  if (err) { div.classList.add('err'); div.querySelector('.as-step-state').textContent = 'error'; }
-  else { div.classList.add('done'); div.querySelector('.as-step-state').textContent = 'done ✓'; }
+  if (err) { div.classList.add('err'); const st = div.querySelector('.as-step-state'); if (st) st.textContent = 'error'; }
+  else { div.classList.add('done'); const st = div.querySelector('.as-step-state'); if (st) st.textContent = 'done ✓'; }
 }
 
-// Build the prompt for stage i: user task + all prior outputs.
+// ── Context compaction ────────────────────────────────────────────────
+// Deterministic extractor: turn prior stage outputs into a strict, small
+// JSON context payload (objective, decisions, files, open constraints).
+// No model required — this is a structural summary that fits in a fraction
+// of the tokens the raw concatenation would consume. The immediately prior
+// stage's raw output is passed through UNcompacted so detail isn't lost.
+function asCompactContext(i, userTask) {
+  const summary = {
+    user_task: userTask,
+    stages: [],
+  };
+  for (let j = 0; j < i; j++) {
+    const o = asStepOutputs[j];
+    if (!o || !o.output) continue;
+    const s = asStages[j];
+    const files = parseFilesShared(o.output).map(f => f.path);
+    // pull ## headings as the per-stage "decisions" sketch
+    const heads = (o.output.match(/^#{1,3}\s+.+$/gm) || []).slice(0, 8);
+    summary.stages.push({
+      n: j + 1,
+      role: s.role,
+      label: s.label || s.role,
+      ok: !o.err,
+      files,
+      headings: heads,
+      tail: o.output.slice(-400),
+    });
+  }
+  return JSON.stringify(summary, null, 2);
+}
+
+// Build the prompt for stage i. With compaction ON (default), prior stages
+// are passed as a compact JSON context payload + the IMMEDIATELY prior
+// stage's raw output; with compaction OFF, the legacy raw-concatenation
+// format is used (kept for back-compat / tests that assert it).
 function asBuildPrompt(i, userTask) {
+  const compactOn = asCompactionEnabled();
+  if (compactOn && i > 0) {
+    const compact = asCompactContext(i, userTask);
+    const prevIdx = i - 1;
+    const prev = asStepOutputs[prevIdx];
+    const prevLabel = asStages[prevIdx] ? (asStages[prevIdx].label || asStages[prevIdx].role) : ('Stage ' + (prevIdx+1));
+    const prevBlock = prev && prev.output
+      ? `\n--- PRIOR STAGE ${prevIdx+1}: ${prevLabel} (raw output) ---\n${prev.output}`
+      : '';
+    return `USER TASK:\n${userTask}\n\n--- COMPACTED CONTEXT (prior stages) ---\n${compact}${prevBlock}`;
+  }
+  // Legacy: raw concatenation of every prior stage's full output.
   const parts = ['USER TASK:\n' + userTask];
   for (let j = 0; j < i; j++) {
     const o = asStepOutputs[j];
@@ -4364,55 +4531,104 @@ function asBuildPrompt(i, userTask) {
   return parts.join('\n');
 }
 
-window.asRun = async function() {
+// Validate stage configuration before run. Returns the first error string
+// or null if every stage is runnable (model assigned, non-empty name+system).
+function asValidateStages() {
+  if (!asStages.length) return 'Add at least one stage.';
+  for (let i = 0; i < asStages.length; i++) {
+    const s = asStages[i];
+    if (!s.modelKey) return `Stage ${i+1} has no model assigned. Assign one (or use AUTO-ASSIGN).`;
+    if (!(s.label || '').trim()) return `Stage ${i+1} needs a name.`;
+    if (!(s.system || '').trim()) return `Stage ${i+1} needs instructions / a system prompt.`;
+  }
+  return null;
+}
+
+window.asRun = async function(opts) {
+  opts = opts || {};
   if (asRunning) return;
   const task = document.getElementById('asTaskInput').value.trim();
   if (!task) { asShowErr('Describe the project you want built first.'); return; }
-  // validate every stage has a model
-  const unassigned = asStages.findIndex(s => !s.modelKey);
-  if (unassigned >= 0) { asShowErr(`Stage ${unassigned+1} has no model assigned. Assign one (or use AUTO-ASSIGN).`); return; }
-  // validate at least one stage
-  if (!asStages.length) { asShowErr('Add at least one stage.'); return; }
-  // final stage role must be able to emit files if output mode is project
+  const verr = asValidateStages();
+  if (verr) { asShowErr(verr); asRenderStages(); return; }
   const outMode = document.getElementById('asOutputMode').value;
 
   asClearErr();
-  asRunning = true; asStopReq = false;
-  asStepOutputs = []; asFinalText = '';
+  asRunning = true; asStopReq = false; asPaused = false;
+  const fromStage = Math.max(0, Math.min(asStages.length - 1, opts.from | 0));
+  const isRerun = opts.from != null;
+  // Fresh run: clear outputs+telemetry. Re-run: keep prior outputs < from.
+  if (!isRerun) {
+    asStepOutputs = [];
+    asStageTelemetry = [];
+    asSkipStages = new Set();
+    document.getElementById('asStream').innerHTML = '';
+  } else {
+    // drop outputs/telemetry from the re-run point onward
+    for (let i = fromStage; i < asStages.length; i++) {
+      asStepOutputs[i] = undefined;
+      asStageTelemetry[i] = undefined;
+    }
+  }
+  asRunCursor = -1;
+  asFinalText = '';
   document.getElementById('asZipBtn').disabled = true;
   document.getElementById('asMdBtn').disabled = true;
   document.getElementById('asRunBtn').disabled = true;
   document.getElementById('asRunBtn').textContent = '⏳ RUNNING…';
   document.getElementById('asStopBtn').style.display = '';
+  document.getElementById('asPauseBtn').style.display = '';
+  document.getElementById('asResumeBtn').style.display = 'none';
   asState('running');
-  // Clear log
-  document.getElementById('asStream').innerHTML = '';
-  const { temperature, maxTokens, numCtx } = asParams();
   const base = (document.getElementById('asOllamaUrl').value || '/ollama').trim();
+  // Running cumulative token estimate for dynamic ctx-fill scaling.
+  let runTokens = 0;
 
   try {
-    for (let i = 0; i < asStages.length; i++) {
+    for (let i = fromStage; i < asStages.length; i++) {
+      // honor pause: wait here until resumed or stopped
+      while (asPaused && !asStopReq) { await new Promise(r => setTimeout(r, 120)); }
       if (asStopReq) break;
+      // skip stage
+      if (asSkipStages.has(i)) {
+        asStepOutputs[i] = { role: asStages[i].role, label: asStages[i].label, model: asStages[i].modelKey, output: '', err: false, skipped: true };
+        asRenderProgressTrack();
+        continue;
+      }
+      asRunCursor = i;
       const stage = asStages[i];
       const { src, id } = asParseKey(stage.modelKey);
-      const role = ASSEMBLY_ROLES.find(r => r.id === stage.role) || { id: 'custom', label: 'Custom' };
-      const system = ASSEMBLY_SYSTEMS[role.id] || ASSEMBLY_SYSTEMS.custom;
+      const role = ASSEMBLY_ROLES.find(r => r.id === stage.role) || { id: 'custom', label: stage.label || 'Custom' };
+      // user-owned system prompt (editable); fall back to role default then custom.
+      const system = (stage.system && stage.system.trim()) ? stage.system
+                    : (ASSEMBLY_SYSTEMS[role.id] || ASSEMBLY_SYSTEMS.custom);
       const prompt = asBuildPrompt(i, task);
       const stepEl = asAppendStepBlock(i);
+      asStageTelemetry[i] = { tokens: 0, startTs: performance.now() };
       asRenderProgressTrack();
       let output = '';
       try {
+        // dynamic anti-repetition scaling based on running context fill
+        const base_ = asParams();
+        const scaled = scaleParamsForCtxFill(base_, runTokens);
         if (src === 'ollama') {
           asAbort = new AbortController();
           output = await ollamaGenerate({
-            base, model: id, system, prompt, temperature, maxTokens, numCtx,
+            base, model: id, system, prompt,
+            temperature: scaled.temperature, maxTokens: scaled.maxTokens, numCtx: scaled.numCtx,
+            topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+            repeatLastN: scaled.repeatLastN, presencePenalty: scaled.presencePenalty,
+            frequencyPenalty: scaled.frequencyPenalty, minP: scaled.minP,
             onChunk: c => asAppendChunk(stepEl, c),
             stopFlag: () => asStopReq,
             signal: asAbort.signal,
           });
         } else {
           output = await browserGenerate({
-            modelId: id, system, prompt, temperature, maxTokens,
+            modelId: id, system, prompt,
+            temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+            topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+            presencePenalty: scaled.presencePenalty, frequencyPenalty: scaled.frequencyPenalty,
             onChunk: c => asAppendChunk(stepEl, c),
             stopFlag: () => asStopReq,
             progressCb: (p, txt) => {
@@ -4421,21 +4637,22 @@ window.asRun = async function() {
             },
           });
         }
-        if (asStopReq) { asFinalizeStep(i, true); asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output, err: true }); break; }
+        runTokens += approxTokens(prompt) + approxTokens(output);
+        if (asStopReq) { asFinalizeStep(i, true); asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output, err: true }; break; }
         asFinalizeStep(i, false);
-        asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output });
+        asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output };
       } catch (e) {
         asFinalizeStep(i, true);
-        asStepOutputs.push({ role: role.id, label: role.label, model: stage.modelKey, output: '', err: true });
-        asShowErr(`Stage ${i+1} (${role.label}) failed: ${e.message}`);
+        asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output: '', err: true };
+        asShowErr(`Stage ${i+1} (${stage.label || role.label}) failed: ${e.message}`);
         break;
       }
       asRenderProgressTrack();
     }
 
     // The final stage's output is the product.
-    const lastGood = [...asStepOutputs].reverse().find(o => o && !o.err && o.output);
-    asFinalText = lastGood ? lastGood.output : (asStepOutputs.length ? asStepOutputs[asStepOutputs.length-1].output : '');
+    const lastGood = [...asStepOutputs].reverse().find(o => o && !o.err && !o.skipped && o.output);
+    asFinalText = lastGood ? lastGood.output : (asStepOutputs.length ? (asStepOutputs[asStepOutputs.length-1] && asStepOutputs[asStepOutputs.length-1].output) : '');
     if (asFinalText && !asStopReq) {
       const files = parseFilesShared(asFinalText);
       document.getElementById('asZipBtn').disabled = !(files.length && outMode === 'project');
@@ -4450,10 +4667,12 @@ window.asRun = async function() {
     asShowErr('Assembly run error: ' + e.message);
     asState('error');
   } finally {
-    asRunning = false; asStopReq = false; asAbort = null;
+    asRunning = false; asStopReq = false; asAbort = null; asRunCursor = -1; asPaused = false;
     document.getElementById('asRunBtn').disabled = false;
     document.getElementById('asRunBtn').textContent = '▶ RUN ASSEMBLY LINE';
     document.getElementById('asStopBtn').style.display = 'none';
+    document.getElementById('asPauseBtn').style.display = 'none';
+    document.getElementById('asResumeBtn').style.display = 'none';
     asRenderProgressTrack();
   }
 };
@@ -5117,6 +5336,12 @@ window.__pf = {
   getAfAnswers: () => afAnswers,
   setAfAnswers: (a) => { afAnswers = a || {}; afRenderWizard(); afRefreshVisibility(); afUpdateReadiness(); },
   afRequiredAnswered, asParams,
+  // Task-2 hooks (for tests / external introspection):
+  asBuildPrompt, asCompactionEnabled, asValidateStages,
+  scaleParamsForCtxFill, detectRepetitionLoop, ollamaOptions, browserChatParams,
+  asModelTier, asDefaultStages, asStages: () => asStages,
+  setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
+  getAsStepOutputs: () => asStepOutputs,
 };
 
 function afInitSplitter() {
