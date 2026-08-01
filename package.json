@@ -11,14 +11,15 @@
   },
   "scripts": {
     "serve": "python3 serve.py",
-    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_zip_download.js && node test_webgpu_local_http.js && node test_2026_features.js",
+    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_zip_download.js && node test_pipeline_scaffold.js && node test_webgpu_local_http.js && node test_2026_features.js",
     "test:features": "node test_features.js",
     "test:e2e": "node test_e2e_project.js",
     "test:zip": "node test_zip_runs_tdd.js",
     "test:webgpu": "node test_webgpu_local_http.js",
     "models": "python3 serve.py & sleep 1 && node list_webllm_models.js ; pkill -f 'python3 serve.py'",
     "test:tabs": "node test_tabs.js",
-    "test:zipdl": "node test_zip_download.js"
+    "test:zipdl": "node test_zip_download.js",
+    "test:pipeline": "node test_pipeline_scaffold.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.17",
