@@ -1170,9 +1170,22 @@
                   <span style="color:var(--text)">Run: <code style="color:var(--green)">python3 serve.py</code> → open <code style="color:var(--green)">http://localhost:8765/prompt-forge.html</code></span>
                 </div>
                 <select id="browserModel">
+                  <optgroup label="Qwen3.5 (2026 · reasoning + code, recommended)">
+                    <option value="Qwen3.5-9B-q4f16_1-MLC">Qwen3.5 9B · ~5.5GB (best, needs 12GB+ VRAM)</option>
+                    <option value="Qwen3.5-4B-q4f16_1-MLC" selected>Qwen3.5 4B · ~2.5GB (recommended)</option>
+                    <option value="Qwen3.5-2B-q4f16_1-MLC">Qwen3.5 2B · ~1.3GB</option>
+                    <option value="Qwen3.5-0.8B-q4f16_1-MLC">Qwen3.5 0.8B · ~550MB (fast)</option>
+                  </optgroup>
+                  <optgroup label="Qwen3 (hybrid thinking, reasoning)">
+                    <option value="Qwen3-8B-q4f16_1-MLC">Qwen3 8B · ~5GB (needs 12GB+ VRAM)</option>
+                    <option value="Qwen3-4B-q4f16_1-MLC">Qwen3 4B · ~2.5GB</option>
+                    <option value="Qwen3-1.7B-q4f16_1-MLC">Qwen3 1.7B · ~1.1GB</option>
+                    <option value="Qwen3-0.6B-q4f16_1-MLC">Qwen3 0.6B · ~450MB (fast)</option>
+                  </optgroup>
                   <optgroup label="Qwen2.5-Coder (code-specialized)">
-                    <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC" selected>Qwen2.5-Coder 1.5B · ~1GB (recommended)</option>
+                    <option value="Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 1.5B · ~1GB</option>
                     <option value="Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 0.5B · ~350MB (fast)</option>
+                    <option value="Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 3B · ~1.9GB</option>
                     <option value="Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC">Qwen2.5-Coder 7B · ~4.4GB (needs 8GB+ VRAM)</option>
                   </optgroup>
                   <optgroup label="Qwen2.5 (general)">
@@ -1194,8 +1207,12 @@
                     <option value="DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC">DeepSeek-R1-Distill-Qwen 7B · ~4.4GB</option>
                     <option value="DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC">DeepSeek-R1-Distill-Llama 8B · ~4.8GB</option>
                   </optgroup>
-                  <optgroup label="Other">
+                  <optgroup label="Phi-4 / Phi-3.5">
+                    <option value="Phi-4-mini-instruct-q4f16_1-MLC">Phi-4 mini · ~2.6GB</option>
                     <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5 mini · ~2.4GB</option>
+                  </optgroup>
+                  <optgroup label="Gemma 2">
+                    <option value="gemma-2-9b-it-q4f16_1-MLC">Gemma 2 9B · ~5.5GB (needs 12GB+ VRAM)</option>
                     <option value="gemma-2-2b-it-q4f16_1-MLC">Gemma 2 2B · ~1.6GB</option>
                   </optgroup>
                 </select>
@@ -4216,22 +4233,42 @@ window.switchTab = function(name) {
 // of truth would be nicer, but copying keeps the tabs fully independent, which
 // the task explicitly required).
 const BROWSER_MODELS = [
+  // ── Qwen3.5 (mid-2026, current leading small/mid open weights) ──
+  { id: 'Qwen3.5-9B-q4f16_1-MLC',                name: 'Qwen3.5 9B',         grp: 'Qwen3.5 (2026, reasoning+code)' },
+  { id: 'Qwen3.5-4B-q4f16_1-MLC',                name: 'Qwen3.5 4B',         grp: 'Qwen3.5 (2026, reasoning+code)' },
+  { id: 'Qwen3.5-2B-q4f16_1-MLC',                name: 'Qwen3.5 2B',         grp: 'Qwen3.5 (2026, reasoning+code)' },
+  { id: 'Qwen3.5-0.8B-q4f16_1-MLC',              name: 'Qwen3.5 0.8B',       grp: 'Qwen3.5 (2026, reasoning+code)' },
+  // ── Qwen3 (hybrid thinking models) ──
+  { id: 'Qwen3-8B-q4f16_1-MLC',                  name: 'Qwen3 8B',           grp: 'Qwen3 (reasoning, thinking mode)' },
+  { id: 'Qwen3-4B-q4f16_1-MLC',                  name: 'Qwen3 4B',           grp: 'Qwen3 (reasoning, thinking mode)' },
+  { id: 'Qwen3-1.7B-q4f16_1-MLC',                name: 'Qwen3 1.7B',         grp: 'Qwen3 (reasoning, thinking mode)' },
+  { id: 'Qwen3-0.6B-q4f16_1-MLC',                name: 'Qwen3 0.6B',         grp: 'Qwen3 (reasoning, thinking mode)' },
+  // ── Qwen2.5-Coder (code) ──
+  { id: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',  name: 'Qwen2.5-Coder 7B',  grp: 'Qwen2.5-Coder (code)' },
+  { id: 'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',  name: 'Qwen2.5-Coder 3B',  grp: 'Qwen2.5-Coder (code)' },
   { id: 'Qwen2.5-Coder-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-Coder 1.5B', grp: 'Qwen2.5-Coder (code)' },
   { id: 'Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-Coder 0.5B', grp: 'Qwen2.5-Coder (code)' },
-  { id: 'Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC',  name: 'Qwen2.5-Coder 7B',  grp: 'Qwen2.5-Coder (code)' },
-  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',      name: 'Qwen2.5 1.5B',      grp: 'Qwen2.5 (general)' },
-  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',        name: 'Qwen2.5 3B',        grp: 'Qwen2.5 (general)' },
+  // ── Qwen2.5 (general) ──
   { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',        name: 'Qwen2.5 7B',        grp: 'Qwen2.5 (general)' },
-  { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 1B',      grp: 'Llama 3.2 / 3.1' },
-  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 3B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'Qwen2.5-3B-Instruct-q4f16_1-MLC',        name: 'Qwen2.5 3B',        grp: 'Qwen2.5 (general)' },
+  { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',      name: 'Qwen2.5 1.5B',      grp: 'Qwen2.5 (general)' },
+  // ── Llama 3.2 / 3.1 ──
   { id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',      name: 'Llama 3.1 8B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 3B',      grp: 'Llama 3.2 / 3.1' },
+  { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',      name: 'Llama 3.2 1B',      grp: 'Llama 3.2 / 3.1' },
+  // ── Phi-4 / Phi-3.5 ──
+  { id: 'Phi-4-mini-instruct-q4f16_1-MLC',        name: 'Phi-4 mini',        grp: 'Phi-4 / Phi-3.5' },
+  { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',      name: 'Phi-3.5 mini',      grp: 'Phi-4 / Phi-3.5' },
+  // ── Gemma 2 ──
+  { id: 'gemma-2-9b-it-q4f16_1-MLC',              name: 'Gemma 2 9B',        grp: 'Gemma 2' },
+  { id: 'gemma-2-2b-it-q4f16_1-MLC',              name: 'Gemma 2 2B',        grp: 'Gemma 2' },
+  // ── Reasoning (DeepSeek-R1 distills) ──
+  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',name: 'DeepSeek-R1-Distill-Qwen 7B', grp: 'Reasoning (DeepSeek-R1)' },
+  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',name:'DeepSeek-R1-Distill-Llama 8B', grp: 'Reasoning (DeepSeek-R1)' },
+  // ── SmolLM2 (small/fast) ──
   { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',      name: 'SmolLM2 1.7B',      grp: 'SmolLM2 (small/fast)' },
   { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC',      name: 'SmolLM2 360M',      grp: 'SmolLM2 (small/fast)' },
   { id: 'SmolLM2-135M-Instruct-q0f16-MLC',        name: 'SmolLM2 135M',      grp: 'SmolLM2 (small/fast)' },
-  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',name: 'DeepSeek-R1-Distill-Qwen 7B', grp: 'Reasoning (DeepSeek-R1)' },
-  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC',name:'DeepSeek-R1-Distill-Llama 8B', grp: 'Reasoning (DeepSeek-R1)' },
-  { id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',      name: 'Phi-3.5 mini',      grp: 'Other' },
-  { id: 'gemma-2-2b-it-q4f16_1-MLC',              name: 'Gemma 2 2B',        grp: 'Other' },
 ];
 
 // Shared inference engine registry. Each WebGPU model gets one MLCEngine;
@@ -4664,11 +4701,19 @@ let hfModelsLoaded = false;
 // defaults (the live list still loads from the Hub; these are pinned so the
 // dropdown is useful even when offline).
 const HF_RECOMMENDED = [
+  // Mid-2026 leading open text-generation models on HF Hub.
+  'Qwen/Qwen3-235B-A22B-Instruct',
+  'Qwen/Qwen3-32B-Instruct',
+  'Qwen/Qwen3-14B-Instruct',
+  'Qwen/Qwen3-Coder-30B-A3B-Instruct',
+  'deepseek-ai/DeepSeek-V3.1',
+  'deepseek-ai/DeepSeek-R1',
+  'meta-llama/Llama-3.3-70B-Instruct',
   'meta-llama/Meta-Llama-3.1-8B-Instruct',
+  'mistralai/Mistral-Large-Instruct-2411',
+  'mistralai/Mistral-7B-Instruct-v0.3',
   'Qwen/Qwen2.5-Coder-7B-Instruct',
   'Qwen/Qwen2.5-7B-Instruct',
-  'deepseek-ai/DeepSeek-V3',
-  'mistralai/Mistral-7B-Instruct-v0.3',
   'HuggingFaceH4/zephyr-7b-beta',
 ];
 
@@ -6494,9 +6539,22 @@ const AF_QUESTIONS = [
     ],
   },
   {
-    id: 'framework', label: 'Q4 · FRAMEWORK', type: 'text',
-    prompt: 'Preferred agent framework / library? (optional)',
-    help: 'e.g. "langchain", "crewai", "autogen", "plain stdlib", "openai-agents". Leave blank to let the generator pick the simplest fit.',
+    id: 'framework', label: 'Q4 · FRAMEWORK', type: 'chips',
+    prompt: 'Preferred agent framework / library? (optional — pick one)',
+    help: 'Drives the generated agent\'s orchestration code. "Let the generator pick" chooses the simplest fit for the language + goal.',
+    options: [
+      { v: 'auto',          t: 'Let the generator pick' },
+      { v: 'openai-agents', t: 'OpenAI Agents SDK' },
+      { v: 'langgraph',     t: 'LangGraph' },
+      { v: 'crewai',        t: 'CrewAI' },
+      { v: 'autogen',       t: 'AutoGen (microsoft)' },
+      { v: 'pydantic-ai',   t: 'Pydantic AI' },
+      { v: 'agent-sdk',     t: 'Agent SDK (claude/anthropic)' },
+      { v: 'mcp',           t: 'MCP-only (Model Context Protocol tools)' },
+      { v: 'stdlib',        t: 'Plain stdlib (no framework)' },
+      { v: 'mastra',        t: 'Mastra (TypeScript)' },
+      { v: 'vercel-ai-sdk', t: 'Vercel AI SDK' },
+    ],
   },
   {
     id: 'host', label: 'Q5 · HOST', type: 'chips',
@@ -6538,9 +6596,10 @@ const AF_QUESTIONS = [
   {
     id: 'power', label: 'Q9 · AI POWER SOURCE', type: 'multichips',
     prompt: 'What powers the agent\'s AI? (select all that apply)',
-    help: 'This is critical — the orchestration layer must know how to reach the model(s).',
+    help: 'This is critical — the orchestration layer must know how to reach the model(s). HF cloud = Hugging Face Inference API (optional key, stored in env only).',
     options: [
       { v: 'api_key',   t: 'API key (OpenAI / Anthropic / etc.)' },
+      { v: 'hf',        t: 'Hugging Face cloud (Inference API)' },
       { v: 'ollama',    t: 'Local models via Ollama' },
       { v: 'webgpu',    t: 'In-browser WebGPU (WebLLM)' },
       { v: 'gguf_file', t: 'Dropped-in local GGUF file' },
@@ -6548,15 +6607,15 @@ const AF_QUESTIONS = [
     ],
   },
   {
-    id: 'api_provider', label: 'Q10 · API PROVIDER', type: 'text',
-    prompt: 'If using an API key: which provider(s) and model(s)? (optional to name models)',
-    help: 'e.g. "OpenAI gpt-4o-mini + Anthropic claude-3-5-sonnet". The generated install will ask the user for the key at runtime — never hardcode it.',
-    showIf: (a) => (a.power || []).includes('api_key'),
+    id: 'api_provider', label: 'Q10 · API / HF MODELS', type: 'text',
+    prompt: 'If using an API key or HF cloud: which provider(s) / model(s)? (optional to name models)',
+    help: 'API key e.g. "OpenAI gpt-5 + Anthropic claude-opus-4". HF cloud e.g. "Qwen/Qwen3-14B-Instruct, deepseek-ai/DeepSeek-V3.1". Keys/tokens are read from env vars at runtime — never hardcoded.',
+    showIf: (a) => (a.power || []).includes('api_key') || (a.power || []).includes('hf'),
   },
   {
     id: 'ollama_models', label: 'Q11 · OLLAMA MODELS', type: 'text',
     prompt: 'If Ollama: which model(s)? (optional)',
-    help: 'e.g. "qwen3:0.6b, llama3.2:3b". Leave blank to let the generated agent auto-pull / auto-detect at first run.',
+    help: 'e.g. "qwen3:8b, qwen3-coder:7b, llama3.3:70b, deepseek-r1:8b". Leave blank to let the generated agent auto-pull / auto-detect at first run.',
     showIf: (a) => (a.power || []).includes('ollama'),
   },
   {
@@ -6568,14 +6627,20 @@ const AF_QUESTIONS = [
   {
     id: 'extras', label: 'Q13 · EXTRAS', type: 'multichips',
     prompt: 'Any extras to include?',
-    help: 'Selecting README + install scripts is strongly recommended — they make the package ready-to-run.',
+    help: 'README + install scripts are strongly recommended — they make the package ready-to-run. The 2026 capabilities add production-grade patterns to the generated agent.',
     options: [
       { v: 'readme',      t: 'README.md (recommended)' },
       { v: 'install',     t: 'install.sh (recommended)' },
       { v: 'install_all', t: 'install-all.sh (bootstraps all deps + agent)' },
       { v: 'tests',       t: 'Test suite' },
-      { v: 'dockerfile',  t: 'Dockerfile' },
       { v: 'gitignore',   t: '.gitignore' },
+      { v: 'dockerfile',  t: 'Dockerfile' },
+      { v: 'mcp',         t: 'MCP tool server + tool-use loop' },
+      { v: 'structured',  t: 'Structured/JSON output schemas' },
+      { v: 'planning',    t: 'Plan → act → reflect loop' },
+      { v: 'guardrails',  t: 'Input/output guardrails + safety' },
+      { v: 'observability', t: 'Tracing / observability (otel-style)' },
+      { v: 'evals',       t: 'Eval harness + golden cases' },
     ],
   },
   {
@@ -6718,10 +6783,10 @@ window.afLoadSample = function() {
     team_roles: 'Planner — breaks the topic into research questions\nResearcher — finds and summarizes sources\nWriter — drafts the post\nFactChecker — verifies claims and cites sources',
     browser_mode: 'headless',
     power: ['ollama', 'api_key'],
-    api_provider: 'OpenAI gpt-4o-mini (user supplies key at runtime)',
-    ollama_models: 'qwen3:0.6b, llama3.2:3b',
+    api_provider: 'OpenAI gpt-5 (user supplies key at runtime)',
+    ollama_models: 'qwen3:8b, qwen3-coder:7b',
     gguf_detail: '',
-    extras: ['readme','install','install_all','tests','gitignore'],
+    extras: ['readme','install','install_all','tests','gitignore','mcp','structured','planning','guardrails'],
     confirm: 'ready',
   };
   afRenderWizard();
@@ -6829,42 +6894,416 @@ function afBuildSpec() {
   if (a.team === 'team' && a.team_roles) lines.push('TEAM ROLES:\n' + a.team_roles);
   if (a.browser_mode) lines.push('BROWSER MODE: ' + fmt(a.browser_mode));
   lines.push('AI POWER SOURCE: ' + fmt(a.power));
-  if (a.api_provider) lines.push('API PROVIDER/MODELS: ' + a.api_provider);
+  if (a.api_provider) lines.push('API / HF PROVIDER/MODELS: ' + a.api_provider);
   if (a.ollama_models) lines.push('OLLAMA MODELS: ' + a.ollama_models);
   if (a.gguf_detail) lines.push('GGUF DETAIL: ' + a.gguf_detail);
   lines.push('EXTRAS: ' + fmt(a.extras));
+  // Spell out the 2026 capability extras so the generator can\'t miss them.
+  const ex = new Set(a.extras || []);
+  if (ex.size) {
+    const caps = [];
+    if (ex.has('mcp'))         caps.push('MCP tool server + tool-use loop (expose/consume tools via Model Context Protocol)');
+    if (ex.has('structured'))  caps.push('Structured/JSON output schemas (typed responses, not free text)');
+    if (ex.has('planning'))    caps.push('Plan → Act → Reflect loop (replan on failure)');
+    if (ex.has('guardrails'))  caps.push('Input/output guardrails (secret redaction, prompt-injection defense, output validation)');
+    if (ex.has('observability')) caps.push('Tracing/observability (per-step spans, token/cost accounting, run logs)');
+    if (ex.has('evals'))       caps.push('Eval harness with golden cases + pass/fail scoring');
+    if (caps.length) lines.push('CAPABILITY EXTRAS (detailed):\n- ' + caps.join('\n- '));
+  }
   return lines.join('\n');
 }
 
-const AF_GEN_SYSTEM = `You are a multi-agent scaffolding system. You generate a COMPLETE, ready-to-run agent project from a spec.
-The user has answered a structured interview. Your output must be a set of files using the FILE marker protocol:
+const AF_GEN_SYSTEM = `You are a multi-agent scaffolding system operating under Spec-Driven Development (SDD) and Agentic Test-Driven Development (ATDD). You generate a COMPLETE, ready-to-run agent project from a structured interview spec.
+
+Your output must be a set of files using the FILE marker protocol — EXACTLY:
 
 === FILE: <relative/path> ===
 <full file contents>
 === END FILE ===
 
-You MUST include:
-- README.md — explains the agent(s), the goal, how AI power is configured, how to install, how to run, and every file in the package.
-- install.sh — bash script that installs all OS-level + language dependencies for THIS agent. It must be idempotent, use 'set -euo pipefail', detect the OS, and print clear progress. It must NOT hardcode secrets.
-- install-all.sh — bash script that runs install.sh AND bootstraps everything else (the agent runtime, any model downloads for Ollama/WebGPU, a config check that verifies the chosen AI power source is reachable, and a final "ready" message). One command to go from empty machine to running agent.
-- The main agent source file(s) for the chosen language/framework.
-- A config file (e.g. config.yaml / .env.example / config.json) that captures the interview answers so the agent knows its own setup. NEVER put real API keys in generated files — only placeholders + env var reads.
-- If the AI power source is api_key: the install/runtime must PROMPT the user for the key and store it in an env var / .env (gitignored). Never hardcode.
-- If the power source is ollama: install-all.sh must ensure Ollama is running and pull the specified models (or a sensible default), failing fast with a clear message if not.
-- If the power source is webgpu: the agent must run in a browser context; include an index.html that loads the model via WebLLM, with COOP/COEP headers documented.
-- If the power source is gguf_file: install-all.sh must check for the .gguf in ./models/ and fail fast with a clear message if missing; document how the user drops the file in.
-- If the power source is no_ai: emit a pure rules/scripting agent with no model calls.
-- If tests were requested: include a real test file that exercises the agent's core logic (mock the model calls).
-- If Dockerfile was requested: include one.
-- If .gitignore was requested: include one (must ignore .env, node_modules, __pycache__, models/*.gguf).
+Do NOT wrap the payload in code fences. Do NOT add prose before, between, or after the file blocks. The first character of your output must be "=" of the first marker. The last line must be "=== END FILE ===".
+
+METHODOLOGY — SPEC FIRST, RED→GREEN, NO DRIFT:
+1. PRD first: distill the interview goal into literal, measurable requirements (prd.md).
+2. Executable spec second: derive machine-executable specifications (spec.md) — strict pass/fail validation with exact expected outputs. The spec is the source of truth, NOT the implementation.
+3. agent.md: a high-quality, READY-TO-RUN system prompt for the generated agent, with operational parameters, tools/permissions, guardrails, and an ordered prompt sequence. This is the canonical prompt the agent runner loads.
+4. Tests (RED): write tests under tests/ that exercise the agent's core logic against spec.md. Model calls MUST be mocked/faked so tests are deterministic and run offline. Tests MUST FAIL initially (stubs raise NotImplementedError).
+5. Implementation (GREEN): fill the agent source until every test passes. Do not edit tests. Do not change assertions.
+6. Record the red→green transition in tdd.md and check off DONE.md.
+
+You MUST emit ALL of the following files, in this order. Fill every section with task-specific content derived from the interview spec. No empty sections. No generic filler. Where a value is genuinely unknown, write [CONFIRM WITH USER: <specific question>].
+
+=== FILE: README.md ===
+# <Concise Agent Name>
+
+One-paragraph description: what this agent/team does, the goal from the interview, and why it exists.
+
+## What powers the AI
+<Which power source(s) from the interview: api_key / hf / ollama / webgpu / gguf_file / no_ai — and exactly how to configure each. Name env vars. Never print real keys.>
+
+## Quick start
+\`\`\`bash
+bash install-all.sh     # one command: deps + runtime + model pull + config check
+make run                # or the language-native run command
+make test               # RED until src is implemented, then GREEN
+\`\`\`
+
+## File manifest
+<Tree of every file in this package with a one-line purpose for each.>
+
+## Run
+<One command to run the agent, plus any required env vars / config.>
+
+## Troubleshooting
+<Power-source-specific failure modes and the exact fix for each.>
+=== END FILE ===
+
+=== FILE: prd.md ===
+# Product Requirements Document
+
+## Problem
+<One paragraph — the actual problem from the interview goal.>
+
+## Inputs
+<Exact input shapes, formats, sources the agent consumes.>
+
+## Outputs
+<Exact output shapes, formats, schemas. Thresholds where applicable.>
+
+## Functional requirements
+- [FR-1] <literal, testable requirement>
+- [FR-2] ...
+
+## Non-functional requirements
+<Performance, security, portability constraints with numbers.>
+
+## Out of scope
+<Explicit exclusions with one-line reasons.>
+
+## Success criteria
+<Binary, verifiable acceptance criteria — each maps to one or more tests.>
+=== END FILE ===
+
+=== FILE: spec.md ===
+# Machine-Executable Specifications
+
+Strict pass/fail validation derived from prd.md. The spec is the source of truth — implementation conforms to it, never the reverse.
+
+## Spec table
+| ID | Capability | Input | Expected output | Enforcing test | Type |
+|----|-----------|-------|-----------------|----------------|------|
+| S1 | ... | ... | ... | tests/test_<name>::test_<case> | functional |
+| S2 | ... | ... | ... | ... | unit |
+
+## Validation scripts
+<For each spec, a literal command or code snippet a machine can run to produce a binary pass/fail.>
+=== END FILE ===
+
+=== FILE: agent.md ===
+# Agent System Prompt — READY TO RUN
+
+This is the canonical system prompt the agent runner loads. It is complete and operational on its own.
+
+## Role
+<One sentence — the role the agent plays, derived from the interview goal.>
+
+## System prompt
+<The FULL system prompt the agent runs under, derived from this task. Written as direct instructions to the agent ("You are ..."). Include the goal, the workflow, the output format, and the stop conditions. This must be a prompt you could paste into a model and get correct behavior.>
+
+## Operational parameters
+- Model: <name or class, from the interview power source>
+- Temperature: <n, with one-line rationale>
+- Max tokens: <n>
+- Context window (num_ctx): <n>
+- AI power source: <api_key / hf / ollama / webgpu / gguf_file / no_ai>
+- Framework: <from interview, or "plain stdlib">
+- Thinking mode: <on/off/flag-switchable — note if a qwen3/deepseek-r1-style thinking model is in use>
+
+## Tools / permissions
+<Files/resources the agent may read, write, execute. Hard boundaries. If MCP was requested, list the MCP tools and the server command. If browser host, list the browser-tool surface.>
+
+## Guardrails (HARD STOPS)
+<6–10 STOP conditions specific to this agent: secret exfiltration, prompt-injection acceptance, writing outside allowed paths, unbounded loops, unvalidated tool output, etc. Each must be a binary check.>
+
+## Prompt sequence (master build/run order)
+<Ordered numbered steps the agent runner executes for one invocation. Each step: what to build/do, pass criteria, fail criteria. Include the Plan→Act→Reflect loop if the "planning" extra was selected, the tool-use loop if "mcp" was selected, and the output-schema validation if "structured" was selected.>
+
+## Output format
+<The exact structured output schema the agent must emit, if "structured" was selected; otherwise the expected free-text/Markdown shape.>
+=== END FILE ===
+
+=== FILE: drift.md ===
+# Drift / State Tracking
+
+Seed state for future context compaction. Update on every agent run.
+
+## Initial state
+- Task: <one-line summary of the interview goal>
+- Created: <ISO timestamp placeholder>
+- Model: <name/version>
+- Params: temperature=..., max_tokens=..., num_ctx=...
+- Power source: ...
+- prd_hash: <short hash of prd.md — agent recomputes>
+- spec_hash: <short hash of spec.md — agent recomputes>
+
+## Run log
+| Run # | Phase | Result | Notes |
+|-------|-------|--------|-------|
+| 1 | RED | pending | tests written, source stubbed |
+| 2 | GREEN | pending | source implemented |
+
+## Open questions
+<Any [CONFIRM WITH USER] items carried forward.>
+=== END FILE ===
+
+=== FILE: capabilities.md ===
+# Capabilities → Pass/Fail Criteria Matrix
+
+| Capability | Test (file::case) | Expected | Status |
+|-----------|-------------------|----------|--------|
+| <from prd FR-1> | tests/test_agent::<case> | <exact expected> | RED |
+| <from prd FR-2> | ... | ... | RED |
+
+Status moves RED → GREEN as the source is implemented. Every capability maps to at least one enforcing test. No capability without a test.
+=== END FILE ===
+
+=== FILE: architectural.md ===
+# Architectural Design
+
+## Components
+<Named components/modules and their responsibilities — including any MCP tool server, tool-use loop, planning/reflection loop, guardrail layer, and observability hooks if those extras were selected.>
+
+## Data flow
+<How inputs move through components to outputs, including the model call edge and the tool-call edge.>
+
+## Boundaries
+<Trust boundaries, I/O edges, failure modes. Where untrusted input enters. Where secrets are handled.>
+
+## Decisions
+<Key design decisions and one-line rationale each.>
+=== END FILE ===
+
+=== FILE: CLAUDE.md ===
+# <Agent Name> — Claude Code / Agentic Runner System Prompt
+
+## ROLE
+<One sentence — the role the agentic runner plays on this codebase.>
+
+## OBJECTIVE — EXACT
+<Specific inputs → specific outputs. Mirrors prd.md success criteria.>
+
+## WHAT TO BUILD
+<Ordered concrete list.>
+
+## WHAT NOT TO BUILD
+<Out-of-scope items with one-line reasons.>
+
+## EXECUTION ORDER — TDD, NO SKIPPING STEPS
+### Step 1 — Audit
+Read every file. Log broken calls, stubs, dead paths.
+### Step 2 — Tests already exist
+File: tests/test_agent.<ext> — pre-written, currently RED.
+### Step 3 — Implement source
+In dependency order. No edits to tests. No mock returns in the impl.
+### Step 4 — Validate
+\`\`\`bash
+make test
+\`\`\`
+### Step 5 — Deliver
+Complete files. No TODO. No truncation.
+
+## GUARDRAILS — HARD STOPS
+<6–10 STOP conditions specific to this agent.>
+
+## DONE WHEN
+<8–12 binary verifiable criteria — mirrors DONE.md.>
+=== END FILE ===
+
+=== FILE: AGENTS.md ===
+# Agent Workflow
+
+## Roles
+- **Spec author** — owns prd.md, spec.md, prompt-sequence section of agent.md; never edits code.
+- **Architect** — owns CLAUDE.md, architectural.md, capabilities.md; never edits code.
+- **Implementer** — edits only the agent source + config; never edits tests or spec.
+- **Reviewer** — runs make test, fills DONE.md, updates drift.md and capabilities.md.
+
+## Handoffs
+1. Spec author → Architect: prd.md + spec.md frozen.
+2. Architect → Implementer: CLAUDE.md + capabilities.md + agent.md frozen.
+3. Implementer → Reviewer: all tests green locally.
+4. Reviewer → Done: DONE.md fully checked, drift.md updated, capabilities.md all GREEN.
+
+## Communication contract
+- Every change names: which DONE.md items it closes, which tests changed (should be none after RED), which guardrails were tested against.
+
+## MCP / tool-use contract (if MCP extra selected)
+<How tools are exposed/consumed via Model Context Protocol — server command, tool list, permission model.>
+
+## Guardrail contract (if guardrails extra selected)
+<Input redaction, prompt-injection defense, output validation — who enforces, where in the pipeline.>
+=== END FILE ===
+
+=== FILE: DONE.md ===
+# Done Criteria
+
+[8–12 task-specific binary checkboxes. Format:]
+- [ ] <specific verifiable thing>
+=== END FILE ===
+
+=== FILE: tdd.md ===
+# Red → Green → Refactor Log
+
+## RED — tests written, implementation stubbed
+- Date: <placeholder>
+- Tests: tests/test_agent.<ext>
+- Result: all FAIL (NotImplementedError / mocked-model assertions against stubs)
+- Command: \`make test\`
+
+## GREEN — implementation complete
+- Date: <pending>
+- Result: all PASS
+- Command: \`make test\`
+
+## Anti-tautology check
+<Confirm tests assert behavior from spec.md, not from the implementation. List any test that imports implementation internals — there should be none. Model calls must be mocked so tests are deterministic and offline.>
+=== END FILE ===
+
+=== FILE: prompt-sequence.md ===
+# Prompt Sequence — Master Run Order
+
+Ordered prompts/steps the agent runner executes for one invocation. Each step has what to do, pass criteria, fail criteria, and guardrails.
+
+| # | Step | Do | Pass criteria | Fail criteria | Guardrails |
+|---|------|----|---------------|---------------|------------|
+| 1 | Parse input | read + validate input shape | input matches spec S1 | input invalid | reject early, no model call |
+| 2 | Plan | produce a step plan | plan covers every FR | plan missing an FR | do not act before plan |
+| 3 | Act / tool-use | call model + tools | tool outputs validated | tool output invalid | never trust raw tool output |
+| 4 | Reflect | check output vs spec | all spec rows pass | any spec row fails | replan or stop |
+| 5 | Emit | produce final output | output matches schema | output malformed | guardrail stop |
+
+## Per-step pass/fail summary
+<One bullet per step restating the binary pass condition. Adapt to the selected extras (planning / mcp / structured / guardrails).>
+=== END FILE ===
+
+=== FILE: install.sh ===
+#!/usr/bin/env bash
+# Idempotent installer for THIS agent's OS-level + language dependencies.
+set -euo pipefail
+# <Detect OS (macOS/Linux), install language runtime + package manager deps for
+#  the chosen language, print clear progress. MUST NOT hardcode secrets.>
+=== END FILE ===
+
+=== FILE: install-all.sh ===
+#!/usr/bin/env bash
+# One command: empty machine -> running agent. Runs install.sh then bootstraps
+# the agent runtime, model downloads, and a power-source config check.
+set -euo pipefail
+bash install.sh
+# <Power-source-specific bootstrap — see rules below. End with a "ready" message
+#  and a config check that verifies the chosen AI power source is reachable.>
+=== END FILE ===
+
+=== FILE: config.yaml ===
+# Captures the interview answers so the agent knows its own setup.
+# NEVER put real keys here — placeholders only; real values come from env vars.
+goal: "<from interview>"
+language: "<from interview>"
+framework: "<from interview>"
+host: "<from interview>"
+team: "<single | team>"
+power_source: "<from interview>"
+# api_key
+api_key_env: "AGENT_API_KEY"        # read at runtime, never logged
+# hf
+hf_token_env: "HF_TOKEN"
+hf_default_model: "Qwen/Qwen3-14B-Instruct"
+# ollama
+ollama_base_url: "http://127.0.0.1:11434"
+ollama_models:
+  - "<from interview or default>"
+# webgpu
+webgpu_model_id: "<from interview or default>"
+# gguf_file
+gguf_path: "./models/model.gguf"
+# extras
+extras:
+  - "<from interview>"
+=== END FILE ===
+
+=== FILE: .env.example ===
+# Copy to .env and fill in. .env is gitignored.
+# AGENT_API_KEY=...
+# HF_TOKEN=...
+=== END FILE ===
+
+=== FILE: <main agent source file for the chosen language/framework> ===
+<The agent runtime: reads config.yaml + env vars, instantiates the model client
+for the selected power source, runs the prompt-sequence loop from agent.md,
+applies the guardrails, and emits the structured output if requested. Stubs for
+any unimplemented steps MUST raise NotImplementedError so tests go RED first.
+If MCP was selected, include the MCP tool server wiring. If planning was
+selected, include the plan→act→reflect loop. If structured was selected,
+include the output schema + validator. If observability was selected, include
+per-step tracing spans. If guardrails were selected, include the input-redaction
++ prompt-injection-defense + output-validation layer.>
+=== END FILE ===
+
+=== FILE: tests/test_agent.<ext> ===
+<8–12 named, task-derived tests covering the spec rows. They mock the model
+calls (deterministic, offline). They import from the agent source. They MUST
+currently FAIL (stubs raise NotImplementedError). They MUST be the exact
+pass-criteria for DONE.md. No generic placeholders. Each test maps to a row in
+spec.md / capabilities.md.>
+=== END FILE ===
+
+=== FILE: Makefile ===
+.PHONY: install test lint run clean
+
+install:
+\t<install command for detected stack>
+
+test:
+\t<test command — runs tests/ ; RED before source impl, GREEN after>
+
+lint:
+\t<lint command for detected stack>
+
+run:
+\t<run command — loads agent.md as the system prompt and runs the agent>
+
+clean:
+\trm -rf __pycache__ .pytest_cache node_modules dist build
+=== END FILE ===
+
+POWER-SOURCE RULES (adapt install-all.sh, the source, and config.yaml):
+- api_key: install/runtime must PROMPT for the key and store it in an env var / .env (gitignored). Never hardcode.
+- hf: install-all.sh checks the optional HF_TOKEN env var (no hard fail if absent — public models work). Default the HF model to a mid-2026 recommended model (e.g. Qwen/Qwen3-14B-Instruct) unless the interview named one. Route calls to the HF Inference API.
+- ollama: install-all.sh ensures Ollama is running and pulls the specified models (or a sensible mid-2026 default like qwen3:8b), failing fast with a clear message if not.
+- webgpu: the agent must run in a browser context; include an index.html that loads the model via WebLLM, with COOP/COEP headers documented.
+- gguf_file: install-all.sh checks for the .gguf in ./models/ and fails fast with a clear message if missing; document how the user drops the file in.
+- no_ai: emit a pure rules/scripting agent with no model calls; agent.md's "Model" line reads "none (rules engine)".
+
+EXTRA RULES (only if the corresponding extra appears in the interview):
+- mcp: include an MCP tool server (e.g. a tools server script + a tool manifest) and wire a tool-use loop in the source. List the tools in agent.md "Tools / permissions".
+- structured: define a JSON output schema (e.g. pydantic / zod / a schema file) and validate the agent's final output against it; reject on validation failure.
+- planning: implement an explicit Plan→Act→Reflect loop; the agent emits a plan before acting and re-plans (up to a bounded N) when a step fails.
+- guardrails: add a guardrail layer — redact secrets from inputs, defend against prompt-injection in tool outputs, validate outputs before emit. List the STOP conditions in agent.md.
+- observability: emit per-step tracing spans (otel-style) with token/cost accounting and a run log; write runs to drift.md.
+- evals: include an eval harness (e.g. evals/golden.json + a runner) with golden cases and a pass/fail score command in the Makefile.
+- dockerfile: include a Dockerfile.
+- gitignore: include a .gitignore (must ignore .env, node_modules, __pycache__, models/*.gguf).
 
 Hard rules:
 1. Output ONLY FILE blocks. No prose outside them. First characters must be "=== FILE:".
 2. Complete files only — no truncation, no "# ... rest of file", no TODO placeholders.
-3. install.sh and install-all.sh must have executable shebangs (#!/usr/bin/env bash) and be written so 'bash install-all.sh' works on a fresh macOS or Linux machine.
-4. README must contain: Goal, What powers the AI (and how to configure it), Install (one command), Run (one command), File manifest, Troubleshooting.
-5. The agent's runtime must read its config from the generated config file / env vars, not from hardcoded values.
-6. Adapt everything to the chosen language (Python→.py/requirements.txt, TS→.ts/package.json, Go→.go/go.mod, Rust→.rs/Cargo.toml, JS→.js/package.json, Bash→.sh).`;
+3. install.sh and install-all.sh MUST have executable shebangs (#!/usr/bin/env bash) and be written so 'bash install-all.sh' works on a fresh macOS or Linux machine.
+4. README MUST contain: Goal, What powers the AI (and how to configure it), Install (one command), Run (one command), File manifest, Troubleshooting.
+5. The agent runtime MUST read its config from config.yaml / env vars, not from hardcoded values. NEVER put real keys in generated files.
+6. agent.md MUST be a complete, ready-to-run system prompt with operational parameters, tools/permissions, guardrails, and an ordered prompt sequence.
+7. Tests MUST mock model calls (deterministic, offline) and currently FAIL (stubs raise NotImplementedError); they assert behavior from spec.md, never mirror the implementation.
+8. Adapt everything to the chosen language (Python→.py/requirements.txt, TS→.ts/package.json, Go→.go/go.mod, Rust→.rs/Cargo.toml, JS→.js/package.json, Bash→.sh).
+9. Choose the main source file name + extension from the chosen language and framework (e.g. agent.py, src/agent.ts, main.go). Every directory has a README or index. No empty directories.`;
 
 window.afGenerate = async function() {
   if (afRunning) return;

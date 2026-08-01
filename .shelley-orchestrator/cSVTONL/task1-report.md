@@ -38,3 +38,21 @@ Previous inactive tab color `--muted #4a6878` was ~3.0:1 (failed AA 4.5:1). All 
 - Inline edit-form IDs introduced (`tab-forge`, `tab-assembly`, `tab-agentforge`, `sec-*-body`, `pfTip`) do not collide with existing IDs.
 - Inference engine, model catalogs, assembly/agent-forge business logic untouched.
 - Committed to git on `main`: `feat(ui/a11y): prominent accessible nav tabs, tooltips, section aria-expanded` (prompt-forge.html only, +1890/-52).
+
+## Postscript — test_tabs 54/2 on current HEAD is NOT this task's regression
+
+While verifying after completion, the shared repo HEAD advanced (parallel subagents committed on top of my work). Current `git log`:
+
+- `26be391` — **this task** (UI/a11y) — verified: `node test_tabs.js` → **56/0**, `node test_features.js` → **116/1** (only the pre-existing environmental `file:///ollama` fetch error). No regressions.
+- `f0ee7ae` — "feat(export): ATDD/SDD project pipeline + shared buildProjectZip" (a *different* task) — renamed the zip manifest files: removed `zip.file('assembly-line.json', …)` and `zip.file('agent-forge-spec.json', …)` and consolidated them into `prompt-forge.json` inside `buildProjectZip`.
+- `1887108`, `cb3ea5a` — follow-on docs/test_output commits by that same task.
+
+The current repo HEAD (`cb3ea5a`) scores `test_tabs.js` **54/2** because two assertions still expect the old manifest filenames:
+- `assembly zip contains assembly-line.json` (`test_tabs.js:151`, checks `zip.file('assembly-line.json')`)
+- `agent zip has agent-forge-spec.json` (`test_tabs.js:226`, checks `entries.includes('agent-forge-spec.json')`)
+
+These fail because the export-pipeline task (`f0ee7ae`) changed the assembly/agent-forge zip logic to emit `prompt-forge.json` instead — **business logic that my task's guardrails explicitly forbade me from touching** ("Do not touch inference/assembly/agent-forge business logic"). I confirmed via `git show 26be391` that my commit preserved the original `assembly-line.json` / `agent-forge-spec.json` writes and that checking out my commit makes the tests green again (3 consecutive 56/0 runs).
+
+**Conclusion:** The 2 failures are a conflict introduced by a parallel task's commit, not a regression from Task 1. Fixing them would require editing the assembly/agent-forge zip manifest code — out of scope for this task and the responsibility of the export-pipeline task (either it should keep writing `assembly-line.json`/`agent-forge-spec.json` for backward compat, or `test_tabs.js` should be updated to expect `prompt-forge.json`). I did not modify that code and left the shared repo HEAD untouched.
+
+My deliverable (commit `26be391`) is complete and green within its own scope.
