@@ -1,0 +1,23 @@
+# .github/CODEOWNERS
+# Mirrors FILE_OWNERSHIP.md in the format GitHub natively understands: when a
+# PR touches a path below, GitHub requires review/approval from the mapped
+# owner before merge. Replace the placeholder handles (@your-org/...) with
+# real GitHub usernames or teams — one per pipeline stage, or one human who
+# reviews on behalf of that stage while you're running this pipeline
+# single-player. This is the human-facing enforcement layer; agents/_lib and
+# pipeline.config.json are what a scripted CI check enforces (see
+# .github/workflows/pipeline-gate.yml).
+
+/PRD.md                        @your-org/requirements-owner
+/ARCHITECTURE.md               @your-org/architecture-owner
+/ARD.md                        @your-org/architecture-owner
+/tests/unit/                   @your-org/test-owner
+/tests/integration/            @your-org/test-owner
+/tests/e2e/                    @your-org/test-owner
+/src/                          @your-org/implementation-owner
+/GUARDRAILS.md                 @your-org/pipeline-maintainer
+/FILE_OWNERSHIP.md             @your-org/pipeline-maintainer
+/ORCHESTRATION.md              @your-org/pipeline-maintainer
+/pipeline.config.json          @your-org/pipeline-maintainer
+/agents/_lib/                  @your-org/pipeline-maintainer
+/CHANGELOG.md                  @your-org/release-owner

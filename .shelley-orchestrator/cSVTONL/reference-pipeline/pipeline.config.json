@@ -1,0 +1,72 @@
+{
+  "pipeline": "spec-driven-tdd-agentic",
+  "version": "2026.1",
+  "humanGates": ["post-PRD", "pre-release"],
+  "_gateCheckNote": "The 'gateCheck' string on each stage below is a human-readable label describing what that stage's own agents/<stage>/drift.js actually enforces — it is NOT read or dispatched on by any script. There is no generic gateCheck interpreter in this scaffold; the real logic lives in each stage's drift.js. If you build a programmatic orchestrator that wants to dispatch on this field, you're adding that mapping yourself — it doesn't exist yet.",
+  "stages": [
+    {
+      "id": "00-orchestrator",
+      "role": "coordinator",
+      "writeGlobs": ["ORCHESTRATION.md", "ESCALATION.md"],
+      "requiresInput": [],
+      "producesArtifact": null
+    },
+    {
+      "id": "01-requirements",
+      "role": "product",
+      "writeGlobs": ["PRD.md"],
+      "requiresInput": [],
+      "producesArtifact": "PRD.md",
+      "humanGateAfter": "post-PRD"
+    },
+    {
+      "id": "02-architecture",
+      "role": "architecture",
+      "writeGlobs": ["ARCHITECTURE.md", "ARD.md"],
+      "requiresInput": ["PRD.md"],
+      "producesArtifact": ["ARCHITECTURE.md", "ARD.md"]
+    },
+    {
+      "id": "03-spec-test",
+      "role": "test-author",
+      "writeGlobs": ["tests/unit/**", "tests/integration/**", "tests/e2e/**", "tests/reports/red-report.json", "tests/reports/traceability-matrix.json"],
+      "requiresInput": ["PRD.md", "ARCHITECTURE.md"],
+      "producesArtifact": "tests/reports/red-report.json",
+      "gateCheck": "allTestsFailForMissingImplementation"
+    },
+    {
+      "id": "04-implementation",
+      "role": "implementer",
+      "writeGlobs": ["src/**"],
+      "forbiddenGlobs": ["tests/**"],
+      "requiresInput": ["tests/reports/red-report.json"],
+      "producesArtifact": "local-green-claim",
+      "gateCheck": "noTestFilesModifiedByThisAgent"
+    },
+    {
+      "id": "05-qa-verification",
+      "role": "independent-qa",
+      "writeGlobs": ["tests/reports/green-report.json", "tests/reports/traceability-matrix.json"],
+      "requiresInput": ["src/**", "tests/**"],
+      "producesArtifact": ["tests/reports/green-report.json", "tests/reports/traceability-matrix.json"],
+      "gateCheck": "100PercentFeatureAndUiIdCoverage"
+    },
+    {
+      "id": "06-drift-monitor",
+      "role": "integrity",
+      "writeGlobs": ["tests/reports/drift-log.json"],
+      "requiresInput": ["all"],
+      "producesArtifact": "tests/reports/drift-log.json",
+      "gateCheck": "noUnexplainedFileHashDiffs",
+      "runsAt": "everyStageTransition"
+    },
+    {
+      "id": "07-release-docs",
+      "role": "release",
+      "writeGlobs": ["CHANGELOG.md", "README.md"],
+      "requiresInput": ["tests/reports/green-report.json", "tests/reports/drift-log.json"],
+      "producesArtifact": "CHANGELOG.md",
+      "humanGateBefore": "pre-release"
+    }
+  ]
+}
