@@ -1019,6 +1019,85 @@
   #meshShareBtn.live .mesh-pulse { display:block; }
   .mesh-input { font-family:var(--mono); font-size:10px; background:var(--bg); border:1px solid var(--border);
     border-radius:2px; color:var(--text); padding:4px 6px; flex:1; min-width:0; }
+
+  /* ═══ MOBILE RESPONSIVE ═══ */
+  @media (max-width: 768px) {
+    html, body { font-size: 14px; overflow: auto; height: auto; }
+    .shell { display: block; height: auto; min-height: 100vh; grid-template-rows: auto 1fr; }
+    body::after { display: none; }
+    header {
+      flex-wrap: wrap; gap: 6px; padding: 6px 10px;
+      height: auto; position: sticky; top: 0; z-index: 1000;
+    }
+    .logo { font-size: 15px; letter-spacing: 2px; }
+    .tagline { display: none; }
+    .header-right { width: 100%; justify-content: flex-start; gap: 6px; flex-wrap: wrap; }
+    .tabbar { width: 100%; gap: 2px; }
+    .tab { font-size: 11px; padding: 6px 10px; flex: 1; text-align: center; }
+    .tab-dot { display: none; }
+    .status-pill { font-size: 9px; padding: 2px 6px; }
+    .header-right .btn { font-size: 9px; padding: 4px 8px; }
+    /* Stack the main grid vertically */
+    main {
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: visible !important;
+      height: auto !important;
+      gap: 8px;
+      padding: 8px;
+    }
+    .views-host { display: flex; flex-direction: column; height: auto; overflow: visible; padding: 0; gap: 8px; }
+    .view { display: flex; flex-direction: column; height: auto; overflow: visible; padding: 8px; border-radius: 4px; position: static !important; }
+    .view.hidden { display: none; }
+    /* Panels stack vertically */
+    .panel { display: flex; flex-direction: column; width: 100% !important; height: auto !important; overflow: visible !important; border-right: none; border: 1px solid var(--border); border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    .splitter { display: none !important; }
+    .section { margin-bottom: 8px; }
+    .section-head { padding: 8px 10px; font-size: 11px; }
+    .section-body { padding: 8px; flex-direction: column; gap: 6px; }
+    .section-body .row { flex-direction: column; gap: 4px; }
+    .slider-row { flex-direction: row; gap: 4px; }
+    .slider-row .lbl { min-width: 60px; font-size: 9px; }
+    .slider-row .val { min-width: 36px; font-size: 9px; }
+    textarea, input[type="text"], input[type="password"], select {
+      font-size: 13px !important; max-width: 100%;
+    }
+    #taskInput { height: 120px; font-size: 14px; }
+    #outputContent { font-size: 12px; line-height: 1.6; padding: 8px; }
+    #systemPromptEditor { height: 100px; }
+    .btn { font-size: 11px; padding: 8px 12px; }
+    .btn-primary { width: 100%; font-size: 14px; padding: 12px; }
+    #forgeBtn { width: 100%; }
+    #zipBtn { width: 100%; }
+    .mode-btn, .backend-btn { flex: 1; font-size: 10px; padding: 6px 8px; }
+    .test-type-grid { grid-template-columns: 1fr 1fr; gap: 4px; }
+    /* Assembly view mobile */
+    .assembly-layout, .assembly-left, .assembly-right { display: block; width: 100% !important; height: auto !important; }
+    .assembly-left, .assembly-right { padding: 8px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 4px; }
+    /* Agent Forge mobile */
+    .agentforge-layout { display: block; width: 100% !important; }
+    /* Collapsible panels (globe, shield, drift, prd, mesh, sandbox) */
+    #globePanel, #ctxShieldPanel, #driftPanel, #prdPanel, #meshPanel, #sandboxPanel { width: 100% !important; }
+    /* Hide desktop-only decorative elements on mobile */
+    .tokrate { display: none; }
+    /* Help modal mobile */
+    .modal { width: 95% !important; max-width: 95% !important; left: 2.5% !important; }
+    .modal-body { max-height: 70vh; overflow-y: auto; }
+    /* Floating panels become full-width */
+    [style*="position:absolute"], [style*="position: absolute"] {
+      position: static !important; width: 100% !important; max-width: 100% !important;
+    }
+  }
+
+  /* Extra-small phones */
+  @media (max-width: 420px) {
+    html, body { font-size: 13px; }
+    .logo { font-size: 13px; }
+    .tab { font-size: 10px; padding: 5px 6px; }
+    .test-type-grid { grid-template-columns: 1fr; }
+    #taskInput { height: 100px; }
+    .btn-primary { font-size: 12px; padding: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -1268,13 +1347,13 @@
               </div>
               <div class="slider-row">
                 <span class="lbl">Max tokens</span>
-                <input type="range" id="maxTokens" min="500" max="8000" step="100" value="3000" oninput="updateParamsBadge()" />
-                <span class="val" id="maxVal">3000</span>
+                <input type="range" id="maxTokens" min="500" max="8000" step="100" value="4096" oninput="updateParamsBadge()" />
+                <span class="val" id="maxVal">4096</span>
               </div>
               <div class="slider-row">
                 <span class="lbl">Ctx (Ollama)</span>
-                <input type="range" id="numCtx" min="2048" max="32768" step="1024" value="8192" oninput="updateParamsBadge()" />
-                <span class="val" id="ctxVal">8192</span>
+                <input type="range" id="numCtx" min="2048" max="32768" step="1024" value="12288" oninput="updateParamsBadge()" />
+                <span class="val" id="ctxVal">12288</span>
               </div>
               <div class="slider-row">
                 <span class="lbl">Top P</span>
@@ -1461,12 +1540,12 @@
                 </div>
                 <div class="slider-row">
                   <span class="lbl">Max tokens</span>
-                  <input type="range" id="asMaxTokens" min="500" max="8000" step="100" value="2000" oninput="asUpdateParamsBadge()" />
+                  <input type="range" id="asMaxTokens" min="500" max="8000" step="100" value="4096" oninput="asUpdateParamsBadge()" />
                   <span class="val" id="asMaxVal">2000</span>
                 </div>
                 <div class="slider-row">
                   <span class="lbl">Ctx (Ollama)</span>
-                  <input type="range" id="asNumCtx" min="2048" max="32768" step="1024" value="8192" oninput="asUpdateParamsBadge()" />
+                  <input type="range" id="asNumCtx" min="2048" max="32768" step="1024" value="12288" oninput="asUpdateParamsBadge()" />
                   <span class="val" id="asCtxVal">8192</span>
                 </div>
                 <div class="slider-row">
@@ -2966,10 +3045,14 @@ window.fetchOllamaModels = async function() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     const models = (data.models || []).sort((a,b) => a.name.localeCompare(b.name));
+    // Auto-select the best coding model available (prefer larger coder models)
+    const PREFERRED = ['qwen2.5-coder:7b','qwen2.5-coder:3b','qwen2.5-coder:1.5b','qwen2.5:7b','qwen2.5:3b','llama3.1:8b','llama3.2:3b','qwen3:8b','qwen3:4b','qwen3:1.7b'];
+    const pick = PREFERRED.find(p => models.some(m => m.name === p));
+    const best = pick || (models.length ? models[0].name : '');
     sel.innerHTML = models.length
-      ? models.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
+      ? models.map(m => `<option value="${m.name}"${m.name === best ? ' selected' : ''}>${m.name}</option>`).join('')
       : '<option value="">— no models found —</option>';
-    setStatus('live', 'OLLAMA OK');
+    setStatus('live', 'OLLAMA OK · ' + (best || 'no model'));
   } catch (e) {
     sel.innerHTML = '<option value="">— cannot reach Ollama —</option>';
     setStatus('err', 'OLLAMA OFFLINE');
