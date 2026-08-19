@@ -149,6 +149,46 @@ def main():
   r = await ev(() => ['plan','review_plan','taskout','codereview'].every(rl => window.__pf.HEAVY_ROLES.has(rl)));
   record('heavy roles set includes plan/review_plan/taskout/codereview', r);
 
+  // ── Fact-Check Gate (verify role) ───────────────────────────────────────
+  console.log('\n── Fact-Check Gate ──');
+  r = await ev(() => window.__pf.ASSEMBLY_ROLES.some(role => role.id === 'verify' && role.optIn === true));
+  record('verify role registered as opt-in', r);
+
+  r = await ev(() => window.__pf.HEAVY_ROLES.has('verify'));
+  record('verify is a heavy-gated role', r);
+
+  r = await ev(() => window.__pf.ASSEMBLY_ROLE_TIER_PREF.verify === 'heavy');
+  record('verify prefers heavy tier', r);
+
+  r = await ev(() => !window.__pf.asDefaultStages().some(s => s.role === 'verify'));
+  record('default 6-stage line does NOT include the fact-check gate', r);
+
+  r = await ev(() => window.__pf.asDefaultStages().length === 6);
+  record('default stage count unchanged at 6', r);
+
+  r = await ev(() => window.__pf.parseVerifyVerdict('## VERIFY\n- Verdict: PASS\n- Checked claims: none') === 'pass');
+  record('parseVerifyVerdict reads PASS', r);
+
+  r = await ev(() => window.__pf.parseVerifyVerdict('## VERIFY\n- Verdict: FAIL\n- Checked claims: fabricated API') === 'fail');
+  record('parseVerifyVerdict reads FAIL', r);
+
+  r = await ev(() => window.__pf.parseVerifyVerdict('some rambling output with no verdict line') === 'unparsed');
+  record('parseVerifyVerdict treats a missing verdict as unparsed (soft-fail)', r);
+
+  r = await ev(() => window.__pf.parseVerifyVerdict('Verdict:   fail  ') === 'fail');
+  record('parseVerifyVerdict is whitespace/case tolerant', r);
+
+  r = await ev(async () => {
+    window.__pf.setAsStages([
+      { role: 'plan',   modelKey: 'ollama:mock:7b', label: 'Planner', system: 'plan' },
+      { role: 'verify', modelKey: 'ollama:mock:7b', label: 'Fact-Check Gate', system: window.__pf.ASSEMBLY_SYSTEMS.verify },
+    ]);
+    window.__pf.setAsStepOutput(0, { role: 'plan', label: 'Planner', model: 'x', output: 'plan text' });
+    window.__pf.pfClearCompromised();
+    return true;
+  });
+  record('verify stage + system prompt configurable via setAsStages', r);
+
   // ── Context compaction ──────────────────────────────────────────────────
   console.log('\n── Context compaction ──');
   r = await ev(() => {

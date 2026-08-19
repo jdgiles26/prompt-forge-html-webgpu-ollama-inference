@@ -50,14 +50,24 @@ self-contained — switching tabs never touches another tab's state:
   builder described below. Single Prompt or Complete Project Package, WebGPU
   + Ollama, templates, history, validator, file viewer, zip export.
 - **ASSEMBLY LINE** — a multi-agent project-development pipeline. Pick an
-  ordered set of models from a shared pool (Ollama + WebGPU), each assigned to
-  one stage of the assembly line of intelligence: **Plan → Review Plan →
-  Task Out → Execute → Code Review → Final Review**. Each stage receives the
-  user's task plus every prior stage's output, so intelligence compounds down
-  the line. Add / remove / reorder stages, assign the same model to multiple
-  stages, or auto-assign round-robin. The final stage emits a complete
-  project (files → downloadable `.zip`) or a consolidated system prompt
-  (`.md`). A live progress track shows which stage is running / done.
+  ordered set of models from a shared pool (Ollama + WebGPU + HF Cloud), each
+  assigned to one stage of the assembly line of intelligence: **Plan → Review
+  Plan → Task Out → Execute → Code Review → Final Review**. Each stage
+  receives the user's task plus every prior stage's output, so intelligence
+  compounds down the line. Add / remove / reorder stages, assign the same
+  model to multiple stages, or auto-assign round-robin. The final stage emits
+  a complete project (files → downloadable `.zip`) or a consolidated system
+  prompt (`.md`). A live progress track shows which stage is running / done.
+  A **Fact-Check Gate** (`+ ADD FACT-CHECK GATE`) can be inserted anywhere in
+  the line: a dedicated, heavy-tier-only stage that re-checks the immediately
+  prior stage's claims against the user task and pauses the run — blocking
+  zip export — the moment it returns a `FAIL` verdict (or no parseable
+  verdict at all, treated as a soft-fail). This is a real gate, not a
+  warning: the pipeline halts and export stays disabled until a human
+  reviews the flagged stage and explicitly Resumes or re-runs from an
+  earlier point. It builds on the existing MoA capability guardrail (weak
+  models are refused for heavy roles) and the repetition-loop /
+  FILE-block-integrity guards (`test_hallucination_guards.js`).
 - **AGENT FORGE** — a guided interview that gathers everything needed to
   scaffold a custom **agent / team of agents**, then hands off to the
   multi-agent generator which emits a complete, downloadable, ready-to-run
@@ -102,10 +112,18 @@ self-contained — switching tabs never touches another tab's state:
   entry before triggering the download.
 
 ### Inference
-- **WebGPU (WebLLM)** — 18+ MLC-prebuilt models including Qwen2.5-Coder
-  (0.5B / 1.5B / 7B), Llama-3.2 (1B / 3B), Llama-3.1-8B, SmolLM2 (135M / 360M /
-  1.7B), DeepSeek-R1-Distill (Qwen-7B / Llama-8B), Phi-3.5 mini, Gemma-2 2B.
+- **WebGPU (WebLLM)** — 27 MLC-prebuilt open models including Qwen3.5
+  (0.8B–9B), Qwen3 (0.6B–8B), Qwen2.5-Coder (0.5B / 1.5B / 3B / 7B), Llama-3.2
+  (1B / 3B) / Llama-3.1-8B, SmolLM2 (135M / 360M / 1.7B), DeepSeek-R1-Distill
+  (Qwen-7B / Llama-8B), Phi-4 mini / Phi-3.5 mini, Gemma-2 (2B / 9B).
 - **Ollama** — auto-discovers installed models from `/api/tags`.
+- **HF Cloud** — optional third backend against the HF Inference API. The
+  recommended-model dropdown (`HF_RECOMMENDED`) is a curated, individually
+  Hub-verified list spanning Qwen3 / Qwen3.5, DeepSeek-V3.x/R1, Llama
+  3.1/3.3/4, Mistral, and Gemma 3 — every ID is checked to actually resolve
+  on huggingface.co before being pinned (a prior list shipped three
+  nonexistent `-Instruct`-suffixed Qwen3 IDs; fixed). Deliberately excludes
+  "uncensored"/"abliterated" community re-finetunes.
 
 ### Workflow tooling
 - **10 task templates** with built-in guardrails: Refactor / Greenfield /
@@ -150,6 +168,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_zip_runs_tdd.js`     | 8 tests that unzip the forged package and prove pytest goes RED → GREEN |
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
+| `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -163,7 +182,9 @@ on first use and the browser caches it.
 ```bash
 npm install         # install Playwright + adm-zip (dev only)
 npx playwright install chromium
-npm test            # runs all five suites (features, tabs, e2e, zip-tdd, webgpu)
+npm test            # runs every suite: features, tabs, e2e, zip-tdd, zip-download,
+                     # pipeline-scaffold, webgpu, 2026-features, hallucination-guards
+npm run test:guards # just the hallucination / Fact-Check Gate guard suite
 ```
 
 Latest run (offline / mocked):
@@ -174,6 +195,7 @@ TABS       (new tabs):   56 passed · 0 failed
 E2E        (project):    131 passed · 0 failed   (TDD/SDD scaffolding + shared buildProjectZip)
 ZIP-TDD    (real pytest): 8 passed · 0 failed     (pip install --break-system-packages pytest)
 Local-HTTP (webgpu):      2 passed · 1 failed* · 1 skipped***
+GUARDS     (hallucination): 38 passed · 1 failed* (net::ERR_CONNECTION_RESET fetching the WebLLM CDN import — sandbox-only)
                         ──────────────────────────────────
 New-tabs total:          56 passed · 0 failed
 ```
@@ -256,6 +278,18 @@ HTTP API. You just need to allow null origin once with
   prompts define the line's roles (Planner / Plan Reviewer / Task Architect /
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
+
+- **Fact-Check Gate (`verify` role).** Opt-in, so it never appears in the
+  default 6-stage line or changes existing behavior unless added explicitly.
+  Heavy-tier-gated like Plan / Plan Review / Task Architect / Code Review
+  (`HEAVY_ROLES`), because a weak model asked to fact-check produces a false
+  PASS, which is worse than no check. `parseVerifyVerdict()` reads the
+  stage's `Verdict: PASS|FAIL` line (case/whitespace-tolerant); anything
+  else — including a `FAIL` or a response that skips the required format —
+  calls `pfMarkCompromised()` and pauses the run before the next stage
+  (`asPaused = true`), which also disables zip export via the existing
+  `pfOutputCompromised` gate. The run only continues past a failed gate on
+  an explicit Resume or a re-run from an earlier stage — never silently.
 
 - **Agent Forge interview → generation.** Answers are captured in a single
   JS object; conditional questions use `showIf` predicates against that
