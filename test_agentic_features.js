@@ -267,6 +267,116 @@ function record(name, ok, detail) {
   });
   record('VALIDATE modal renders the Definition-of-Done audit with the flagged bullet', r);
 
+  // ── Feature 4: token budget guardrail ────────────────────────────────────
+  console.log('\n── Token budget guardrail ──');
+  await page.click('#tabbar .tab[data-view="assembly"]');
+  await page.waitForFunction(() => !!window.asEnsureInit, null, { timeout: 5000 });
+  await page.waitForTimeout(200);
+
+  r = await ev(() => {
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '';
+    return window.__pf.asTokenBudgetVal() === 0;
+  });
+  record('empty budget field means no cap (0)', r);
+
+  r = await ev(() => {
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '5000';
+    return window.__pf.asTokenBudgetVal() === 5000;
+  });
+  record('budget field parses to an int', r);
+
+  r = await ev(() => {
+    window.__pf.setAsStageTelemetry(0, { tokens: 100, startTs: performance.now() });
+    window.__pf.setAsStageTelemetry(1, { tokens: 250, startTs: performance.now() });
+    return window.__pf.asCumulativeTokens() === 350;
+  });
+  record('asCumulativeTokens sums across all stage telemetry entries', r);
+
+  // Drive the REAL asAppendChunk code path (not a reimplementation) to prove
+  // the trip logic actually fires when cumulative usage crosses the cap.
+  r = await ev(() => {
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '10'; // tiny cap so a couple of chunks trip it
+    window.__pf.resetAsBudgetState();
+    window.__pf.setAsStages([{ role: 'plan', modelKey: 'ollama:mock:7b', label: 'Planner', system: 'plan' }]);
+    window.__pf.setAsStageTelemetry(0, undefined);
+    window.__pf.setAsRunCursor(0);
+    const stepEl = document.createElement('div');
+    stepEl.innerHTML = '<div class="as-step-body"></div>';
+    document.body.appendChild(stepEl);
+    window.__pf.asAppendChunk(stepEl, 'this is a chunk of several tokens of text');
+    const tripped = window.__pf.asBudgetTripped() === true && window.__pf.asBudgetStopReq() === true;
+    stepEl.remove();
+    window.__pf.setAsRunCursor(-1);
+    return tripped;
+  });
+  record('asAppendChunk trips the budget flag once cumulative tokens cross the cap', r);
+
+  r = await ev(() => {
+    // One-shot: a second chunk after tripping must NOT re-toast/re-trip in a
+    // way that breaks state (asBudgetTripped stays true, no exception).
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '10';
+    window.__pf.resetAsBudgetState();
+    window.__pf.setAsStageTelemetry(0, undefined);
+    window.__pf.setAsRunCursor(0);
+    const stepEl = document.createElement('div');
+    stepEl.innerHTML = '<div class="as-step-body"></div>';
+    document.body.appendChild(stepEl);
+    window.__pf.asAppendChunk(stepEl, 'first chunk over the cap already');
+    window.__pf.asAppendChunk(stepEl, 'second chunk after tripping');
+    const stillTripped = window.__pf.asBudgetTripped() === true;
+    stepEl.remove();
+    window.__pf.setAsRunCursor(-1);
+    return stillTripped;
+  });
+  record('budget trip is a stable one-shot (no exception on subsequent chunks)', r);
+
+  r = await ev(() => {
+    // No cap set: trip flags must never fire regardless of usage.
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '';
+    window.__pf.resetAsBudgetState();
+    window.__pf.setAsStageTelemetry(0, { tokens: 999999, startTs: performance.now() });
+    window.__pf.setAsRunCursor(0);
+    const stepEl = document.createElement('div');
+    stepEl.innerHTML = '<div class="as-step-body"></div>';
+    document.body.appendChild(stepEl);
+    window.__pf.asAppendChunk(stepEl, 'more text');
+    const untripped = window.__pf.asBudgetTripped() === false && window.__pf.asBudgetStopReq() === false;
+    stepEl.remove();
+    window.__pf.setAsRunCursor(-1);
+    window.__pf.setAsStageTelemetry(0, undefined);
+    window.__pf.resetAsBudgetState();
+    return untripped;
+  });
+  record('no budget set (empty field): guardrail never trips', r);
+
+  r = await ev(() => {
+    // Telemetry badge reflects "current / budget" once a budget is set —
+    // exercised through the same asAppendChunk path used above.
+    const cb = document.getElementById('asTokenBudget');
+    cb.value = '5000';
+    window.__pf.resetAsBudgetState();
+    window.__pf.setAsStageTelemetry(0, undefined);
+    window.__pf.setAsRunCursor(0);
+    const stepEl = document.createElement('div');
+    stepEl.innerHTML = '<div class="as-step-body"></div>';
+    document.body.appendChild(stepEl);
+    window.__pf.asAppendChunk(stepEl, 'a chunk');
+    const badge = document.getElementById('asTelBudget');
+    const ok = !!badge && /\/\s*5,?000/.test(badge.textContent);
+    stepEl.remove();
+    window.__pf.setAsRunCursor(-1);
+    window.__pf.setAsStageTelemetry(0, undefined);
+    window.__pf.resetAsBudgetState();
+    document.getElementById('asTokenBudget').value = '';
+    return ok;
+  });
+  record('telemetry badge shows "current / budget" once a budget is set', r);
+
   // ── No unexpected JS errors ──────────────────────────────────────────────
   console.log('\n── Regression ──');
   const realErrs = errs.filter(s => !/file:|ollama\/api\/tags|Fetch API cannot load|ERR_FAILED|CORS|localhost:11434|Access to fetch|ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED|jsdelivr/i.test(s));

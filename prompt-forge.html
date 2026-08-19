@@ -1592,6 +1592,9 @@
                   <label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;" title="Prepend a short block of curated best-practice guardrails (see 📚 BEST PRACTICES) to every stage's prompt. Off by default to keep prompts minimal; the underlying tips apply regardless.">
                     <input type="checkbox" id="asInjectGuardrails" onchange="asSaveInjectGuardrails()" /> inject best-practice guardrails
                   </label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;" title="Pause the run the instant cumulative tokens across all stages cross this number (checked live, mid-stream — not just between stages). Empty/0 = no cap. Not a corruption gate: the partial output is kept and the run is simply paused, resumable from the Resume button.">
+                    token budget: <input type="number" id="asTokenBudget" min="0" step="500" placeholder="none" style="width:80px;" onchange="asSaveTokenBudget()" />
+                  </label>
                 </div>
                 <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px;">
                   Final output mode:
@@ -1661,7 +1664,7 @@
             <div class="panel-label">// Assembly Line · Live Pipeline</div>
             <div class="panel-meta" id="asStateMeta">idle</div>
           </div>
-          <div class="as-telemetry" id="asTelemetry"><span class="tel">tokens: <b id="asTelTokens">0</b></span><span class="tel">rate: <b id="asTelRate">0 tok/s</b></span><span class="tel">ctx fill: <b id="asTelFill">0%</b></span><span class="tel">compaction: <b id="asTelCompact">on</b></span></div>
+          <div class="as-telemetry" id="asTelemetry"><span class="tel">tokens: <b id="asTelTokens">0</b></span><span class="tel">rate: <b id="asTelRate">0 tok/s</b></span><span class="tel">ctx fill: <b id="asTelFill">0%</b></span><span class="tel">compaction: <b id="asTelCompact">on</b></span><span class="tel">budget: <b id="asTelBudget">off</b></span></div>
           <div class="as-progress-track" id="asProgressTrack"></div>
           <div class="as-stream" id="asStream">
             <div class="output-placeholder" style="display:flex;">
@@ -5876,6 +5879,7 @@ function asEnsureInit() {
   const ov = document.getElementById('asHeavyOverride');
   if (ov) ov.checked = asHeavyTierOverride;
   asLoadInjectGuardrails();
+  asLoadTokenBudget();
   asRenderBrowserPool();
   asRefreshModels();
   asRenderStages();
@@ -6301,6 +6305,34 @@ function asLoadInjectGuardrails() {
   } catch {}
 }
 
+// Token budget guardrail (toggleable via an empty/0 value = no cap, persisted).
+// Checked live, mid-stream, in asAppendChunk — not just between stages —
+// because a runaway stage is cheapest to stop the moment it's noticed, not
+// after it finishes generating. Tripping it PAUSES the run (asPaused, same
+// pump the Pause button uses); it never marks output compromised, since a
+// budget cap is a cost control, not evidence of corruption.
+const AS_BUDGET_LS = 'pf.as.tokenBudget';
+let asBudgetStopReq = false;   // set by asAppendChunk when the cap is crossed
+let asBudgetTripped = false;   // one-shot guard so a single overrun doesn't re-toast every chunk
+function asTokenBudgetVal() {
+  const el = document.getElementById('asTokenBudget');
+  const v = el ? parseInt(el.value, 10) : NaN;
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+function asCumulativeTokens() {
+  return (asStageTelemetry || []).reduce((a, t) => a + ((t && t.tokens) || 0), 0);
+}
+window.asSaveTokenBudget = function() {
+  try { localStorage.setItem(AS_BUDGET_LS, String(asTokenBudgetVal() || '')); } catch {}
+};
+function asLoadTokenBudget() {
+  try {
+    const el = document.getElementById('asTokenBudget');
+    const saved = localStorage.getItem(AS_BUDGET_LS);
+    if (el && saved) el.value = saved;
+  } catch {}
+}
+
 // Per-stage status -> progress-track class.
 function asStatusClass(i) {
   const st = asStageStatus(i);
@@ -6349,6 +6381,10 @@ function asRenderTelemetry() {
   if (t('asTelRate'))   t('asTelRate').textContent = rate + ' tok/s';
   if (t('asTelFill'))   t('asTelFill').textContent = fill + '%';
   if (t('asTelCompact')) t('asTelCompact').textContent = asCompactionEnabled() ? 'on' : 'off';
+  if (t('asTelBudget')) {
+    const budget = asTokenBudgetVal();
+    t('asTelBudget').textContent = budget ? (cum.toLocaleString() + ' / ' + budget.toLocaleString()) : 'off';
+  }
 }
 
 function asShowErr(msg) {
@@ -6474,6 +6510,20 @@ function asAppendChunk(stepEl, chunk) {
   if (asRunCursor >= 0) {
     const t = asStageTelemetry[asRunCursor] || (asStageTelemetry[asRunCursor] = { tokens: 0, startTs: performance.now() });
     t.tokens += approxTokens(chunk);
+  }
+  // Token budget guardrail: checked every chunk (not throttled — the whole
+  // point is to stop the instant the cap is crossed, cheaper than finding
+  // out after the bill). Aborts the in-flight generation but keeps the
+  // partial output and merely PAUSES the run (see asBudgetStopReq handling
+  // in the run loop) — this is cost control, never a compromised-output gate.
+  if (!asBudgetTripped) {
+    const budget = asTokenBudgetVal();
+    if (budget && asCumulativeTokens() >= budget) {
+      asBudgetTripped = true;
+      asBudgetStopReq = true;
+      if (asAbort) { try { asAbort.abort(); } catch {} }
+      toast('⏸ Token budget reached (' + asCumulativeTokens().toLocaleString() + ' / ' + budget.toLocaleString() + ') — pausing after this stage.');
+    }
   }
   // Throttled repetition-loop guard (hardened). On a trip we stop the active
   // stage, and — if the loop fired mid-FILE-block — truncate the partial
@@ -6666,6 +6716,7 @@ window.asRun = async function(opts) {
 
   asClearErr();
   asRunning = true; asStopReq = false; asPaused = false;
+  asBudgetTripped = false; asBudgetStopReq = false;
   pfClearCompromised();   // reset output-compromised flag at the start of each assembly run
   const fromStage = Math.max(0, Math.min(asStages.length - 1, opts.from | 0));
   const isRerun = opts.from != null;
@@ -6773,6 +6824,18 @@ window.asRun = async function(opts) {
         if (asStopReq) { asFinalizeStep(i, true); asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output, err: true }; break; }
         asFinalizeStep(i, false);
         asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output };
+        // Token budget guardrail tripped mid-generation (asAppendChunk): the
+        // aborted stage's partial output is kept as a normal (non-error)
+        // result, and the run pauses before the next stage via the same
+        // pause-wait spin the Pause button uses — cost control, not a
+        // correctness gate, so output is never marked compromised.
+        if (asBudgetStopReq) {
+          asBudgetStopReq = false;
+          asPaused = true;
+          document.getElementById('asPauseBtn').style.display = 'none';
+          document.getElementById('asResumeBtn').style.display = '';
+          asState(`⏸ token budget reached · paused after stage ${i+1}`);
+        }
         // Fact-Check Gate: parse the verdict. FAIL (or an unparseable gate,
         // which proves nothing) marks the output compromised — blocking zip
         // export — and pauses the line before the next stage so a human (or
@@ -9298,10 +9361,14 @@ window.__pf = {
   AGENTIC_DEV_TIPS, AGENTIC_GUARDRAILS_BLOCK, asInjectGuardrailsEnabled, asBuildPromptCore,
   scanSecretsAndUnsafe, SECRET_PATTERNS, UNSAFE_CODE_PATTERNS,
   auditDoneWhen, DOD_VAGUE_PATTERNS, DOD_FALSIFIABLE_ANCHORS,
+  asTokenBudgetVal, asCumulativeTokens,
+  asBudgetStopReq: () => asBudgetStopReq, asBudgetTripped: () => asBudgetTripped,
   asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)
   setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
+  asAppendChunk, setAsRunCursor: (i) => { asRunCursor = i; },
+  setAsStageTelemetry: (i, o) => { asStageTelemetry[i] = o; }, resetAsBudgetState: () => { asBudgetTripped = false; asBudgetStopReq = false; },
   getAsStepOutputs: () => asStepOutputs,
   // Task-4 hooks (edge models + sandbox):
   sandboxRunFiles, sandboxDetectLang, sandboxBuildCmd, sandboxFeedbackBlock,

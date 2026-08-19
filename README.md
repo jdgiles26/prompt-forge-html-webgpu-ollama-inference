@@ -169,7 +169,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
-| `test_agentic_features.js` | 34 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator |
+| `test_agentic_features.js` | 41 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -281,6 +281,19 @@ HTTP API. You just need to allow null origin once with
   prompts define the line's roles (Planner / Plan Reviewer / Task Architect /
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
+
+- **Token budget guardrail.** "Track running token/cost usage live during a
+  multi-stage run, not only after it finishes — a runaway stage is far
+  cheaper to stop mid-run than to discover in the bill afterward" (📚 Best
+  Practices → Cost). An optional per-run token budget (empty/0 = no cap) is
+  checked on *every streamed chunk*, not just between stages — the moment
+  cumulative usage across all stages crosses the cap, the in-flight
+  generation is aborted, the partial output is kept as a normal (non-error)
+  stage result, and the run pauses via the same mechanism the Pause button
+  uses (Resume continues once you've reviewed/raised the budget). This is a
+  cost control, not a correctness gate: unlike the Fact-Check Gate or the
+  secret scanner, a budget trip never marks output compromised or blocks
+  export. The telemetry bar shows a live "current / budget" readout.
 
 - **Definition-of-Done auto-validator.** "Write the DoD before the first line
   of code, and make it falsifiable" (📚 Best Practices → Planning).
