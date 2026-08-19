@@ -169,6 +169,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
+| `test_agentic_features.js` | 28 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -183,8 +184,10 @@ on first use and the browser caches it.
 npm install         # install Playwright + adm-zip (dev only)
 npx playwright install chromium
 npm test            # runs every suite: features, tabs, e2e, zip-tdd, zip-download,
-                     # pipeline-scaffold, webgpu, 2026-features, hallucination-guards
-npm run test:guards # just the hallucination / Fact-Check Gate guard suite
+                     # pipeline-scaffold, webgpu, 2026-features, hallucination-guards,
+                     # agentic-features
+npm run test:guards  # just the hallucination / Fact-Check Gate guard suite
+npm run test:agentic # just the new-features suite (tips panel, secret scanner, …)
 ```
 
 Latest run (offline / mocked):
@@ -278,6 +281,20 @@ HTTP API. You just need to allow null origin once with
   prompts define the line's roles (Planner / Plan Reviewer / Task Architect /
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
+
+- **Secret & unsafe-code scanner (pre-export gate).** `buildProjectZip` — the
+  single choke point behind all three tabs' zip exports (Forge, Assembly
+  Line, Agent Forge) — now runs every generated file through
+  `scanSecretsAndUnsafe()` before a byte reaches JSZip. High-confidence
+  secret patterns (private keys, live Stripe/GitHub/Slack/AWS/Google
+  credentials) are an unconditional hard block, same tier as a malformed
+  FILE block — there is no override, because there's no legitimate reason a
+  forged project should ship a real credential. It deliberately does **not**
+  flag `sk_test_`-style fixture keys (this repo's own test fixtures rely on
+  that distinction — see the `5aad045` commit). Unsafe *code* patterns
+  (`eval`, `shell=True`, `pickle.loads`, unsafe `yaml.load`, disabled TLS
+  verification) are heuristic and sometimes legitimate, so they surface as a
+  non-blocking toast warning instead of blocking export.
 
 - **Fact-Check Gate (`verify` role).** Opt-in, so it never appears in the
   default 6-stage line or changes existing behavior unless added explicitly.

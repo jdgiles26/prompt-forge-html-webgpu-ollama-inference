@@ -3898,6 +3898,27 @@ async function buildProjectZip(parts, opts = {}) {
     seen.add(f.path);
   }
 
+  // 1c. Secret & unsafe-code scanner — the last checkpoint before generated
+  //     content leaves the browser as a downloadable zip. High-confidence
+  //     secret patterns (private keys, live API tokens) are a HARD block,
+  //     same tier as a malformed FILE block: there's no legitimate reason a
+  //     forged project should ship a real credential, and unlike the
+  //     heavy-tier guardrail there is no override — this is unconditional.
+  //     Unsafe *code* patterns (eval, shell=True, …) are heuristic and
+  //     sometimes legitimate, so they're a non-blocking warning only.
+  const secretScan = scanSecretsAndUnsafe(files);
+  if (!secretScan.ok) {
+    const detail = secretScan.secrets.map(s => s.kind + ' in ' + s.path + ':' + s.line).join('; ');
+    const e = 'Cannot export — likely secret(s) detected in generated output: ' + detail
+      + '. Remove real credentials from the source task/output before exporting (test fixtures should use obviously-fake values, e.g. sk_test_ not sk_live_).';
+    (opts.onError || showErr)(e);
+    throw new Error(e);
+  }
+  if (secretScan.warnings.length) {
+    const kinds = [...new Set(secretScan.warnings.map(w => w.kind))].slice(0, 4).join(', ');
+    toast('⚠ ' + secretScan.warnings.length + ' unsafe code pattern(s) flagged (' + kinds + ') — review before shipping');
+  }
+
   const jszipLoader = opts.jszipLoader || loadJSZip;
   const JSZip = await jszipLoader();
   const zip = new JSZip();
@@ -4030,6 +4051,47 @@ async function buildProjectZip(parts, opts = {}) {
   }
 
   return blob;
+}
+
+// ── Secret & unsafe-code scanner ──────────────────────────────────────────
+// High-confidence, low-false-positive patterns only — this scanner blocks
+// exports (see buildProjectZip), so a noisy pattern here would be a real
+// usability regression, not just an annoying lint. Deliberately does NOT
+// flag common *-test_/*-fake/*-example credential prefixes (this repo's own
+// test fixtures use sk_test_ for exactly this reason — see git history).
+const SECRET_PATTERNS = [
+  { kind: 'private-key',       re: /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----/ },
+  { kind: 'aws-access-key-id', re: /\bAKIA[0-9A-Z]{16}\b/ },
+  { kind: 'github-token',      re: /\bgh[pousr]_[A-Za-z0-9]{36,}\b/ },
+  { kind: 'slack-token',       re: /\bxox[baprs]-[0-9A-Za-z-]{10,}\b/ },
+  { kind: 'stripe-live-key',   re: /\bsk_live_[0-9a-zA-Z]{16,}\b/ },
+  { kind: 'google-api-key',    re: /\bAIza[0-9A-Za-z\-_]{35}\b/ },
+  { kind: 'slack-webhook-url', re: /hooks\.slack\.com\/services\/T[0-9A-Z]+\/B[0-9A-Z]+\/[0-9A-Za-z]+/ },
+];
+// Heuristic, context-dependent — non-blocking warning only (see 1c above).
+const UNSAFE_CODE_PATTERNS = [
+  { kind: 'eval-call',           re: /\beval\s*\(/ },
+  { kind: 'exec-call',           re: /\bexec\s*\(\s*[^)'"]*(?:input|request|argv|environ)/ },
+  { kind: 'shell-true',          re: /shell\s*=\s*True/ },
+  { kind: 'pickle-loads',        re: /\bpickle\.loads?\s*\(/ },
+  { kind: 'yaml-unsafe-load',    re: /yaml\.load\s*\((?!.*Loader\s*=)/ },
+  { kind: 'tls-verify-disabled', re: /\bverify\s*=\s*False\b/ },
+];
+function scanSecretsAndUnsafe(files) {
+  const secrets = [], warnings = [];
+  const lineOf = (body, idx) => body.slice(0, idx).split('\n').length;
+  for (const f of files || []) {
+    const body = String(f.body || '');
+    for (const { kind, re } of SECRET_PATTERNS) {
+      const m = re.exec(body);
+      if (m) secrets.push({ path: f.path, kind, line: lineOf(body, m.index) });
+    }
+    for (const { kind, re } of UNSAFE_CODE_PATTERNS) {
+      const m = re.exec(body);
+      if (m) warnings.push({ path: f.path, kind, line: lineOf(body, m.index) });
+    }
+  }
+  return { ok: secrets.length === 0, secrets, warnings };
 }
 
 window.downloadZip = async function() {
@@ -9165,6 +9227,7 @@ window.__pf = {
   asCheckCapability, HEAVY_ROLES, asHeavyTierOverride: () => asHeavyTierOverride,
   parseVerifyVerdict, ASSEMBLY_ROLES, ASSEMBLY_SYSTEMS, ASSEMBLY_ROLE_TIER_PREF,
   AGENTIC_DEV_TIPS, AGENTIC_GUARDRAILS_BLOCK, asInjectGuardrailsEnabled, asBuildPromptCore,
+  scanSecretsAndUnsafe, SECRET_PATTERNS, UNSAFE_CODE_PATTERNS,
   asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)
