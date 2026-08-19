@@ -3037,6 +3037,19 @@ function parseVerifyVerdict(text) {
   return m[1].toLowerCase();
 }
 
+// Consensus ensemble decision (Verify role, see asStages[i].ensembleKeys):
+// strict-majority vote across the primary model's verdict plus every
+// ensemble member's verdict. >50% PASS required — a tie or a plurality that
+// falls short of a majority FAILs, same skeptical-by-default posture as a
+// single unparsed verdict. A single model's false PASS can no longer
+// rubber-stamp the gate forward on its own once an ensemble is configured.
+function computeConsensusVerdict(verdicts) {
+  const list = verdicts || [];
+  if (!list.length) return 'fail';
+  const passes = list.filter(v => v === 'pass').length;
+  return passes > list.length / 2 ? 'pass' : 'fail';
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // BACKEND TOGGLE
 // ═════════════════════════════════════════════════════════════════════════════
@@ -5865,6 +5878,7 @@ function asLoadStages() {
       modelKey: s.modelKey || '',
       label: s.label || ASSEMBLY_ROLES.find(r => r.id === (s.role || 'custom'))?.label || 'Custom',
       system: s.system || ASSEMBLY_SYSTEMS[s.role] || ASSEMBLY_SYSTEMS.custom,
+      ensembleKeys: Array.isArray(s.ensembleKeys) ? s.ensembleKeys : [],
     }));
   } catch { return null; }
 }
@@ -6040,6 +6054,22 @@ function asRenderStages() {
     // will refuse the run unless the heavy-tier override is enabled).
     const lightHeavyWarn = (s.modelKey && HEAVY_ROLES.has(s.role) && asModelTier(s.modelKey) === 'light')
       ? `<span class="stage-tier tier-light" title="heavy role on a LIGHT model — guardrail will block the run unless overridden" style="color:var(--amber);border-color:var(--amber)">⚠ GUARDRAIL</span>` : '';
+    // Consensus ensemble (verify role only): run the same prompt across N
+    // extra models, decide the gate's verdict by strict majority instead of
+    // trusting a single model's opinion. See computeConsensusVerdict().
+    const ensembleKeys = s.ensembleKeys || [];
+    const ensembleHtml = s.role === 'verify' ? `
+        <div class="stage-ensemble" style="margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--muted);">
+          consensus ensemble${ensembleKeys.length ? ` (${ensembleKeys.length + (s.modelKey?1:0)} models, strict-majority vote)` : ' (primary model only — add models for a majority vote)'}:
+          ${ensembleKeys.map(ek => {
+            const p = pool.find(pp => pp.key === ek);
+            return `<span class="stage-tier" style="margin:2px 4px 2px 0;display:inline-flex;align-items:center;gap:3px;">${escapeHtmlShared(p ? p.label : ek)}<button type="button" onclick="asRemoveEnsembleModel(${i},'${ek}')" title="Remove from ensemble" style="border:none;background:none;color:var(--muted);cursor:pointer;padding:0;">✕</button></span>`;
+          }).join('')}
+          <select onchange="if(this.value){asAddEnsembleModel(${i},this.value);this.value='';}" style="font-size:10px;">
+            <option value="">+ add ensemble model</option>
+            ${pool.filter(p => p.key !== s.modelKey && !ensembleKeys.includes(p.key)).map(p => `<option value="${p.key}">${escapeHtmlShared(p.label)} (${TIER_LABEL[asModelTier(p.key)]})</option>`).join('')}
+          </select>
+        </div>` : '';
     return `<div class="role-stage" data-i="${i}" draggable="true">
       <div class="stage-grip" title="Drag to reorder">⠿</div>
       <div class="stage-num">${i+1}</div>
@@ -6061,6 +6091,7 @@ function asRenderStages() {
           <button class="stage-save" title="Save (auto-saves on blur too)" onclick="asSaveStage(${i})">💾</button>
           <button class="stage-del" title="Remove stage" onclick="asDelStage(${i})">✕</button>
         </div>
+        ${ensembleHtml}
         <div class="stage-err" id="asStageErr-${i}"></div>
       </div>
     </div>`;
@@ -6093,6 +6124,25 @@ window.asSaveStage = function(i) {
 
 window.asSetStageModel = function(i, key) { asStages[i].modelKey = key; asSaveStages(); asRenderStages(); };
 
+// Consensus ensemble management (verify-role stages). Extra models run the
+// SAME system+prompt as the primary; the gate's verdict is decided by
+// strict majority across all of them (see computeConsensusVerdict).
+window.asAddEnsembleModel = function(i, key) {
+  const s = asStages[i];
+  if (!s || !key || key === s.modelKey) return;
+  s.ensembleKeys = s.ensembleKeys || [];
+  if (!s.ensembleKeys.includes(key)) s.ensembleKeys.push(key);
+  asSaveStages();
+  asRenderStages();
+};
+window.asRemoveEnsembleModel = function(i, key) {
+  const s = asStages[i];
+  if (!s || !s.ensembleKeys) return;
+  s.ensembleKeys = s.ensembleKeys.filter(k => k !== key);
+  asSaveStages();
+  asRenderStages();
+};
+
 // Reset a single built-in stage's label+system back to the default text.
 window.asResetStage = function(i) {
   const s = asStages[i];
@@ -6116,10 +6166,10 @@ window.asAddStage = function() {
 // is parsed by the run loop (asHandleVerifyVerdict) to pause the line and
 // mark the output compromised on FAIL — a real gate, not just a comment.
 window.asAddVerifyGate = function() {
-  asStages.push({ role: 'verify', modelKey: '', label: 'Fact-Check Gate', system: ASSEMBLY_SYSTEMS.verify });
+  asStages.push({ role: 'verify', modelKey: '', label: 'Fact-Check Gate', system: ASSEMBLY_SYSTEMS.verify, ensembleKeys: [] });
   asSaveStages();
   asRenderStages();
-  toast('Fact-check gate added — place it after the stage(s) you want verified and assign a capable model.');
+  toast('Fact-check gate added — place it after the stage(s) you want verified and assign a capable model. Optionally add a consensus ensemble (multiple models, strict-majority vote) for a less biased verdict.');
 };
 
 window.asDelStage = function(i) {
@@ -6705,6 +6755,60 @@ function asValidateStages() {
   return null;
 }
 
+// Single-model dispatch, used by the Verify-role consensus ensemble to run
+// the SAME system+prompt against each extra model. Mirrors the primary
+// dispatch in asRun (ollama/hf/local/browser) so ensemble members behave
+// identically to the primary — same params, same abort/stop wiring. Chunks
+// route through asAppendChunk into a DETACHED element (never appended to
+// #asStream) so the token-budget guardrail, telemetry, and the repetition-
+// loop guard all still see and can stop an ensemble generation — an
+// ensemble member is exactly as capable of blowing the budget or looping as
+// the primary model — without visually mixing its text into the primary
+// stage's rendered output.
+async function asGenerateOnce(modelKey, { system, prompt, scaled, base }) {
+  const { src, id } = asParseKey(modelKey);
+  const hidden = document.createElement('div');
+  hidden.innerHTML = '<div class="as-step-body"></div>';
+  const onChunk = c => asAppendChunk(hidden, c);
+  if (src === 'ollama') {
+    asAbort = new AbortController();
+    return ollamaGenerate({
+      base, model: id, system, prompt,
+      temperature: scaled.temperature, maxTokens: scaled.maxTokens, numCtx: scaled.numCtx,
+      topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+      repeatLastN: scaled.repeatLastN, presencePenalty: scaled.presencePenalty,
+      frequencyPenalty: scaled.frequencyPenalty, minP: scaled.minP,
+      onChunk, stopFlag: () => asStopReq, signal: asAbort.signal,
+    });
+  }
+  if (src === 'hf') {
+    asAbort = new AbortController();
+    return hfGenerate({
+      model: id, system, prompt,
+      temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+      topP: scaled.topP, topK: scaled.topK,
+      onChunk, stopFlag: () => asStopReq, signal: asAbort.signal,
+    });
+  }
+  if (id && id.indexOf('local:') === 0) {
+    const lm = LOCAL_MODELS.find(m => localModelId(m) === id);
+    if (!lm || !lm.pipeline) throw new Error('Local model not loaded: ' + id + '. Unload and re-drop the file.');
+    return lm.pipeline.generate({
+      system, prompt,
+      temperature: scaled.temperature, maxTokens: scaled.maxTokens, topP: scaled.topP,
+      onChunk, stopFlag: () => asStopReq,
+    });
+  }
+  return browserGenerate({
+    modelId: id, system, prompt,
+    temperature: scaled.temperature, maxTokens: scaled.maxTokens,
+    topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
+    presencePenalty: scaled.presencePenalty, frequencyPenalty: scaled.frequencyPenalty,
+    onChunk, stopFlag: () => asStopReq,
+    progressCb: () => {},
+  });
+}
+
 window.asRun = async function(opts) {
   opts = opts || {};
   if (asRunning) return;
@@ -6836,14 +6940,43 @@ window.asRun = async function(opts) {
           document.getElementById('asResumeBtn').style.display = '';
           asState(`⏸ token budget reached · paused after stage ${i+1}`);
         }
-        // Fact-Check Gate: parse the verdict. FAIL (or an unparseable gate,
-        // which proves nothing) marks the output compromised — blocking zip
-        // export — and pauses the line before the next stage so a human (or
-        // an explicit Resume) must decide whether to proceed.
+        // Consensus ensemble (Verify role only, stage.ensembleKeys): run the
+        // SAME system+prompt against each extra model, sequentially (avoids
+        // GPU/VRAM contention between concurrent in-browser WebLLM engines).
+        // The gate's final verdict is decided by strict majority across the
+        // whole ensemble — a single model's false PASS can no longer
+        // rubber-stamp the gate forward on its own. Every member's verdict
+        // is recorded in an appended "## CONSENSUS" block so the record is a
+        // structured hand-off, not a hidden average.
+        let ensembleVerdict = null;
+        if (role.id === 'verify' && stage.ensembleKeys && stage.ensembleKeys.length && output && !asStopReq) {
+          const perModel = [{ modelKey: stage.modelKey, verdict: parseVerifyVerdict(output) }];
+          for (const ek of stage.ensembleKeys) {
+            if (asStopReq) break;
+            try {
+              const eOut = await asGenerateOnce(ek, { system, prompt, scaled, base });
+              runTokens += approxTokens(prompt) + approxTokens(eOut || '');
+              perModel.push({ modelKey: ek, verdict: parseVerifyVerdict(eOut || '') });
+            } catch (eErr) {
+              perModel.push({ modelKey: ek, verdict: 'unparsed', err: eErr.message });
+            }
+          }
+          ensembleVerdict = computeConsensusVerdict(perModel.map(m => m.verdict));
+          const passN = perModel.filter(m => m.verdict === 'pass').length;
+          output += '\n\n## CONSENSUS (' + perModel.length + ' model' + (perModel.length===1?'':'s') + ')\n'
+            + perModel.map(m => '- ' + m.modelKey + ': ' + m.verdict.toUpperCase() + (m.err ? ' (error: ' + m.err + ')' : '')).join('\n')
+            + '\n- Final consensus verdict: ' + ensembleVerdict.toUpperCase() + ' (' + passN + '/' + perModel.length + ' PASS)';
+          asStepOutputs[i].output = output;
+        }
+        // Fact-Check Gate: parse the verdict (or use the consensus verdict
+        // above, when an ensemble is configured). FAIL (or an unparseable
+        // gate, which proves nothing) marks the output compromised —
+        // blocking zip export — and pauses the line before the next stage
+        // so a human (or an explicit Resume) must decide whether to proceed.
         if (role.id === 'verify' && output) {
-          const verdict = parseVerifyVerdict(output);
+          const verdict = ensembleVerdict || parseVerifyVerdict(output);
           if (verdict !== 'pass') {
-            const why = verdict === 'unparsed' ? 'no parseable PASS/FAIL verdict' : 'FAIL verdict';
+            const why = (ensembleVerdict ? 'consensus FAIL — no majority PASS' : verdict === 'unparsed' ? 'no parseable PASS/FAIL verdict' : 'FAIL verdict');
             pfMarkCompromised('fact-check gate failed at stage ' + (i+1) + ' (' + (stage.label || role.label) + '): ' + why);
             asPaused = true;
             document.getElementById('asPauseBtn').style.display = 'none';
@@ -9363,6 +9496,7 @@ window.__pf = {
   auditDoneWhen, DOD_VAGUE_PATTERNS, DOD_FALSIFIABLE_ANCHORS,
   asTokenBudgetVal, asCumulativeTokens,
   asBudgetStopReq: () => asBudgetStopReq, asBudgetTripped: () => asBudgetTripped,
+  computeConsensusVerdict, asGenerateOnce,
   asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)

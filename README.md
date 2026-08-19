@@ -169,7 +169,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
-| `test_agentic_features.js` | 41 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail |
+| `test_agentic_features.js` | 54 tests, one section per new feature: Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail, Fact-Check Gate consensus ensemble |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -199,6 +199,7 @@ E2E        (project):    131 passed · 0 failed   (TDD/SDD scaffolding + shared 
 ZIP-TDD    (real pytest): 8 passed · 0 failed     (pip install --break-system-packages pytest)
 Local-HTTP (webgpu):      2 passed · 1 failed* · 1 skipped***
 GUARDS     (hallucination): 38 passed · 1 failed* (net::ERR_CONNECTION_RESET fetching the WebLLM CDN import — sandbox-only)
+AGENTIC    (5 new features): 54 passed · 0 failed
                         ──────────────────────────────────
 New-tabs total:          56 passed · 0 failed
 ```
@@ -281,6 +282,27 @@ HTTP API. You just need to allow null origin once with
   prompts define the line's roles (Planner / Plan Reviewer / Task Architect /
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
+
+- **Consensus/voting ensemble for the Fact-Check Gate.** "Use different
+  model families/vendors for generation vs. verification" and "give every
+  agent role a narrow, single responsibility" (📚 Best Practices →
+  Orchestration) — a fact-check gate answered by one model is still one
+  model's opinion. A Fact-Check Gate stage can now be given a **consensus
+  ensemble**: additional models (from the same pool) that receive the exact
+  same system+prompt as the primary. `computeConsensusVerdict()` decides the
+  gate's final verdict by **strict majority** across the primary + every
+  ensemble member — a single model's false PASS can no longer rubber-stamp
+  the pipeline forward on its own, and a tie (e.g. 2/4) FAILs rather than
+  passing by chance. Every member's individual verdict is recorded in an
+  appended `## CONSENSUS` block in the stage's output (a structured
+  hand-off, not a hidden average). Ensemble members run **sequentially**
+  (not concurrently) to avoid GPU/VRAM contention between multiple
+  in-browser WebLLM engines, but still route through the same token-budget
+  and repetition-loop guards as the primary model, into a detached element
+  so they never visually corrupt the primary stage's rendered output.
+  Configured per-stage via "+ add ensemble model" chips shown only on
+  Fact-Check Gate stages; heavy-tier-gated like the primary model, since a
+  weak ensemble member is exactly as capable of producing a false PASS.
 
 - **Token budget guardrail.** "Track running token/cost usage live during a
   multi-stage run, not only after it finishes — a runaway stage is far

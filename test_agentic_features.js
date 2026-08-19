@@ -377,6 +377,96 @@ function record(name, ok, detail) {
   });
   record('telemetry badge shows "current / budget" once a budget is set', r);
 
+  // ── Feature 5: consensus/voting ensemble for the Fact-Check Gate ────────
+  console.log('\n── Consensus ensemble (multi-model voting) ──');
+  r = await ev(() => window.__pf.computeConsensusVerdict(['pass', 'pass', 'fail']) === 'pass');
+  record('2/3 pass: strict majority PASS', r);
+
+  r = await ev(() => window.__pf.computeConsensusVerdict(['pass', 'fail', 'fail']) === 'fail');
+  record('1/3 pass: strict majority FAIL', r);
+
+  r = await ev(() => window.__pf.computeConsensusVerdict(['pass', 'pass', 'fail', 'fail']) === 'fail');
+  record('2/4 pass (tie, not a majority): FAILs — no rubber-stamping on a tie', r);
+
+  r = await ev(() => window.__pf.computeConsensusVerdict(['pass', 'unparsed']) === 'fail');
+  record('an unparsed verdict counts as a non-PASS vote (skeptical-by-default)', r);
+
+  r = await ev(() => window.__pf.computeConsensusVerdict(['pass']) === 'pass' && window.__pf.computeConsensusVerdict(['fail']) === 'fail');
+  record('single-verdict (no ensemble) behaves exactly like the plain verdict', r);
+
+  r = await ev(() => window.__pf.computeConsensusVerdict([]) === 'fail');
+  record('empty verdict list FAILs (no evidence of agreement = no PASS)', r);
+
+  await page.click('#tabbar .tab[data-view="assembly"]');
+  await page.waitForFunction(() => !!window.asEnsureInit, null, { timeout: 5000 });
+  await page.waitForTimeout(200);
+
+  r = await ev(() => {
+    window.asAddVerifyGate();
+    const i = window.__pf.asStages().length - 1;
+    return window.__pf.asStages()[i].role === 'verify' && Array.isArray(window.__pf.asStages()[i].ensembleKeys) && window.__pf.asStages()[i].ensembleKeys.length === 0;
+  });
+  record('a freshly-added Fact-Check Gate starts with an empty ensemble', r);
+
+  r = await ev(() => {
+    const i = window.__pf.asStages().length - 1;
+    window.__pf.asStages()[i].modelKey = 'ollama:mock-a:7b';
+    window.asAddEnsembleModel(i, 'ollama:mock-b:7b');
+    window.asAddEnsembleModel(i, 'ollama:mock-c:7b');
+    window.asAddEnsembleModel(i, 'ollama:mock-b:7b'); // duplicate — must not double-add
+    return window.__pf.asStages()[i].ensembleKeys.length === 2
+      && window.__pf.asStages()[i].ensembleKeys.includes('ollama:mock-b:7b')
+      && window.__pf.asStages()[i].ensembleKeys.includes('ollama:mock-c:7b');
+  });
+  record('asAddEnsembleModel adds models, dedups, ignores repeats', r);
+
+  r = await ev(() => {
+    const i = window.__pf.asStages().length - 1;
+    return !window.__pf.asStages()[i].ensembleKeys.includes(window.__pf.asStages()[i].modelKey);
+  });
+  record('the primary model itself cannot be added to its own ensemble', r);
+
+  r = await ev(() => {
+    const i = window.__pf.asStages().length - 1;
+    window.asRemoveEnsembleModel(i, 'ollama:mock-b:7b');
+    return window.__pf.asStages()[i].ensembleKeys.length === 1 && window.__pf.asStages()[i].ensembleKeys[0] === 'ollama:mock-c:7b';
+  });
+  record('asRemoveEnsembleModel removes exactly the target model', r);
+
+  r = await ev(() => {
+    // Persistence: setAsStages already calls asSaveStages() — confirm the
+    // saved JSON actually round-trips ensembleKeys (a naive reload mapper
+    // that doesn't carry the field would silently drop the whole ensemble).
+    const stages = window.__pf.asStages();
+    window.__pf.setAsStages(stages);
+    const raw = localStorage.getItem('pf.assembly.stages.v2');
+    const saved = JSON.parse(raw);
+    const verifyStage = saved.find(s => s.role === 'verify' && s.ensembleKeys && s.ensembleKeys.length);
+    return !!verifyStage && verifyStage.ensembleKeys.includes('ollama:mock-c:7b');
+  });
+  record('ensembleKeys round-trip through localStorage persistence', r);
+
+  r = await ev(() => {
+    // Rendered UI: the verify stage shows a consensus-ensemble control;
+    // non-verify stages (e.g. the default Planner) do not.
+    const rows = Array.from(document.querySelectorAll('.role-stage'));
+    const verifyRow = rows.find(row => /Fact-Check Gate/.test(row.querySelector('.stage-name')?.value || ''));
+    const plannerRow = rows.find(row => /Planner/.test(row.querySelector('.stage-name')?.value || ''));
+    return !!verifyRow && /consensus ensemble/i.test(verifyRow.textContent)
+        && !!plannerRow && !/consensus ensemble/i.test(plannerRow.textContent);
+  });
+  record('consensus-ensemble UI only renders for verify-role stages', r);
+
+  // Clean up: remove the verify gate we added so it doesn't leak into other
+  // tests running later in this same page session.
+  r = await ev(() => {
+    const stages = window.__pf.asStages();
+    const i = stages.findIndex(s => s.role === 'verify');
+    if (i >= 0) window.asDelStage(i);
+    return !window.__pf.asStages().some(s => s.role === 'verify');
+  });
+  record('cleanup: verify gate removed after the test', r);
+
   // ── No unexpected JS errors ──────────────────────────────────────────────
   console.log('\n── Regression ──');
   const realErrs = errs.filter(s => !/file:|ollama\/api\/tags|Fetch API cannot load|ERR_FAILED|CORS|localhost:11434|Access to fetch|ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED|jsdelivr/i.test(s));
