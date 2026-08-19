@@ -216,6 +216,57 @@ function record(name, ok, detail) {
   });
   record('buildProjectZip reaches the zip step for a clean payload (no false-positive block)', r);
 
+  // ── Feature 3: Definition-of-Done auto-validator ─────────────────────────
+  console.log('\n── Definition-of-Done auto-validator ──');
+  r = await ev(() => {
+    const d = window.__pf.auditDoneWhen('');
+    return d.hasContent === false && d.bulletCount === 0 && d.vague.length === 0;
+  });
+  record('empty DoD text: no content, nothing to flag', r);
+
+  r = await ev(() => {
+    const d = window.__pf.auditDoneWhen('- The feature works well and is stable\n- Should work as expected\n- No bugs\n');
+    return d.hasContent && d.bulletCount === 3 && d.vague.length === 3;
+  });
+  record('flags vague/unfalsifiable bullets (works well, should work, no bugs)', r);
+
+  r = await ev(() => {
+    const d = window.__pf.auditDoneWhen('- `pytest tests/` exits 0\n- All tests passing\n- README.md documents the CLI\n');
+    return d.hasContent && d.bulletCount === 3 && d.vague.length === 0;
+  });
+  record('does NOT flag falsifiable bullets (command / exit code / concrete deliverable)', r);
+
+  r = await ev(() => {
+    // A bullet with vague language AND a concrete anchor is NOT flagged —
+    // the anchor is what actually makes it checkable, the adjective is noise.
+    const d = window.__pf.auditDoneWhen('- Works correctly: `npm test` exits 0\n');
+    return d.hasContent && d.vague.length === 0;
+  });
+  record('a falsifiable anchor rescues an otherwise-vague bullet', r);
+
+  r = await ev(() => {
+    const d = window.__pf.auditDoneWhen('Not a checklist, just a paragraph of prose with no bullets at all.');
+    return d.hasContent === true && d.bulletCount === 0 && d.vague.length === 0;
+  });
+  record('non-bulleted DoD text: has content but nothing to audit (no bullets to check)', r);
+
+  // Forge-tab VALIDATE modal surfaces the DoD audit for Single Prompt mode.
+  r = await ev(() => {
+    // Switch to the FORGE tab first — outputContent lives in that view and
+    // validateOutput() reads module-scope state (`mode`) set by setMode().
+    document.querySelector('#tabbar .tab[data-view="forge"]')?.click();
+    window.setMode('single');
+    const out = document.getElementById('outputContent');
+    if (!out) return false;
+    out.dataset.raw = '## ROLE\nx\n## DONE WHEN\n- Works well\n- `pytest` exits 0\n';
+    window.validateOutput();
+    const body = document.getElementById('validateBody');
+    const ok = !!body && /Definition of Done/i.test(body.textContent) && /Works well/.test(body.textContent);
+    window.closeValidate();
+    return ok;
+  });
+  record('VALIDATE modal renders the Definition-of-Done audit with the flagged bullet', r);
+
   // ── No unexpected JS errors ──────────────────────────────────────────────
   console.log('\n── Regression ──');
   const realErrs = errs.filter(s => !/file:|ollama\/api\/tags|Fetch API cannot load|ERR_FAILED|CORS|localhost:11434|Access to fetch|ERR_CONNECTION_RESET|ERR_TUNNEL_CONNECTION_FAILED|jsdelivr/i.test(s));

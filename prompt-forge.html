@@ -4196,6 +4196,49 @@ function extractSections(text) {
   return out;
 }
 
+// ── Definition-of-Done auto-validator ─────────────────────────────────────
+// "Write the Definition of Done before the first line of code, and make it
+// falsifiable" (see the 📚 Agentic Dev Tips panel). A checklist item is only
+// flagged as vague when it uses unfalsifiable language AND has no concrete,
+// checkable anchor (a command, a file, an exit code, a number/threshold) —
+// so "all tests pass (pytest exits 0)" is fine even though it says "pass",
+// but "works well" on its own is not.
+const DOD_VAGUE_PATTERNS = [
+  /\bworks?\s+(well|correctly|properly|as\s+expected|fine|as\s+intended)\b/i,
+  /\bshould\s+(work|be\s+fine|function\s+correctly)\b/i,
+  /\bhandles?\s+(all\s+)?edge\s+cases\b/i,
+  /\bis\s+(stable|robust|solid|good\s+enough)\b/i,
+  /\bno\s+(bugs|errors|issues)\b/i,
+  /\b(bug|error)-free\b/i,
+  /\bperforms?\s+well\b/i,
+  /\blooks?\s+good\b/i,
+  /\b(appropriately|adequately)\b/i,
+];
+const DOD_FALSIFIABLE_ANCHORS = [
+  /`[^`]+`/,                                                      // backtick command/path/value
+  /\b(pytest|jest|mocha|cargo\s+test|go\s+test|npm\s+(run\s+)?test|playwright|unittest)\b/i,
+  /\bexit(s|ed)?\s*(code\s*)?0\b/i,
+  /\breturns?\s+(0|true|false|null|-?\d+)\b/i,
+  /\b\d+%|\b\d+\s*(ms|s|sec|seconds|MB|GB|requests?|rps)\b/i,
+  /\bstatus\s*(code\s*)?[1-5]\d{2}\b/i,
+  /\ball\s+tests?\s+pass(ing|es)?\b/i,
+];
+function auditDoneWhen(doneText) {
+  const text = String(doneText || '');
+  const bulletRe = /^\s*(?:[-*•]|\d+[.)])\s+(.+)$/;
+  const bullets = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(bulletRe);
+    if (m) bullets.push(m[1].trim());
+  }
+  const vague = [];
+  for (const b of bullets) {
+    if (DOD_FALSIFIABLE_ANCHORS.some(re => re.test(b))) continue;
+    if (DOD_VAGUE_PATTERNS.some(re => re.test(b))) vague.push(b);
+  }
+  return { bulletCount: bullets.length, vague, hasContent: text.trim().length > 0 };
+}
+
 window.validateOutput = function() {
   const text = getRawOutput();
   const body = document.getElementById('validateBody');
@@ -4320,6 +4363,24 @@ window.validateOutput = function() {
        `${placeholders.length} <ALL-CAPS> placeholder token${placeholders.length===1?'':'s'}`);
   push(todos.length ? 'warn' : 'ok',
        `${todos.length} TODO marker${todos.length===1?'':'s'}`);
+
+  // Definition-of-Done audit: DONE.md (project mode) or the "DONE WHEN"
+  // section (single-prompt mode) must exist and its checklist items must be
+  // falsifiable, not vague ("works well") — see auditDoneWhen() above.
+  push('section-name', '— Definition of Done —');
+  const doneText = mode === 'project'
+    ? (parseProjectFiles(text).find(f => f.path === 'DONE.md')?.body || '')
+    : (extractSections(text)['DONE WHEN'] || '');
+  const dod = auditDoneWhen(doneText);
+  push(dod.hasContent ? 'ok' : 'bad',
+       dod.hasContent ? `${dod.bulletCount} checklist item(s) found` : '✗ no Definition-of-Done content found');
+  if (dod.hasContent) {
+    push(dod.vague.length ? 'warn' : 'ok',
+         dod.vague.length
+           ? `${dod.vague.length} unfalsifiable "done" criterion/criteria — rewrite as something a machine or reviewer could actually check`
+           : 'no vague/unfalsifiable criteria detected');
+    for (const v of dod.vague.slice(0, 6)) push('warn', '· ' + v);
+  }
 
   // Token / size
   push('section-name', '— Size —');
@@ -6860,6 +6921,11 @@ window.asRun = async function(opts) {
       document.getElementById('asCharCount').textContent = asFinalText.length.toLocaleString() + ' chars';
       // Task 4: never present as "done" if the sandbox ran and tests are failing.
       const testsFailing = asLastSandboxResult && asLastSandboxResult.exit !== 0;
+      // Definition-of-Done audit (see auditDoneWhen): non-blocking, lowest
+      // severity of the "review before export" tiers — a vague DONE.md is a
+      // quality smell, not corruption, so it never blocks export.
+      const doneMd = files.find(f => f.path === 'DONE.md');
+      const dod = auditDoneWhen(doneMd ? doneMd.body : '');
       // Hard "done" gate: compromised output OR failing tests OR missing
       // required project files all surface a clear "review before export" state.
       if (pfOutputCompromised) {
@@ -6871,6 +6937,9 @@ window.asRun = async function(opts) {
       } else if (reqMissing.length) {
         asState(`incomplete · ${files.length} files · missing ${reqMissing.length} required`);
         toast('Assembly finished but ' + reqMissing.length + ' required file(s) missing — review before export');
+      } else if (dod.vague.length) {
+        asState(`complete · ${files.length} files · ${dod.vague.length} vague DoD criteria`);
+        toast('Assembly complete — DONE.md has ' + dod.vague.length + ' unfalsifiable "done" criterion/criteria, see Validate');
       } else {
         asState(files.length ? `complete · ${files.length} files` : 'complete');
         toast('Assembly line complete');
@@ -9228,6 +9297,7 @@ window.__pf = {
   parseVerifyVerdict, ASSEMBLY_ROLES, ASSEMBLY_SYSTEMS, ASSEMBLY_ROLE_TIER_PREF,
   AGENTIC_DEV_TIPS, AGENTIC_GUARDRAILS_BLOCK, asInjectGuardrailsEnabled, asBuildPromptCore,
   scanSecretsAndUnsafe, SECRET_PATTERNS, UNSAFE_CODE_PATTERNS,
+  auditDoneWhen, DOD_VAGUE_PATTERNS, DOD_FALSIFIABLE_ANCHORS,
   asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)

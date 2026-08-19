@@ -169,7 +169,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
-| `test_agentic_features.js` | 28 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner |
+| `test_agentic_features.js` | 34 tests (growing — one section per new feature): Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -281,6 +281,19 @@ HTTP API. You just need to allow null origin once with
   prompts define the line's roles (Planner / Plan Reviewer / Task Architect /
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
+
+- **Definition-of-Done auto-validator.** "Write the DoD before the first line
+  of code, and make it falsifiable" (📚 Best Practices → Planning).
+  `auditDoneWhen()` reads `DONE.md` (project mode) or the `## DONE WHEN`
+  section (single-prompt mode), splits it into checklist bullets, and flags
+  ones that are vague/unfalsifiable ("works well", "should work", "no bugs",
+  "handles edge cases") — *unless* the same bullet also contains a concrete,
+  checkable anchor (a backtick command, an exit code, a test-runner name, a
+  number/threshold), in which case the anchor is what makes it checkable and
+  the surrounding language is fine. Surfaced in the Forge tab's VALIDATE
+  modal under a new "Definition of Done" section, and as a non-blocking
+  "N vague DoD criteria" state in the Assembly Line once a run completes —
+  never a hard block, since a weak DoD is a quality smell, not corruption.
 
 - **Secret & unsafe-code scanner (pre-export gate).** `buildProjectZip` — the
   single choke point behind all three tabs' zip exports (Forge, Assembly
