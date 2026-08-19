@@ -1520,6 +1520,7 @@
                 <div class="role-stage-list" id="asLineList"></div>
                 <div class="row" style="margin-top:6px;">
                   <button class="btn btn-ghost btn-small" onclick="asAddStage()" title="Add Stage: Append a new stage to the assembly line.">+ ADD STAGE</button>
+                  <button class="btn btn-ghost btn-small" onclick="asAddVerifyGate()" title="Add a Fact-Check Gate: a dedicated stage that verifies the prior stage's claims against the task and pauses the line (blocking export) if it finds unsupported claims or drift.">+ ADD FACT-CHECK GATE</button>
                   <button class="btn btn-ghost btn-small" onclick="asAutoAssign()" title="Auto-assign pool models round-robin to stages">⟲ AUTO-ASSIGN</button>
                   <button class="btn btn-ghost btn-small" onclick="asResetStages()" title="Reset: Restore the default assembly line stage configuration.">↺ RESET</button>
                 </div>
@@ -3006,6 +3007,16 @@ function pfMarkCompromised(reason) {
 function pfClearCompromised() {
   pfOutputCompromised = false;
   pfCompromiseReason = '';
+}
+
+// Parse a Fact-Check Gate ('verify' role) stage's output for its verdict.
+// Returns 'pass' | 'fail' | 'unparsed'. 'unparsed' means the model didn't
+// follow the required "Verdict: PASS/FAIL" format — treated as a soft-fail
+// by the caller since an unparseable gate provides no real verification.
+function parseVerifyVerdict(text) {
+  const m = /verdict:\s*(pass|fail)\b/i.exec(text || '');
+  if (!m) return 'unparsed';
+  return m[1].toLowerCase();
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -4889,23 +4900,44 @@ async function loadLocalModelFile(file) {
 
 const HF_LS = { KEY: 'pf.hf.key.v1', URL: 'pf.hf.url.v1', MODEL: 'pf.hf.model.v1' };
 let hfModelsLoaded = false;
-// July-2026 leading open text-generation models surfaced as recommended
+// Leading OPEN-WEIGHT text-generation models surfaced as recommended
 // defaults (the live list still loads from the Hub; these are pinned so the
-// dropdown is useful even when offline).
+// dropdown is useful even when offline). Every ID below was individually
+// verified to resolve on huggingface.co (hub_repo_details, Aug 2026) before
+// being pinned here — a prior revision of this list shipped three IDs
+// ('Qwen/Qwen3-235B-A22B-Instruct', '...-32B-Instruct', '...-14B-Instruct')
+// that do not exist on the Hub (Qwen3's non-MoE sizes ship without an
+// "-Instruct" suffix); those are corrected below. Deliberately excludes
+// "uncensored"/"abliterated" community re-finetunes surfaced by trending
+// searches — those strip safety/alignment training, which cuts against
+// this tool's no-bias goal rather than helping it. Re-verify before adding
+// more: an ID that 404s here silently breaks the HF backend for whoever
+// picks it.
 const HF_RECOMMENDED = [
-  // Mid-2026 leading open text-generation models on HF Hub.
-  'Qwen/Qwen3-235B-A22B-Instruct',
-  'Qwen/Qwen3-32B-Instruct',
-  'Qwen/Qwen3-14B-Instruct',
+  // Qwen3 / Qwen3.5 (Alibaba, Apache-2.0) — verified real repo IDs.
+  'Qwen/Qwen3-235B-A22B-Instruct-2507',
+  'Qwen/Qwen3-32B',
+  'Qwen/Qwen3-14B',
   'Qwen/Qwen3-Coder-30B-A3B-Instruct',
-  'deepseek-ai/DeepSeek-V3.1',
-  'deepseek-ai/DeepSeek-R1',
-  'meta-llama/Llama-3.3-70B-Instruct',
-  'meta-llama/Meta-Llama-3.1-8B-Instruct',
-  'mistralai/Mistral-Large-Instruct-2411',
-  'mistralai/Mistral-7B-Instruct-v0.3',
+  'Qwen/Qwen3.5-9B',
+  'Qwen/Qwen3.5-4B',
   'Qwen/Qwen2.5-Coder-7B-Instruct',
   'Qwen/Qwen2.5-7B-Instruct',
+  // DeepSeek (MIT license).
+  'deepseek-ai/DeepSeek-V3.2-Exp',
+  'deepseek-ai/DeepSeek-V3.1',
+  'deepseek-ai/DeepSeek-R1',
+  // Meta Llama.
+  'meta-llama/Llama-4-Scout-17B-16E-Instruct',
+  'meta-llama/Llama-3.3-70B-Instruct',
+  'meta-llama/Llama-3.1-8B-Instruct',
+  // Mistral (Apache-2.0 / Mistral license).
+  'mistralai/Mistral-Small-3.2-24B-Instruct-2506',
+  'mistralai/Mistral-Large-Instruct-2411',
+  'mistralai/Mistral-7B-Instruct-v0.3',
+  // Google Gemma.
+  'google/gemma-3-27b-it',
+  // Small / permissively-licensed fallback.
   'HuggingFaceH4/zephyr-7b-beta',
 ];
 
@@ -5360,6 +5392,10 @@ const ASSEMBLY_ROLES = [
   { id: 'execute',      label: 'Executor',         sub: 'Produce the project files' },
   { id: 'codereview',   label: 'Code Reviewer',    sub: 'Review the consolidated project' },
   { id: 'final',        label: 'Final Reviewer',   sub: 'Final pass + ship-ready product' },
+  // optIn: not part of the default 6-stage line (asDefaultStages skips it);
+  // added explicitly via "+ ADD FACT-CHECK GATE" so existing default
+  // pipelines/tests are unaffected.
+  { id: 'verify',       label: 'Fact-Check Gate',  sub: 'Block drift & unsupported claims before proceeding', optIn: true },
 ];
 
 // Per-role system prompts. These define the "assembly line of intelligence".
@@ -5437,6 +5473,22 @@ Then after all files, emit:
 Rules: complete files only, no truncation, output starts with "=== FILE:".`,
 
   custom: `You are a specialist stage in a multi-agent assembly line. Build on the prior stages' outputs. Be specific and terse.`,
+
+  verify: `You are the FACT-CHECK GATE in a multi-agent assembly line. You receive the user task and every prior stage's output. Your ONLY job is to catch hallucinations, unsupported claims, and drift from the task BEFORE the pipeline is allowed to proceed. Be skeptical by default: if a claim cannot be traced to something concrete in the given context, treat it as unsupported.
+Check for:
+- Invented APIs, libraries, functions, flags, or config options that do not exist or aren't shown anywhere in the context
+- Claims of "tested" / "proven" / "verified" / "works" stated without actual evidence (a test, a run, a concrete artifact) present in the output
+- Contradictions between stages (e.g. the plan says X, the executor built Y)
+- Requirements from the user task that were silently dropped, narrowed, or changed
+- Unsupported absolute claims ("always works", "100% accurate", "guaranteed", "no edge cases") asserted as fact
+- One-sided or unbalanced framing presented as the only valid option when the context supports alternatives
+Output exactly this structure:
+## VERIFY
+- Verdict: PASS / FAIL
+- Checked claims (bullet list: claim — supported/unsupported — why)
+- Drift from user task (bullet list, or "none")
+- Required fixes (only if FAIL; leave empty if PASS)
+PASS only if every claim traces to the given context AND nothing from the user task was dropped or altered. Otherwise FAIL. Do not soften a FAIL verdict to be agreeable.`,
 };
 
 // ── MoA capability tiers ──────────────────────────────────────────────
@@ -5475,11 +5527,14 @@ const ASSEMBLY_MODEL_TIERS = {
 const ASSEMBLY_ROLE_TIER_PREF = {
   plan: 'heavy', review_plan: 'heavy', taskout: 'heavy',
   execute: 'heavy', codereview: 'heavy', final: 'medium', custom: 'medium',
+  verify: 'heavy',
 };
 // Roles that MUST run on a capable model — if every model in the pool is
 // "light" tier and one of these roles is assigned a light model, the run is
 // refused unless the user explicitly sets the heavy-tier override below.
-const HEAVY_ROLES = new Set(['plan', 'review_plan', 'taskout', 'codereview']);
+// A fact-check gate on a weak model is worse than no gate (false PASS), so
+// "verify" is heavy-gated too.
+const HEAVY_ROLES = new Set(['plan', 'review_plan', 'taskout', 'codereview', 'verify']);
 // User override for the heavy-tier guardrail (persisted). When true, a heavy
 // role may run on a light model with a continued warning. Default false.
 let asHeavyTierOverride = false;
@@ -5547,7 +5602,7 @@ const AS_LS = 'pf.assembly.stages.v2';
 
 // Build the default stage list (6 built-in roles, pre-filled label+system).
 function asDefaultStages() {
-  return ASSEMBLY_ROLES.map(r => ({
+  return ASSEMBLY_ROLES.filter(r => !r.optIn).map(r => ({
     role: r.id,
     modelKey: '',
     label: r.label,
@@ -5813,6 +5868,17 @@ window.asAddStage = function() {
   asStages.push({ role: 'custom', modelKey: '', label: 'New Stage', system: ASSEMBLY_SYSTEMS.custom });
   asSaveStages();
   asRenderStages();
+};
+
+// Insert a built-in Fact-Check Gate stage (role: 'verify'). Unlike a plain
+// custom stage, this role is heavy-tier-gated (HEAVY_ROLES) and its verdict
+// is parsed by the run loop (asHandleVerifyVerdict) to pause the line and
+// mark the output compromised on FAIL — a real gate, not just a comment.
+window.asAddVerifyGate = function() {
+  asStages.push({ role: 'verify', modelKey: '', label: 'Fact-Check Gate', system: ASSEMBLY_SYSTEMS.verify });
+  asSaveStages();
+  asRenderStages();
+  toast('Fact-check gate added — place it after the stage(s) you want verified and assign a capable model.');
 };
 
 window.asDelStage = function(i) {
@@ -6445,6 +6511,22 @@ window.asRun = async function(opts) {
         if (asStopReq) { asFinalizeStep(i, true); asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output, err: true }; break; }
         asFinalizeStep(i, false);
         asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output };
+        // Fact-Check Gate: parse the verdict. FAIL (or an unparseable gate,
+        // which proves nothing) marks the output compromised — blocking zip
+        // export — and pauses the line before the next stage so a human (or
+        // an explicit Resume) must decide whether to proceed.
+        if (role.id === 'verify' && output) {
+          const verdict = parseVerifyVerdict(output);
+          if (verdict !== 'pass') {
+            const why = verdict === 'unparsed' ? 'no parseable PASS/FAIL verdict' : 'FAIL verdict';
+            pfMarkCompromised('fact-check gate failed at stage ' + (i+1) + ' (' + (stage.label || role.label) + '): ' + why);
+            asPaused = true;
+            document.getElementById('asPauseBtn').style.display = 'none';
+            document.getElementById('asResumeBtn').style.display = '';
+            asState(`⚠ fact-check gate FAILED at stage ${i+1} · paused for review`);
+            toast('⚠ Fact-check gate FAILED at stage ' + (i+1) + ' (' + why + ') — pipeline paused. Review the gate output, then Resume to continue or Re-run from an earlier stage.');
+          }
+        }
         // Task 4: after the Executor emits FILE blocks, run the sandboxed TDD
         // tests BEFORE the Code Reviewer stage so its prompt carries the real
         // stdout/stderr. Auto-fix loop re-runs the Executor with the error
@@ -8942,6 +9024,8 @@ window.__pf = {
   pfCompromiseReason: () => pfCompromiseReason,
   pfMarkCompromised, pfClearCompromised,
   asCheckCapability, HEAVY_ROLES, asHeavyTierOverride: () => asHeavyTierOverride,
+  parseVerifyVerdict, ASSEMBLY_ROLES, ASSEMBLY_SYSTEMS, ASSEMBLY_ROLE_TIER_PREF,
+  asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,
   getParams, // Forge view extended params (for tests)
   setAsStepOutput: (i, o) => { asStepOutputs[i] = o; },
