@@ -174,6 +174,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_2026_features.js`    | 45+ tests for the 5 "2026" features (Context Shield, PRD graph, Drift compiler, 3D globe, AutoNet Mesh) — includes a real two-browser-page WebRTC handshake against a real spawned `mesh-server.js`, not mocked |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
+| `test_sandbox_requirements.js` | Extracts the real `sandboxWorkerSrc()` (Pyodide TDD-sandbox worker) out of `prompt-forge.html` and verifies it installs `requirements.txt` packages before running pytest — no Playwright/network needed, pure Node `vm` |
 
 No build step. The HTML imports WebLLM directly from `https://esm.run/@mlc-ai/web-llm`
 on first use and the browser caches it.
@@ -187,9 +188,10 @@ npm install         # install Playwright + adm-zip (dev only)
 npx playwright install chromium
 npm test            # runs every suite: features, tabs, e2e, zip-tdd, zip-download,
                      # pipeline-scaffold, webgpu, 2026-features, hallucination-guards,
-                     # agentic-features
+                     # agentic-features, sandbox-requirements
 npm run test:guards  # just the hallucination / Fact-Check Gate guard suite
 npm run test:agentic # just the new-features suite (tips panel, secret scanner, …)
+npm run test:sandbox-reqs # just the TDD-sandbox requirements.txt installer test (no browser needed)
 ```
 
 Latest run (offline / mocked):
@@ -365,6 +367,34 @@ HTTP API. You just need to allow null origin once with
   companion test confirming a stage that loops on *every* attempt still gives
   up after exactly `1 + AS_REPETITION_RETRY_MAX` calls rather than retrying
   forever.
+
+- **TDD Sandbox — `requirements.txt` was never installed.** The Pyodide
+  Web Worker that runs a forged Python project's tests (`sandboxWorkerSrc()`)
+  only ever called `py.loadPackage('pytest')` — any project whose tests (or
+  source) imported a third-party dependency (`jsonschema`, `requests`,
+  `flask`, ...) failed every run with a bare `ModuleNotFoundError`, reported
+  to the user as "tests are failing" with no indication the dependency was
+  simply never installed. Fixed by parsing the generated project's
+  `requirements.txt` (stripping comments, blank lines, `-`-flag lines,
+  version specifiers, and extras brackets) and installing each package
+  before pytest collects any tests: Pyodide's own WASM-compiled package
+  index first (`py.loadPackage`, fast and reliable for supported packages),
+  falling back to `micropip.install` for pure-Python PyPI wheels. `pytest`
+  itself is skipped in this loop (already installed by the existing step).
+  A package that fails both install paths is recorded as a warning
+  prepended to `stdout` rather than aborting the run — partial signal beats
+  none, and some tests may not even touch the missing import. Verified via
+  `test_sandbox_requirements.js`, which extracts the real
+  `sandboxWorkerSrc()` function straight out of `prompt-forge.html` (not a
+  reimplementation), confirms the generated worker source is syntactically
+  valid and installs requirements before running pytest, and runs the
+  *exact* parsing expression from that generated source against realistic
+  `requirements.txt` content. **Not** verified against real Pyodide
+  execution (the `py.loadPackage`/`micropip.install` network calls
+  themselves) — `cdn.jsdelivr.net`, where Pyodide is lazy-loaded from, is
+  unreachable from this sandbox (same network restriction that blocks the
+  WebLLM/JSZip CDNs elsewhere in this app); verify manually in a browser
+  with network access if in doubt.
 
 - **Fact-Check Gate (`verify` role).** Opt-in, so it never appears in the
   default 6-stage line or changes existing behavior unless added explicitly.
