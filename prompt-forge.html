@@ -6388,6 +6388,15 @@ function asLoadInjectGuardrails() {
 const AS_BUDGET_LS = 'pf.as.tokenBudget';
 let asBudgetStopReq = false;   // set by asAppendChunk when the cap is crossed
 let asBudgetTripped = false;   // one-shot guard so a single overrun doesn't re-toast every chunk
+
+// Repetition-loop auto-repair: set by asAppendChunk when the guard trips.
+// Distinct from asStopReq (a hard, unrecoverable stop) — the run loop reacts
+// to this by retrying JUST the current stage (bounded, see
+// AS_REPETITION_RETRY_MAX) instead of discarding every prior stage's work
+// over what is frequently a one-off bad sample. Only escalates to a real
+// asStopReq if every retry ALSO trips the guard.
+let asRepetitionStopReq = false;
+const AS_REPETITION_RETRY_MAX = 2;
 function asTokenBudgetVal() {
   const el = document.getElementById('asTokenBudget');
   const v = el ? parseInt(el.value, 10) : NaN;
@@ -6600,27 +6609,19 @@ function asAppendChunk(stepEl, chunk) {
     }
   }
   // Throttled repetition-loop guard (hardened). On a trip we stop the active
-  // stage, and — if the loop fired mid-FILE-block — truncate the partial
-  // block out of the raw output so a corrupt file never reaches the zip
-  // builder, then mark the stage + final output compromised.
+  // generation immediately — the actual disposition (auto-repair retry vs.
+  // give up and mark compromised) is decided by the run loop, which has the
+  // context (how many retries already used) that this per-chunk callback
+  // doesn't. This function only ever aborts + flags; it never marks output
+  // compromised itself, so a stage that succeeds on retry is never tainted
+  // by an earlier attempt's trip.
   const now = performance.now();
   if (now - _asRepLast > 250) {
     _asRepLast = now;
     const raw = body.dataset.raw || '';
     if (detectRepetitionLoop(raw)) {
-      asStopReq = true;
+      asRepetitionStopReq = true;
       if (asAbort) { try { asAbort.abort(); } catch {} }
-      const scan = scanFileBlocks(raw);
-      if (scan.openBlock) {
-        const cut = raw.lastIndexOf('=== FILE:', raw.length - 1);
-        if (cut > 0) body.dataset.raw = raw.slice(0, cut).replace(/\s+$/, '');
-        body.innerHTML = tintMdInline(body.dataset.raw);
-        pfMarkCompromised('repetition loop mid-FILE-block at stage ' + (asRunCursor+1) + ' (' + (scan.openBlock.path || '(unnamed)') + ')');
-        toast('Repetition loop inside FILE block at stage ' + (asRunCursor+1) + ' — output marked compromised, file dropped.');
-      } else {
-        pfMarkCompromised('repetition loop at stage ' + (asRunCursor+1));
-        toast('Repetition loop detected at stage ' + (asRunCursor+1) + ' - stopping. Raise repeat_penalty or top_k.');
-      }
     }
   }
   asRenderTelemetry();
@@ -6779,21 +6780,21 @@ function asValidateStages() {
   return null;
 }
 
-// Single-model dispatch, used by the Verify-role consensus ensemble to run
-// the SAME system+prompt against each extra model. Mirrors the primary
-// dispatch in asRun (ollama/hf/local/browser) so ensemble members behave
-// identically to the primary — same params, same abort/stop wiring. Chunks
-// route through asAppendChunk into a DETACHED element (never appended to
+// Single-model dispatch — the ONE place that knows how to reach ollama/hf/
+// local/browser, used both by the primary per-stage call in the run loop
+// and by the Verify-role consensus ensemble (extra models get the SAME
+// system+prompt as the primary). Without an explicit `stepEl`, chunks route
+// through asAppendChunk into a DETACHED element (never appended to
 // #asStream) so the token-budget guardrail, telemetry, and the repetition-
 // loop guard all still see and can stop an ensemble generation — an
 // ensemble member is exactly as capable of blowing the budget or looping as
 // the primary model — without visually mixing its text into the primary
-// stage's rendered output.
-async function asGenerateOnce(modelKey, { system, prompt, scaled, base }) {
+// stage's rendered output. The primary call passes its real, visible
+// stepEl (and a real progressCb for WebGPU model-load progress).
+async function asGenerateOnce(modelKey, { system, prompt, scaled, base, stepEl, progressCb }) {
   const { src, id } = asParseKey(modelKey);
-  const hidden = document.createElement('div');
-  hidden.innerHTML = '<div class="as-step-body"></div>';
-  const onChunk = c => asAppendChunk(hidden, c);
+  const target = stepEl || (() => { const h = document.createElement('div'); h.innerHTML = '<div class="as-step-body"></div>'; return h; })();
+  const onChunk = c => asAppendChunk(target, c);
   if (src === 'ollama') {
     asAbort = new AbortController();
     return ollamaGenerate({
@@ -6829,7 +6830,7 @@ async function asGenerateOnce(modelKey, { system, prompt, scaled, base }) {
     topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
     presencePenalty: scaled.presencePenalty, frequencyPenalty: scaled.frequencyPenalty,
     onChunk, stopFlag: () => asStopReq,
-    progressCb: () => {},
+    progressCb: progressCb || (() => {}),
   });
 }
 
@@ -6898,55 +6899,59 @@ window.asRun = async function(opts) {
       asStageTelemetry[i] = { tokens: 0, startTs: performance.now() };
       asRenderProgressTrack();
       let output = '';
+      let repRetries = 0;
       try {
         // dynamic anti-repetition scaling based on running context fill
         const base_ = asParams();
-        const scaled = scaleParamsForCtxFill(base_, runTokens);
-        if (src === 'ollama') {
-          asAbort = new AbortController();
-          output = await ollamaGenerate({
-            base, model: id, system, prompt,
-            temperature: scaled.temperature, maxTokens: scaled.maxTokens, numCtx: scaled.numCtx,
-            topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
-            repeatLastN: scaled.repeatLastN, presencePenalty: scaled.presencePenalty,
-            frequencyPenalty: scaled.frequencyPenalty, minP: scaled.minP,
-            onChunk: c => asAppendChunk(stepEl, c),
-            stopFlag: () => asStopReq,
-            signal: asAbort.signal,
+        let scaled = scaleParamsForCtxFill(base_, runTokens);
+        let attemptPrompt = prompt;
+        const progressCb = (p, txt) => {
+          const st = stepEl.querySelector('.as-step-state');
+          if (st && p < 1) st.textContent = `loading model ${Math.round(p*100)}%`;
+        };
+        // Bounded auto-repair retry: a repetition loop is frequently a
+        // one-off bad sample for THIS attempt, not a fundamental failure —
+        // retrying with tightened anti-repetition params (and the failure
+        // fed back as corrective context) often succeeds, and is far
+        // cheaper than discarding every earlier stage's work over it. Hard-
+        // capped at AS_REPETITION_RETRY_MAX regardless of config, same
+        // safety posture as the sandbox auto-fix loop below: if every
+        // retry ALSO trips the guard, fall back to the original hard-stop
+        // rather than silently accepting looping output.
+        while (true) {
+          asRepetitionStopReq = false;
+          output = await asGenerateOnce(stage.modelKey, { system, prompt: attemptPrompt, scaled, base, stepEl, progressCb });
+          if (!asRepetitionStopReq || asStopReq || repRetries >= AS_REPETITION_RETRY_MAX) break;
+          repRetries++;
+          toast('Repetition loop at stage ' + (i+1) + ' — auto-retrying (' + repRetries + '/' + AS_REPETITION_RETRY_MAX + ') with tightened sampling.');
+          const body = stepEl.querySelector('.as-step-body');
+          if (body) { body.dataset.raw = ''; body.innerHTML = ''; }
+          scaled = Object.assign({}, scaled, {
+            repeatPenalty: Math.min(1.3, (scaled.repeatPenalty || 1.1) * 1.15),
+            topK: Math.max(10, Math.floor((scaled.topK || 40) * 0.7)),
           });
-        } else if (src === 'hf') {
-          asAbort = new AbortController();
-          output = await hfGenerate({
-            model: id, system, prompt,
-            temperature: scaled.temperature, maxTokens: scaled.maxTokens,
-            topP: scaled.topP, topK: scaled.topK,
-            onChunk: c => asAppendChunk(stepEl, c),
-            stopFlag: () => asStopReq,
-            signal: asAbort.signal,
-          });
-        } else if (id && id.indexOf('local:') === 0) {
-          // Task 4: in-browser local .gguf/.onnx model (transformers.js).
-          const lm = LOCAL_MODELS.find(m => localModelId(m) === id);
-          if (!lm || !lm.pipeline) throw new Error('Local model not loaded: ' + id + '. Unload and re-drop the file.');
-          output = await lm.pipeline.generate({
-            system, prompt,
-            temperature: scaled.temperature, maxTokens: scaled.maxTokens, topP: scaled.topP,
-            onChunk: c => asAppendChunk(stepEl, c),
-            stopFlag: () => asStopReq,
-          });
-        } else {
-          output = await browserGenerate({
-            modelId: id, system, prompt,
-            temperature: scaled.temperature, maxTokens: scaled.maxTokens,
-            topP: scaled.topP, topK: scaled.topK, repeatPenalty: scaled.repeatPenalty,
-            presencePenalty: scaled.presencePenalty, frequencyPenalty: scaled.frequencyPenalty,
-            onChunk: c => asAppendChunk(stepEl, c),
-            stopFlag: () => asStopReq,
-            progressCb: (p, txt) => {
-              const st = stepEl.querySelector('.as-step-state');
-              if (st && p < 1) st.textContent = `loading model ${Math.round(p*100)}%`;
-            },
-          });
+          attemptPrompt = prompt + '\n\n### RETRY NOTICE — repetition loop detected\nYour previous attempt repeated the same line, phrase, or token sequence and was aborted before completion. Do not repeat any line, phrase, or token sequence verbatim. Produce varied, forward-progressing output covering the full task.';
+        }
+        if (asRepetitionStopReq) {
+          // Retries exhausted and the guard is STILL tripped (or a hard
+          // stop arrived mid-retry) — fall back to the original behavior:
+          // truncate a corrupted mid-FILE-block, mark the output
+          // compromised, and stop the run. Never ship looping output.
+          asStopReq = true;
+          const body = stepEl.querySelector('.as-step-body');
+          const raw = body ? (body.dataset.raw || '') : '';
+          const scan = scanFileBlocks(raw);
+          if (scan.openBlock) {
+            const cut = raw.lastIndexOf('=== FILE:', raw.length - 1);
+            if (cut > 0 && body) { body.dataset.raw = raw.slice(0, cut).replace(/\s+$/, ''); body.innerHTML = tintMdInline(body.dataset.raw); }
+            pfMarkCompromised('repetition loop mid-FILE-block at stage ' + (i+1) + ' (' + (scan.openBlock.path || '(unnamed)') + ') — persisted after ' + repRetries + ' auto-retry attempt(s)');
+            toast('Repetition loop inside FILE block at stage ' + (i+1) + ' — compromised after ' + repRetries + ' retry attempt(s), file dropped.');
+          } else {
+            pfMarkCompromised('repetition loop at stage ' + (i+1) + ' persisted after ' + repRetries + ' auto-retry attempt(s)');
+            toast('Repetition loop at stage ' + (i+1) + ' persisted after ' + repRetries + ' auto-retry attempt(s) — stopping. Raise repeat_penalty or top_k.');
+          }
+        } else if (repRetries > 0) {
+          toast('Stage ' + (i+1) + ' auto-repaired after ' + repRetries + ' retry attempt(s) — repetition loop resolved.');
         }
         runTokens += approxTokens(prompt) + approxTokens(output);
         if (asStopReq) { asFinalizeStep(i, true); asStepOutputs[i] = { role: role.id, label: stage.label || role.label, model: stage.modelKey, output, err: true }; break; }
@@ -9551,6 +9556,8 @@ window.__pf = {
   auditDoneWhen, DOD_VAGUE_PATTERNS, DOD_FALSIFIABLE_ANCHORS,
   asTokenBudgetVal, asCumulativeTokens,
   asBudgetStopReq: () => asBudgetStopReq, asBudgetTripped: () => asBudgetTripped,
+  asRepetitionStopReq: () => asRepetitionStopReq, AS_REPETITION_RETRY_MAX,
+  resetAsRepLast: () => { _asRepLast = 0; },
   computeConsensusVerdict, asGenerateOnce,
   asPaused: () => asPaused,
   asCompactContext, PF_COMPACT_KEEP_BODIES, PF_COMPACT_TOKEN_CAP,

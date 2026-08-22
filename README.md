@@ -168,7 +168,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_e2e_project.js`      | 131 end-to-end project-pipeline tests (stream → parse → zip → TDD/SDD scaffolding) |
 | `test_zip_runs_tdd.js`     | 8 tests that unzip the forged package and prove pytest goes RED → GREEN |
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
-| `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
+| `test_tabs.js`             | 63 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms, repetition-loop auto-repair retry) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
 | `test_agentic_features.js` | 54 tests, one section per new feature: Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail, Fact-Check Gate consensus ensemble |
 | `test_2026_features.js`    | 45+ tests for the 5 "2026" features (Context Shield, PRD graph, Drift compiler, 3D globe, AutoNet Mesh) — includes a real two-browser-page WebRTC handshake against a real spawned `mesh-server.js`, not mocked |
@@ -345,6 +345,26 @@ HTTP API. You just need to allow null origin once with
   (`eval`, `shell=True`, `pickle.loads`, unsafe `yaml.load`, disabled TLS
   verification) are heuristic and sometimes legitimate, so they surface as a
   non-blocking toast warning instead of blocking export.
+
+- **Repetition-loop auto-repair retry.** A repetition loop anywhere in the
+  line used to hard-stop the *entire* multi-stage run immediately, discarding
+  every prior stage's work over what is frequently a one-off bad sample. The
+  stage that trips the guard is now retried in place (bounded —
+  `AS_REPETITION_RETRY_MAX`, currently 2) with tightened anti-repetition
+  sampling (`repeat_penalty` scaled up, `top_k` scaled down each attempt) and
+  the failure fed back into the prompt as an explicit correction ("your
+  previous attempt repeated the same line... do not repeat"), before falling
+  back to the original hard-stop (mark compromised, block export) only if
+  every retry ALSO trips the guard. `asGenerateOnce()` — previously used only
+  by the Fact-Check Gate's consensus ensemble — is now the single shared
+  dispatch point for the primary per-stage call too, so the retry attempt
+  reuses the exact same ollama/hf/local/browser routing instead of a second
+  near-duplicate implementation. Verified end to end (not just the detection
+  primitive) with a mocked backend that loops on attempt 1 and streams
+  cleanly on attempt 2 — driven through the real `asRun()` run loop — plus a
+  companion test confirming a stage that loops on *every* attempt still gives
+  up after exactly `1 + AS_REPETITION_RETRY_MAX` calls rather than retrying
+  forever.
 
 - **Fact-Check Gate (`verify` role).** Opt-in, so it never appears in the
   default 6-stage line or changes existing behavior unless added explicitly.
