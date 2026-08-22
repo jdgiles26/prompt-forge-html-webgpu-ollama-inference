@@ -162,6 +162,7 @@ self-contained — switching tabs never touches another tab's state:
 |---|---|
 | `prompt-forge.html`        | The whole application — single standalone file |
 | `serve.py`                 | Tiny local HTTP server with COOP / COEP headers (required for WebGPU) |
+| `mesh-server.js`           | AutoNet Mesh-Sync signaling server (WebSocket relay for join codes + WebRTC SDP/ICE) — `node mesh-server.js`, optional, LAN-only |
 | `package.json`             | npm scripts + dev deps for the test suite |
 | `test_features.js`         | 117 DOM / UI feature tests (Playwright) |
 | `test_e2e_project.js`      | 131 end-to-end project-pipeline tests (stream → parse → zip → TDD/SDD scaffolding) |
@@ -170,6 +171,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
 | `test_agentic_features.js` | 54 tests, one section per new feature: Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail, Fact-Check Gate consensus ensemble |
+| `test_2026_features.js`    | 45+ tests for the 5 "2026" features (Context Shield, PRD graph, Drift compiler, 3D globe, AutoNet Mesh) — includes a real two-browser-page WebRTC handshake against a real spawned `mesh-server.js`, not mocked |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -367,6 +369,67 @@ HTTP API. You just need to allow null origin once with
   reasoning in a `thinking` field with an empty `response`. The shared
   Ollama generator surfaces live progress during that phase and only the
   `response` tokens count toward the final output.
+
+- **AutoNet Mesh-Sync (⤴ SHARE) — LAN sync via `mesh-server.js`.** A small
+  WebSocket signaling relay pairs peers by a 6-char join code; actual state
+  syncs peer-to-peer over a WebRTC data channel (star topology: the host
+  offers to every joiner it sees in presence, joiners never offer, avoiding
+  host-vs-joiner glare). Fixed in this pass — real bugs, not fakery:
+  1. **The WebRTC connection was never initiated.** Signaling worked (host/
+     join/presence all connected fine), but nothing ever reacted to a
+     `presence` update by creating an SDP offer, so two peers would sit
+     connected to the signaling server forever without ever opening a data
+     channel. `meshOnSignal`'s presence handler now calls
+     `meshEnsurePeerConnection()` for every peer it sees.
+  2. **`meshBroadcastField` was dead code** — fully implemented, but never
+     called from any input. Wired to `#asTaskInput` (`input`), `#asOutputMode`
+     (`change`), and `asSaveStages()` (every stage edit), with an
+     echo-loop guard (`window._meshApplyingRemote`) so applying an incoming
+     stages update doesn't immediately re-broadcast it back to its sender.
+  3. **Host now relays** `state`/`update` messages to its other connected
+     peers, so a 3+ peer session converges (joiners only connect directly to
+     the host — a star, not a full mesh — so without relay a joiner's edit
+     would only ever reach the host).
+  All verified with a real two-browser-page WebRTC handshake against a real
+  `mesh-server.js` process (`test_2026_features.js`, F5 section) — not
+  mocked: real `RTCPeerConnection`, real ICE, real data channel, real
+  cross-peer field sync, with an explicit assertion that fixing the echo
+  risk didn't turn it into a broadcast loop.
+
+- **`window.X` cross-feature reachability.** This file's `<script>` is
+  `type="module"`; the "2026 features" pack (Context Shield, the 3D globe,
+  the PRD graph, the drift compiler, AutoNet Mesh) additionally lives in its
+  own lexical closure inside that module (that's *why* it can declare its
+  own `SECRET_PATTERNS` without colliding with the unrelated one in
+  `buildProjectZip`'s secret scanner — different scope, same name). Code
+  outside that closure — or in a different scope entirely, like `window.__pf`
+  — can only reach a function declared inside it via an explicit
+  `window.foo = foo`; a bare `function foo(){}` isn't enough, and neither is
+  `window.__pf.foo` (that object is a test hook, not a real API). Three real
+  bugs from this: `window.asStages` / `window.setAsStages` were referenced
+  (via `typeof window.X === 'function'` guards) by AutoNet Mesh's state
+  sync and never actually existed, so the full-state snapshot and the
+  stages field silently never synced; `window.asBuildPrompt` was referenced
+  the same way by Context Shield's per-stage prompt scan, so it only ever
+  scanned the raw task text, never the assembled per-stage prompts a secret
+  could otherwise leak through into; and `window.parseFiles` was referenced
+  by the globe's real-data refresh path and, combined with a fallback branch
+  that also evaluated to nothing, meant the globe could never show nodes
+  from an actual assembly-line run — only whatever a caller fed it directly.
+  Fixed by exposing real `window.asStages` / `window.setAsStages` /
+  `window.asBuildPrompt` globals (①) and by having the globe refresh call
+  `parseFilesShared` directly, in the same scope, instead of routing through
+  a `window.parseFiles` that nothing ever assigned (②). Also removed
+  `ctxShieldHook()` — a monkey-patch-`window.hfGenerate`/`ollamaGenerate`/
+  `browserGenerate` mechanism that could never work (guarded on those same
+  never-assigned globals, and every real call site invokes them as bare
+  identifiers anyway, which a patched `window.X` copy can't intercept) and,
+  unlike the bugs above, wasn't actually needed: the real protection was
+  already inline — `hfGenerate`/`ollamaGenerate`/`browserGenerate` each call
+  `window.ctxShieldApply()` directly at the top of their own bodies, gated
+  purely by `ctxShieldState().enabled`, so it works regardless of any "hook"
+  step. Left as dead code, it looked like the enforcement mechanism without
+  being one; removed rather than patched around.
 
 ---
 

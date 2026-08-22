@@ -21,7 +21,8 @@
     "test:zipdl": "node test_zip_download.js",
     "test:pipeline": "node test_pipeline_scaffold.js",
     "test:guards": "node test_hallucination_guards.js",
-    "test:agentic": "node test_agentic_features.js"
+    "test:agentic": "node test_agentic_features.js",
+    "test:2026": "node test_2026_features.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.17",
