@@ -23,13 +23,49 @@ const hasClass = (sel, cls) => page.locator(sel).evaluate((el, c) => el.classLis
 const isDisabled = (sel) => page.locator(sel).evaluate(el => el.disabled);
 
 // Fake Ollama: deterministic model list + a tiny streamed FILE payload.
-function fakeResponse(url, method) {
+// requests tagged REPAIR_TEST_MARKER (see the auto-repair-retry test below)
+// loop on the FIRST /api/generate call and stream cleanly from the second
+// call onward, to drive the real auto-repair path end to end through the
+// real UI/run loop rather than reimplementing it. REPAIR_EXHAUST_MARKER
+// loops on EVERY call, to drive the "retries exhausted, give up" fallback.
+let repairTestCallCount = 0;
+let repairExhaustCallCount = 0;
+// The repetition-loop guard is throttled to once per 250ms of real
+// wall-clock time (see asAppendChunk) — a mocked HTTP response has no real
+// network latency, so splitting a trigger payload into many small chunks
+// the way the other branches do risks the whole thing landing inside a
+// single throttle window and never actually getting checked (a real timing
+// race, not a test artifact). Both loop payloads below are sent as ONE
+// ndjson line — one onChunk call — so whichever throttle window it lands
+// in sees the complete repetitive text.
+const LOOP_PAYLOAD = 'x'.repeat(60) + '\nfoo\nfoo\nfoo\nfoo\nfoo\nfoo\nfoo\nfoo\nfoo\nfoo\n';
+function loopResponseBody() {
+  return [JSON.stringify({ response: LOOP_PAYLOAD, done: false }), JSON.stringify({ response: '', done: true })].join('\n');
+}
+function fakeResponse(url, method, postData) {
   if (/\/api\/tags$/.test(url)) {
     return { status: 200, contentType: 'application/json',
       body: JSON.stringify({ models: [{ name: 'mock-tiny:1b' }, { name: 'mock-mid:7b' }] }) };
   }
   if (/\/api\/generate$/.test(url) && method === 'POST') {
-    const payload = `=== FILE: main.py ===\ndef hello(): return "hi"\n=== END FILE ===\n`;
+    let prompt = '';
+    try { prompt = (JSON.parse(postData || '{}').prompt) || ''; } catch {}
+    if (/REPAIR_EXHAUST_MARKER/.test(prompt)) {
+      repairExhaustCallCount++;
+      return { status: 200, contentType: 'application/json', body: loopResponseBody() };
+    }
+    const isRepairTest = /REPAIR_TEST_MARKER/.test(prompt);
+    if (isRepairTest && repairTestCallCount === 0) {
+      repairTestCallCount++;
+      return { status: 200, contentType: 'application/json', body: loopResponseBody() };
+    }
+    let payload;
+    if (isRepairTest) {
+      repairTestCallCount++;
+      payload = `=== FILE: repaired.py ===\ndef ok(): return "recovered after retry"\n=== END FILE ===\n`;
+    } else {
+      payload = `=== FILE: main.py ===\ndef hello(): return "hi"\n=== END FILE ===\n`;
+    }
     const chunks = [];
     for (let i = 0; i < payload.length; i += 20)
       chunks.push(JSON.stringify({ response: payload.slice(i, i+20), done: false }));
@@ -51,7 +87,17 @@ let page;
   const ctx = await browser.newContext();
   for (const pat of ['**/ollama/api/**', '**/api/tags', '**/api/generate']) {
     await ctx.route(pat, async route => {
-      const r = fakeResponse(route.request().url(), route.request().method());
+      const postData = route.request().postData();
+      // The repetition-loop guard is throttled to one check per 250ms of
+      // REAL wall-clock time. A mocked HTTP response has no network latency,
+      // so back-to-back retry attempts (this route firing again within
+      // milliseconds) can land inside the same throttle window and never
+      // actually get checked — a real timing race, not a test artifact.
+      // Simulate a little network latency for the auto-repair test
+      // scenarios specifically so consecutive attempts are reliably spaced
+      // more than 250ms apart, same as they would be against a real model.
+      if (postData && /REPAIR_(TEST|EXHAUST)_MARKER/.test(postData)) await new Promise(r => setTimeout(r, 320));
+      const r = fakeResponse(route.request().url(), route.request().method(), postData);
       if (r) return route.fulfill({ status: r.status, contentType: r.contentType, body: r.body });
       return route.continue();
     });
@@ -155,6 +201,52 @@ let page;
   rec('assembly zip downloaded', asZip !== null);
   rec('assembly zip contains main.py', asZip && asZip.hasMain);
   rec('assembly zip contains assembly-line.json', asZip && asZip.hasMeta);
+
+  // ── ASSEMBLY LINE: auto-repair retry on a repetition loop ────────────────
+  // A stage that trips the repetition-loop guard used to hard-stop the
+  // ENTIRE run immediately (asStopReq), discarding every prior stage's
+  // work. It now retries just that one stage (bounded, tightened sampling)
+  // before giving up. Drives this through the real run loop against a mock
+  // that loops on attempt 1 and streams cleanly on attempt 2 — not a
+  // reimplementation of the retry logic, the actual asRun() code path.
+  console.log('\n── ASSEMBLY LINE: auto-repair retry (mocked repetition loop) ──');
+  await page.evaluate(() => { window.__pf.pfClearCompromised(); window.__pf.resetAsRepLast(); });
+  repairTestCallCount = 0; // reset the module-level mock counter for a clean run
+  await page.evaluate(() => {
+    document.getElementById('asTaskInput').value = 'REPAIR_TEST_MARKER tiny test task';
+  });
+  await page.click('#asRunBtn');
+  await page.waitForFunction(() => !document.getElementById('asRunBtn').disabled, null, { timeout: 10000 });
+  const repair = await page.evaluate(() => ({
+    compromised: window.__pf.pfOutputCompromised(),
+    final: window.__pf.getAsFinal(),
+  }));
+  rec('auto-repair: exactly 2 /api/generate calls (1 failed attempt + 1 retry, not a silent pass-through or infinite loop)', repairTestCallCount === 2, 'calls=' + repairTestCallCount);
+  rec('auto-repair: run recovers — output NOT marked compromised', repair.compromised === false, JSON.stringify(repair));
+  rec('auto-repair: final output is the retry\'s clean payload, not the looping garbage', /repaired\.py/.test(repair.final || '') && !/foo\nfoo\nfoo/.test(repair.final || ''), (repair.final || '').slice(0, 200));
+  rec('zip export still enabled after a successful auto-repair', !(await isDisabled('#asZipBtn')));
+
+  // Exhaustion path: a stage that loops on EVERY attempt must still give up
+  // eventually (bounded retries, never an infinite loop) and fall back to
+  // the original hard-stop — marked compromised, export blocked — rather
+  // than silently shipping looping output or retrying forever.
+  console.log('\n── ASSEMBLY LINE: auto-repair gives up after exhausting retries ──');
+  const retryMax = await page.evaluate(() => window.__pf.AS_REPETITION_RETRY_MAX);
+  await page.evaluate(() => { window.__pf.pfClearCompromised(); });
+  repairExhaustCallCount = 0;
+  await page.evaluate(() => {
+    document.getElementById('asTaskInput').value = 'REPAIR_EXHAUST_MARKER tiny test task';
+  });
+  await page.click('#asRunBtn');
+  await page.waitForFunction(() => !document.getElementById('asRunBtn').disabled, null, { timeout: 10000 });
+  const exhausted = await page.evaluate(() => ({
+    compromised: window.__pf.pfOutputCompromised(),
+    reason: window.__pf.pfCompromiseReason(),
+  }));
+  rec('auto-repair exhaustion: exactly 1 + max-retries calls, then stops (bounded, not infinite)', repairExhaustCallCount === 1 + retryMax, 'calls=' + repairExhaustCallCount + ' expected=' + (1 + retryMax));
+  rec('auto-repair exhaustion: output marked compromised after giving up', exhausted.compromised === true, JSON.stringify(exhausted));
+  rec('auto-repair exhaustion: zip export blocked', await isDisabled('#asZipBtn'));
+  await page.evaluate(() => { window.__pf.pfClearCompromised(); });
 
   // ── AGENT FORGE: interview ──────────────────────────────────────────────
   console.log('\n── AGENT FORGE: interview ──');

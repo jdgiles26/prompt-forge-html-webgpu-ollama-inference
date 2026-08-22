@@ -107,6 +107,37 @@ function killAll() { for (const p of procs) { try { p.kill('SIGKILL'); } catch {
   rec('detects AWS/GitHub/Stripe/Slack/JWT/IP', classes.length >= 5, 'got: ' + classes.join(','));
   rec('masked output contains ***', await page.evaluate(() => window.__pf2026.ctxShieldScan('sk_test_' + 'abcdefghijklmnop').clean.includes('***')));
 
+  // window.asStages / window.setAsStages / window.asBuildPrompt: real bare
+  // globals, not just window.__pf test hooks. Assembly Line, AutoNet Mesh,
+  // and ctxShieldScanNow's per-stage scan (below) all depend on these being
+  // reachable outside the "2026 features" closure they were previously only
+  // reachable from within (a plain `function asStages(){}` with no `window.`
+  // assignment is invisible to code in a different lexical scope).
+  rec('window.asStages / setAsStages / asBuildPrompt are real callable globals',
+    await page.evaluate(() => typeof window.asStages === 'function' && typeof window.setAsStages === 'function' && typeof window.asBuildPrompt === 'function'));
+
+  // ctxShieldScanNow scans the raw task AND every stage's assembled prompt
+  // (asBuildPrompt(i, task), which folds in prior stages' OUTPUT via the
+  // handoff mechanism). A secret that appears only in a prior stage's
+  // recorded output — never in the raw task text — must still be caught.
+  // This exercises the path that was silently dead before window.asStages/
+  // asBuildPrompt were exposed (the branch existed in the code but its
+  // guard was always false, so it never ran).
+  const stageScan = await page.evaluate(() => {
+    document.getElementById('asTaskInput').value = 'build a perfectly ordinary CLI tool';
+    window.setAsStages([
+      { role: 'plan', modelKey: 'ollama:mock-tiny:1b', label: 'Planner', system: 'plan' },
+      { role: 'execute', modelKey: 'ollama:mock-tiny:1b', label: 'Executor', system: 'exec' },
+    ]);
+    window.__pf.setAsStepOutput(0, { role: 'plan', label: 'Planner', model: 'x', output: 'plan notes — leaked key AKIAIOSFODNN7EXAMPLE must not ship' });
+    ctxShieldClear();
+    ctxShieldScanNow();
+    return { count: document.getElementById('ctxShieldCount').textContent, log: document.getElementById('ctxShieldLog').textContent };
+  });
+  rec('ctxShieldScanNow finds a secret that ONLY appears in a prior stage\'s assembled output (not the raw task)',
+    /redacted/.test(stageScan.count) && parseInt(stageScan.count) >= 1 && /AWS Access Key/.test(stageScan.log),
+    'count=' + stageScan.count + ' log=' + stageScan.log.slice(0, 150));
+
   // ── FEATURE 4: SEMANTIC PRD GRAPH ─────────────────────────────────────────
   console.log('\n── F4: Semantic PRD dependency graph ──');
   rec('prd panel present', await page.locator('#prdPanel').count() === 1);
@@ -203,6 +234,18 @@ def test(): assert True
     rec('globe: legend rendered', globe.legend);
   }
 
+  // Real data-flow path (globeMaybeRefresh → parseFilesShared → nodes), not
+  // the hand-fed nodes above. This previously always produced 0 nodes: the
+  // code checked `window.parseFiles`, which nothing ever assigns, so the
+  // globe never reflected an actual assembly-line run — only whatever a
+  // caller fed it directly via globeSetNodes.
+  const globeReal = await page.evaluate(() => {
+    window.__pf.setAsFinal('=== FILE: src/real1.py ===\nprint(1)\n=== END FILE ===\n=== FILE: src/real2.py ===\nprint(2)\n=== END FILE ===\n=== FILE: README.md ===\n# x\n=== END FILE ===');
+    window.globeMaybeRefresh();
+    return { count: window.globeNodeCount(), badge: document.getElementById('globeBadge').textContent };
+  });
+  rec('globe: globeMaybeRefresh parses real assembly output into nodes', globeReal.count === 3, 'count=' + globeReal.count + ' badge=' + globeReal.badge);
+
   // ── FEATURE 5: AUTONET MESH-SYNC ──────────────────────────────────────────
   console.log('\n── F5: AutoNet Mesh-Sync ──');
   // spawn the signaling server
@@ -232,6 +275,66 @@ def test(): assert True
   // code validation
   rec('mesh code validator accepts valid', await page.evaluate(() => meshIsValidCode('ABC123')));
   rec('mesh code validator rejects invalid', await page.evaluate(() => !meshIsValidCode('xyz')));
+
+  // ── Real 2-peer WebRTC handshake + live sync (a second real browser page
+  //    joins the session `page` is hosting) ─────────────────────────────────
+  // Signaling alone (host/join/presence) is not the feature — the actual
+  // point is a working peer-to-peer data channel. A prior version of this
+  // code never initiated the WebRTC offer at all (nothing reacted to
+  // presence), so two peers would connect to the signaling server forever
+  // and never open a data channel. This drives the real join flow end to
+  // end and checks the actual RTCPeerConnection state, not just that
+  // messages were exchanged.
+  const page2 = await ctx.newPage();
+  for (let attempt = 0; attempt < 5; attempt++) { try { await page2.goto(URL, { waitUntil: 'domcontentloaded' }); break; } catch (e) { if (attempt === 4) throw e; await new Promise(r => setTimeout(r, 600)); } }
+  await page2.click('#tabbar .tab[data-view="assembly"]');
+  await page2.evaluate(() => window.meshSetWsUrl('ws://127.0.0.1:8770'));
+  await page2.evaluate(() => { meshTogglePanel(); });
+
+  const hostCode = await page.evaluate(() => document.getElementById('meshCode').textContent);
+  await page2.evaluate(async (code) => { await meshJoin(code); }, hostCode);
+  await page.waitForTimeout(2500); // ICE + data-channel handshake
+
+  const p1Peers = await page.evaluate(() => {
+    const s = window.meshState();
+    return Array.from(s.peers.values()).map(p => ({ pc: p.pc.connectionState, dc: p.dc && p.dc.readyState }));
+  });
+  const p2Peers = await page2.evaluate(() => {
+    const s = window.meshState();
+    return Array.from(s.peers.values()).map(p => ({ pc: p.pc.connectionState, dc: p.dc && p.dc.readyState }));
+  });
+  rec('mesh: host RTCPeerConnection reaches connected', p1Peers.some(p => p.pc === 'connected'), JSON.stringify(p1Peers));
+  rec('mesh: host data channel open', p1Peers.some(p => p.dc === 'open'), JSON.stringify(p1Peers));
+  rec('mesh: joiner RTCPeerConnection reaches connected', p2Peers.some(p => p.pc === 'connected'), JSON.stringify(p2Peers));
+  rec('mesh: joiner data channel open', p2Peers.some(p => p.dc === 'open'), JSON.stringify(p2Peers));
+
+  // Live field sync: type on the host, confirm the joiner receives it.
+  await page.fill('#asTaskInput', 'shared via AutoNet Mesh — live sync check');
+  await page.waitForTimeout(1000);
+  const syncedTask = await page2.inputValue('#asTaskInput');
+  rec('mesh: live task edit propagates host → joiner', syncedTask === 'shared via AutoNet Mesh — live sync check', syncedTask);
+
+  // Stage sync + echo-loop guard: adding a stage on the host must reach the
+  // joiner exactly once, and must NOT bounce back and forth indefinitely.
+  const stagesBefore2 = await page2.evaluate(() => window.asStages().length);
+  await page.evaluate(() => {
+    window.__bcCount = 0;
+    const orig = window.meshBroadcastField;
+    window.meshBroadcastField = (f, v) => { window.__bcCount++; return orig(f, v); };
+  });
+  await page.evaluate(() => window.asAddStage());
+  await page.waitForTimeout(1500);
+  const stagesAfterHost = await page.evaluate(() => window.asStages().length);
+  const stagesAfterJoiner = await page2.evaluate(() => window.asStages().length);
+  rec('mesh: adding a stage on host propagates to joiner', stagesAfterJoiner === stagesBefore2 + 1 && stagesAfterHost === stagesAfterJoiner, `before=${stagesBefore2} host=${stagesAfterHost} joiner=${stagesAfterJoiner}`);
+  await page.waitForTimeout(1000); // let any echo surface before asserting it didn't
+  const bcCountAfterSettle = await page.evaluate(() => window.__bcCount);
+  const stagesStillStable = await page2.evaluate(() => window.asStages().length);
+  rec('mesh: no broadcast echo loop (host broadcasts exactly once for one local edit)', bcCountAfterSettle === 1, 'broadcasts=' + bcCountAfterSettle);
+  rec('mesh: stage count stable after settle (no runaway echo growth)', stagesStillStable === stagesAfterJoiner, 'settled=' + stagesStillStable);
+
+  await page2.close();
+
   // disconnect
   await page.evaluate(() => meshDisconnect());
   await page.waitForTimeout(200);

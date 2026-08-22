@@ -162,13 +162,16 @@ self-contained — switching tabs never touches another tab's state:
 |---|---|
 | `prompt-forge.html`        | The whole application — single standalone file |
 | `serve.py`                 | Tiny local HTTP server with COOP / COEP headers (required for WebGPU) |
+| `mesh-server.js`           | AutoNet Mesh-Sync signaling server (WebSocket relay for join codes + WebRTC SDP/ICE) — `node mesh-server.js`, optional, LAN-only |
 | `package.json`             | npm scripts + dev deps for the test suite |
 | `test_features.js`         | 117 DOM / UI feature tests (Playwright) |
 | `test_e2e_project.js`      | 131 end-to-end project-pipeline tests (stream → parse → zip → TDD/SDD scaffolding) |
 | `test_zip_runs_tdd.js`     | 8 tests that unzip the forged package and prove pytest goes RED → GREEN |
 | `test_webgpu_local_http.js`| Local-HTTP WebGPU smoke test + dropdown-ID validation against WebLLM's prebuilt config |
-| `test_tabs.js`             | 56 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms) |
+| `test_tabs.js`             | 63 tests for the ASSEMBLY LINE + AGENT FORGE tabs (tab switching, pool, stages, run, zip, interview, perms, repetition-loop auto-repair retry) |
 | `test_hallucination_guards.js` | 39 tests: repetition-loop / FILE-block-integrity / MoA capability guardrail / context-compaction / output-compromised flag / Fact-Check Gate |
+| `test_agentic_features.js` | 54 tests, one section per new feature: Agentic Dev Tips panel + guardrail injection, secret & unsafe-code scanner, Definition-of-Done auto-validator, token budget guardrail, Fact-Check Gate consensus ensemble |
+| `test_2026_features.js`    | 45+ tests for the 5 "2026" features (Context Shield, PRD graph, Drift compiler, 3D globe, AutoNet Mesh) — includes a real two-browser-page WebRTC handshake against a real spawned `mesh-server.js`, not mocked |
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 
@@ -183,8 +186,10 @@ on first use and the browser caches it.
 npm install         # install Playwright + adm-zip (dev only)
 npx playwright install chromium
 npm test            # runs every suite: features, tabs, e2e, zip-tdd, zip-download,
-                     # pipeline-scaffold, webgpu, 2026-features, hallucination-guards
-npm run test:guards # just the hallucination / Fact-Check Gate guard suite
+                     # pipeline-scaffold, webgpu, 2026-features, hallucination-guards,
+                     # agentic-features
+npm run test:guards  # just the hallucination / Fact-Check Gate guard suite
+npm run test:agentic # just the new-features suite (tips panel, secret scanner, …)
 ```
 
 Latest run (offline / mocked):
@@ -196,6 +201,7 @@ E2E        (project):    131 passed · 0 failed   (TDD/SDD scaffolding + shared 
 ZIP-TDD    (real pytest): 8 passed · 0 failed     (pip install --break-system-packages pytest)
 Local-HTTP (webgpu):      2 passed · 1 failed* · 1 skipped***
 GUARDS     (hallucination): 38 passed · 1 failed* (net::ERR_CONNECTION_RESET fetching the WebLLM CDN import — sandbox-only)
+AGENTIC    (5 new features): 54 passed · 0 failed
                         ──────────────────────────────────
 New-tabs total:          56 passed · 0 failed
 ```
@@ -279,6 +285,87 @@ HTTP API. You just need to allow null origin once with
   Executor / Code Reviewer / Final Reviewer); stages are add / remove /
   reorder-able and any stage role can be set to `custom`.
 
+- **Consensus/voting ensemble for the Fact-Check Gate.** "Use different
+  model families/vendors for generation vs. verification" and "give every
+  agent role a narrow, single responsibility" (📚 Best Practices →
+  Orchestration) — a fact-check gate answered by one model is still one
+  model's opinion. A Fact-Check Gate stage can now be given a **consensus
+  ensemble**: additional models (from the same pool) that receive the exact
+  same system+prompt as the primary. `computeConsensusVerdict()` decides the
+  gate's final verdict by **strict majority** across the primary + every
+  ensemble member — a single model's false PASS can no longer rubber-stamp
+  the pipeline forward on its own, and a tie (e.g. 2/4) FAILs rather than
+  passing by chance. Every member's individual verdict is recorded in an
+  appended `## CONSENSUS` block in the stage's output (a structured
+  hand-off, not a hidden average). Ensemble members run **sequentially**
+  (not concurrently) to avoid GPU/VRAM contention between multiple
+  in-browser WebLLM engines, but still route through the same token-budget
+  and repetition-loop guards as the primary model, into a detached element
+  so they never visually corrupt the primary stage's rendered output.
+  Configured per-stage via "+ add ensemble model" chips shown only on
+  Fact-Check Gate stages; heavy-tier-gated like the primary model, since a
+  weak ensemble member is exactly as capable of producing a false PASS.
+
+- **Token budget guardrail.** "Track running token/cost usage live during a
+  multi-stage run, not only after it finishes — a runaway stage is far
+  cheaper to stop mid-run than to discover in the bill afterward" (📚 Best
+  Practices → Cost). An optional per-run token budget (empty/0 = no cap) is
+  checked on *every streamed chunk*, not just between stages — the moment
+  cumulative usage across all stages crosses the cap, the in-flight
+  generation is aborted, the partial output is kept as a normal (non-error)
+  stage result, and the run pauses via the same mechanism the Pause button
+  uses (Resume continues once you've reviewed/raised the budget). This is a
+  cost control, not a correctness gate: unlike the Fact-Check Gate or the
+  secret scanner, a budget trip never marks output compromised or blocks
+  export. The telemetry bar shows a live "current / budget" readout.
+
+- **Definition-of-Done auto-validator.** "Write the DoD before the first line
+  of code, and make it falsifiable" (📚 Best Practices → Planning).
+  `auditDoneWhen()` reads `DONE.md` (project mode) or the `## DONE WHEN`
+  section (single-prompt mode), splits it into checklist bullets, and flags
+  ones that are vague/unfalsifiable ("works well", "should work", "no bugs",
+  "handles edge cases") — *unless* the same bullet also contains a concrete,
+  checkable anchor (a backtick command, an exit code, a test-runner name, a
+  number/threshold), in which case the anchor is what makes it checkable and
+  the surrounding language is fine. Surfaced in the Forge tab's VALIDATE
+  modal under a new "Definition of Done" section, and as a non-blocking
+  "N vague DoD criteria" state in the Assembly Line once a run completes —
+  never a hard block, since a weak DoD is a quality smell, not corruption.
+
+- **Secret & unsafe-code scanner (pre-export gate).** `buildProjectZip` — the
+  single choke point behind all three tabs' zip exports (Forge, Assembly
+  Line, Agent Forge) — now runs every generated file through
+  `scanSecretsAndUnsafe()` before a byte reaches JSZip. High-confidence
+  secret patterns (private keys, live Stripe/GitHub/Slack/AWS/Google
+  credentials) are an unconditional hard block, same tier as a malformed
+  FILE block — there is no override, because there's no legitimate reason a
+  forged project should ship a real credential. It deliberately does **not**
+  flag `sk_test_`-style fixture keys (this repo's own test fixtures rely on
+  that distinction — see the `5aad045` commit). Unsafe *code* patterns
+  (`eval`, `shell=True`, `pickle.loads`, unsafe `yaml.load`, disabled TLS
+  verification) are heuristic and sometimes legitimate, so they surface as a
+  non-blocking toast warning instead of blocking export.
+
+- **Repetition-loop auto-repair retry.** A repetition loop anywhere in the
+  line used to hard-stop the *entire* multi-stage run immediately, discarding
+  every prior stage's work over what is frequently a one-off bad sample. The
+  stage that trips the guard is now retried in place (bounded —
+  `AS_REPETITION_RETRY_MAX`, currently 2) with tightened anti-repetition
+  sampling (`repeat_penalty` scaled up, `top_k` scaled down each attempt) and
+  the failure fed back into the prompt as an explicit correction ("your
+  previous attempt repeated the same line... do not repeat"), before falling
+  back to the original hard-stop (mark compromised, block export) only if
+  every retry ALSO trips the guard. `asGenerateOnce()` — previously used only
+  by the Fact-Check Gate's consensus ensemble — is now the single shared
+  dispatch point for the primary per-stage call too, so the retry attempt
+  reuses the exact same ollama/hf/local/browser routing instead of a second
+  near-duplicate implementation. Verified end to end (not just the detection
+  primitive) with a mocked backend that loops on attempt 1 and streams
+  cleanly on attempt 2 — driven through the real `asRun()` run loop — plus a
+  companion test confirming a stage that loops on *every* attempt still gives
+  up after exactly `1 + AS_REPETITION_RETRY_MAX` calls rather than retrying
+  forever.
+
 - **Fact-Check Gate (`verify` role).** Opt-in, so it never appears in the
   default 6-stage line or changes existing behavior unless added explicitly.
   Heavy-tier-gated like Plan / Plan Review / Task Architect / Code Review
@@ -302,6 +389,67 @@ HTTP API. You just need to allow null origin once with
   reasoning in a `thinking` field with an empty `response`. The shared
   Ollama generator surfaces live progress during that phase and only the
   `response` tokens count toward the final output.
+
+- **AutoNet Mesh-Sync (⤴ SHARE) — LAN sync via `mesh-server.js`.** A small
+  WebSocket signaling relay pairs peers by a 6-char join code; actual state
+  syncs peer-to-peer over a WebRTC data channel (star topology: the host
+  offers to every joiner it sees in presence, joiners never offer, avoiding
+  host-vs-joiner glare). Fixed in this pass — real bugs, not fakery:
+  1. **The WebRTC connection was never initiated.** Signaling worked (host/
+     join/presence all connected fine), but nothing ever reacted to a
+     `presence` update by creating an SDP offer, so two peers would sit
+     connected to the signaling server forever without ever opening a data
+     channel. `meshOnSignal`'s presence handler now calls
+     `meshEnsurePeerConnection()` for every peer it sees.
+  2. **`meshBroadcastField` was dead code** — fully implemented, but never
+     called from any input. Wired to `#asTaskInput` (`input`), `#asOutputMode`
+     (`change`), and `asSaveStages()` (every stage edit), with an
+     echo-loop guard (`window._meshApplyingRemote`) so applying an incoming
+     stages update doesn't immediately re-broadcast it back to its sender.
+  3. **Host now relays** `state`/`update` messages to its other connected
+     peers, so a 3+ peer session converges (joiners only connect directly to
+     the host — a star, not a full mesh — so without relay a joiner's edit
+     would only ever reach the host).
+  All verified with a real two-browser-page WebRTC handshake against a real
+  `mesh-server.js` process (`test_2026_features.js`, F5 section) — not
+  mocked: real `RTCPeerConnection`, real ICE, real data channel, real
+  cross-peer field sync, with an explicit assertion that fixing the echo
+  risk didn't turn it into a broadcast loop.
+
+- **`window.X` cross-feature reachability.** This file's `<script>` is
+  `type="module"`; the "2026 features" pack (Context Shield, the 3D globe,
+  the PRD graph, the drift compiler, AutoNet Mesh) additionally lives in its
+  own lexical closure inside that module (that's *why* it can declare its
+  own `SECRET_PATTERNS` without colliding with the unrelated one in
+  `buildProjectZip`'s secret scanner — different scope, same name). Code
+  outside that closure — or in a different scope entirely, like `window.__pf`
+  — can only reach a function declared inside it via an explicit
+  `window.foo = foo`; a bare `function foo(){}` isn't enough, and neither is
+  `window.__pf.foo` (that object is a test hook, not a real API). Three real
+  bugs from this: `window.asStages` / `window.setAsStages` were referenced
+  (via `typeof window.X === 'function'` guards) by AutoNet Mesh's state
+  sync and never actually existed, so the full-state snapshot and the
+  stages field silently never synced; `window.asBuildPrompt` was referenced
+  the same way by Context Shield's per-stage prompt scan, so it only ever
+  scanned the raw task text, never the assembled per-stage prompts a secret
+  could otherwise leak through into; and `window.parseFiles` was referenced
+  by the globe's real-data refresh path and, combined with a fallback branch
+  that also evaluated to nothing, meant the globe could never show nodes
+  from an actual assembly-line run — only whatever a caller fed it directly.
+  Fixed by exposing real `window.asStages` / `window.setAsStages` /
+  `window.asBuildPrompt` globals (①) and by having the globe refresh call
+  `parseFilesShared` directly, in the same scope, instead of routing through
+  a `window.parseFiles` that nothing ever assigned (②). Also removed
+  `ctxShieldHook()` — a monkey-patch-`window.hfGenerate`/`ollamaGenerate`/
+  `browserGenerate` mechanism that could never work (guarded on those same
+  never-assigned globals, and every real call site invokes them as bare
+  identifiers anyway, which a patched `window.X` copy can't intercept) and,
+  unlike the bugs above, wasn't actually needed: the real protection was
+  already inline — `hfGenerate`/`ollamaGenerate`/`browserGenerate` each call
+  `window.ctxShieldApply()` directly at the top of their own bodies, gated
+  purely by `ctxShieldState().enabled`, so it works regardless of any "hook"
+  step. Left as dead code, it looked like the enforcement mechanism without
+  being one; removed rather than patched around.
 
 ---
 
