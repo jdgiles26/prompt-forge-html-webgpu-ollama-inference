@@ -17,9 +17,11 @@
 //      backend needs no local Ollama at all.
 'use strict';
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const { execSync, spawn } = require('child_process');
 const { chromium } = require('playwright');
 
 let passed = 0, failed = 0;
@@ -125,6 +127,63 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
   record('http: page gets no warning', withProtocol('http:') === null, withProtocol('http:'));
 })();
 
+// ── Part 1d: mesh-server.js real TLS support — the completion of the
+// meshDefaultWs()/meshHttpsWarning() fixes above. Those made the CLIENT
+// default to wss:// and explain the limitation on an https: page, but
+// mesh-server.js itself needed to actually be ABLE to terminate TLS for
+// wss:// to ever really connect. This spins up the real server (not a
+// mock) with a self-signed cert via PF_MESH_TLS_CERT/PF_MESH_TLS_KEY and
+// drives a real wss:// WebSocket handshake through it, end to end. ────────
+async function testMeshServerTls() {
+  console.log('\n── mesh-server.js: real TLS support (wss://) ──');
+  let opensslAvailable = false;
+  try { execSync('openssl version', { stdio: 'pipe' }); opensslAvailable = true; } catch {}
+  if (!opensslAvailable) {
+    console.log('  ⊘ skipped (openssl not available in this environment) — meshDefaultWs()/meshHttpsWarning() logic above is still covered without it');
+    return;
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pf-mesh-tls-'));
+  const certPath = path.join(tmpDir, 'cert.pem');
+  const keyPath = path.join(tmpDir, 'key.pem');
+  execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 1 -nodes -subj "/CN=localhost"`, { stdio: 'pipe' });
+
+  const port = 18770 + (process.pid % 1000);
+  const serverProc = spawn('node', ['mesh-server.js'], {
+    cwd: __dirname,
+    env: { ...process.env, PF_MESH_TLS_CERT: certPath, PF_MESH_TLS_KEY: keyPath, PF_MESH_PORT: String(port) },
+  });
+  let serverLog = '';
+  serverProc.stdout.on('data', (d) => { serverLog += d.toString(); });
+  serverProc.stderr.on('data', (d) => { serverLog += d.toString(); });
+  await new Promise((r) => setTimeout(r, 800));
+
+  record('server advertises wss:// (TLS mode), not ws://', /wss:\/\//.test(serverLog) && /\(TLS\)/.test(serverLog), serverLog.trim());
+
+  const tlsBrowser = await chromium.launch({ args: ['--ignore-certificate-errors'] });
+  try {
+    const tlsPage = await tlsBrowser.newPage();
+    await tlsPage.goto('about:blank');
+    const handshake = await tlsPage.evaluate((p) => {
+      return new Promise((resolve) => {
+        let ws;
+        try { ws = new WebSocket('wss://127.0.0.1:' + p); } catch (e) { resolve('CONSTRUCTOR THREW: ' + e.message); return; }
+        const timeout = setTimeout(() => resolve('TIMEOUT'), 5000);
+        ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'host', peerId: 'tls-test-peer', code: 'TLS123' })));
+        ws.addEventListener('message', (e) => { clearTimeout(timeout); resolve(e.data); ws.close(); });
+        ws.addEventListener('error', () => { clearTimeout(timeout); resolve('WS ERROR'); });
+      });
+    }, port);
+    let parsed = null; try { parsed = JSON.parse(handshake); } catch {}
+    record('real wss:// WebSocket handshake succeeds against mesh-server.js with PF_MESH_TLS_CERT/KEY set',
+      !!parsed && parsed.type === 'host-ack' && parsed.code === 'TLS123', handshake);
+  } finally {
+    await tlsBrowser.close();
+    serverProc.kill();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 // ── Part 2: live-browser checks ──────────────────────────────────────────────
 (async () => {
   const browser = await chromium.launch();
@@ -186,6 +245,8 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     hintAfterInjection.includes('ws://x'), hintAfterInjection);
 
   await browser.close();
+
+  await testMeshServerTls();
 
   console.log('\n══════════════════════════════════════');
   console.log(`RESULT: ${passed} passed · ${failed} failed`);

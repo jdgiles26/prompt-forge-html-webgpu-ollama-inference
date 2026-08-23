@@ -162,7 +162,7 @@ self-contained — switching tabs never touches another tab's state:
 |---|---|
 | `prompt-forge.html`        | The whole application — single standalone file |
 | `serve.py`                 | Tiny local HTTP server with COOP / COEP headers (required for WebGPU) |
-| `mesh-server.js`           | AutoNet Mesh-Sync signaling server (WebSocket relay for join codes + WebRTC SDP/ICE) — `node mesh-server.js`, optional, LAN-only |
+| `mesh-server.js`           | AutoNet Mesh-Sync signaling server (WebSocket relay for join codes + WebRTC SDP/ICE) — `node mesh-server.js`, optional, LAN-only. Plain `ws://` by default; set `PF_MESH_TLS_CERT`/`PF_MESH_TLS_KEY` to serve `wss://` for an `https:`-hosted Prompt Forge |
 | `package.json`             | npm scripts + dev deps for the test suite |
 | `test_features.js`         | 117 DOM / UI feature tests (Playwright) |
 | `test_e2e_project.js`      | 131 end-to-end project-pipeline tests (stream → parse → zip → TDD/SDD scaffolding) |
@@ -175,7 +175,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 | `test_sandbox_requirements.js` | Extracts the real `sandboxWorkerSrc()` (Pyodide TDD-sandbox worker) out of `prompt-forge.html` and verifies it installs `requirements.txt` packages before running pytest — no Playwright/network needed, pure Node `vm` |
-| `test_hosting_portability.js` | 10 tests for hosting Prompt Forge somewhere other than `127.0.0.1`: AutoNet Mesh's signaling URL derives from the page's own host (not a hardcoded loopback default) and has a real UI field to override it, and FORGE PROMPT's Ollama-unreachable error is actionable instead of a bare "select a model" dead end |
+| `test_hosting_portability.js` | 23 tests for hosting Prompt Forge somewhere other than `127.0.0.1`: AutoNet Mesh's signaling URL derives from the page's own host and scheme (`wss://` on `https:`, with stale insecure values migrated out of `localStorage`) and has a real UI field to override it, `mesh-server.js`'s real TLS support is exercised with an actual `wss://` handshake, and FORGE PROMPT's Ollama-unreachable error is actionable instead of a bare "select a model" dead end |
 
 No build step. The HTML imports WebLLM directly from `https://esm.run/@mlc-ai/web-llm`
 on first use and the browser caches it.
@@ -426,6 +426,39 @@ HTTP API. You just need to allow null origin once with
      types the injection payload into `#meshWsInput`, submits it through
      the real SET HOST flow, and confirms no element is injected and its
      `onerror` never fires.
+  4. **Completion: `meshDefaultWs()` now returns `wss://` on `https:` pages,
+     and `mesh-server.js` can actually terminate TLS.** A follow-up code
+     review correctly pushed back on item 3's warning-only fix: leaving the
+     default at `ws://` on an `https:` page means the browser blocks the
+     connection as mixed content before it even gets a chance to fail
+     cleanly. `meshDefaultWs()` now picks `wss://` vs `ws://` from
+     `window.location.protocol`, and `meshWsUrl()` migrates away a
+     previously-persisted insecure `ws://` value if the page is now
+     `https:` (clearing it from `localStorage` and falling back to the new
+     secure default) so a stale setting can't silently reintroduce the
+     mixed-content block. That alone still isn't sufficient on its own,
+     though — `wss://` only *connects* if something is actually listening
+     with TLS on the other end, and `mesh-server.js` previously had zero TLS
+     support (plain `http.createServer`). So `mesh-server.js` now accepts
+     `PF_MESH_TLS_CERT`/`PF_MESH_TLS_KEY` (PEM file paths) and, when both are
+     set, listens via `https.createServer` instead of `http.createServer` —
+     the raw WebSocket frame layer underneath is unchanged, since a
+     `tls.TLSSocket` exposes the same `.write()`/`.on('data')` surface the
+     `upgrade` handler already used for a plain `net.Socket`. Falls back to
+     plain `ws://` (unchanged) when TLS env vars aren't set, and warns (not
+     silently ignores) if only one of the two is set. `meshHttpsWarning()`'s
+     text was updated to match: it now explains that the `wss://` default
+     alone doesn't guarantee a working connection against a non-TLS
+     `mesh-server.js`, and names the env vars that fix it. Verified with a
+     real `wss://` handshake — `mesh-server.js` spawned as a real subprocess
+     with an `openssl`-generated self-signed cert, a real browser opening a
+     real `WebSocket('wss://...')` against it, and asserting the actual
+     `host`/`host-ack` signaling round-trip succeeds (not just that the
+     server *starts*) — plus the existing plain-`ws://` WebRTC suite
+     (`test_2026_features.js`, 16/16) re-run against the modified
+     `mesh-server.js` to confirm the non-TLS path is unchanged. The TLS test
+     skips gracefully (not a failure) if `openssl` isn't available in the
+     environment running the suite.
 
 - **TDD Sandbox — `requirements.txt` was never installed.** The Pyodide
   Web Worker that runs a forged Python project's tests (`sandboxWorkerSrc()`)
