@@ -9255,6 +9255,20 @@ window.driftDiffLines = diffLines;
 // OWN machine and never found one. Derive the default from location.hostname
 // instead, falling back to loopback only when there's no real hostname to
 // use (file://, about:blank).
+//
+// mesh-server.js (see the file) is a plain http.createServer + `ws` relay
+// with no TLS support at all — it can only ever speak ws://, never wss://.
+// On an HTTPS-hosted page that's a real dead end, not just a cosmetic
+// mismatch: browsers block an insecure ws:// connection opened from a
+// secure https: page as mixed content, so mesh would silently fail to
+// connect with no useful signal. meshHttpsWarning() lets the UI surface
+// that limitation explicitly instead of leaving the misleading "is
+// mesh-server.js running?" message as the only feedback.
+function meshHttpsWarning() {
+  return window.location.protocol === 'https:'
+    ? 'This page is served over HTTPS, but mesh-server.js only speaks plain ws:// (no TLS support) — browsers block that as mixed content from a secure page, so AutoNet Mesh cannot connect here. Run mesh-server.js behind a TLS-terminating proxy and set a wss:// URL below, or use AutoNet Mesh from a plain-HTTP / LAN deployment instead.'
+    : null;
+}
 function meshDefaultWs() {
   const h = window.location.hostname;
   return 'ws://' + (h || '127.0.0.1') + ':8770';
@@ -9297,12 +9311,16 @@ window.meshApplyWsInput = function() {
 };
 function meshServerHint() {
   const el = $('meshServerHint'); if (!el) return;
-  const url = meshWsUrl();
+  const url = meshWsUrl();  // may be user-supplied (typed into #meshWsInput, persisted to localStorage) — never trust it into innerHTML unescaped.
+  const httpsWarning = meshHttpsWarning();
   if (_meshState && _meshState.ws && _meshState.ws.readyState === 1) {
     el.textContent = 'Connected to signaling server: ' + url;
     el.style.color = 'var(--green)';
+  } else if (httpsWarning) {
+    el.textContent = httpsWarning;
+    el.style.color = 'var(--red)';
   } else {
-    el.innerHTML = 'Signaling server not connected. Run <code>node mesh-server.js</code> in the repo (default ' + url + '), then host/join. Wrong host? Edit the URL field below and reconnect.';
+    el.innerHTML = 'Signaling server not connected. Run <code>node mesh-server.js</code> in the repo (default ' + escapeHtmlShared(url) + '), then host/join. Wrong host? Edit the URL field below and reconnect.';
     el.style.color = 'var(--muted)';
   }
 }
@@ -9333,7 +9351,15 @@ function meshConnect() {
     _meshState.peerId = _meshState.peerId || meshRandId();
     _meshState.peers = _meshState.peers || new Map();
     ws.addEventListener('open', () => { meshLog('signaling connected'); meshServerHint(); resolve(ws); });
-    ws.addEventListener('error', () => { meshLog('signaling error — is mesh-server.js running?'); meshServerHint(); reject(new Error('ws error')); });
+    ws.addEventListener('error', () => {
+      // A ws:// connection opened from an https: page is blocked as mixed
+      // content in most browsers via this async error path, not a
+      // constructor-time throw — so this is the reliable place to surface
+      // the real reason instead of the generic "is it running?" guess.
+      meshLog(meshHttpsWarning() || 'signaling error — is mesh-server.js running?');
+      meshServerHint();
+      reject(new Error('ws error'));
+    });
     ws.addEventListener('close', () => { meshLog('signaling closed'); meshServerHint(); });
     ws.addEventListener('message', meshOnSignal);
   });

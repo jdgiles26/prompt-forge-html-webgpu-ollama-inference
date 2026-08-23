@@ -403,6 +403,29 @@ HTTP API. You just need to allow null origin once with
      live-Playwright checks that the actionable error text appears, the URL
      field prefills and persists a custom host, and the hint updates
      accordingly.
+  3. **Follow-up (code review): two real gaps in the mesh fix above.**
+     `mesh-server.js` (see the file) is a plain `http.createServer` + `ws`
+     relay with no TLS support at all — it can only ever speak `ws://`,
+     never `wss://`. Deriving the default host from `location.hostname`
+     fixed *which host* mesh tries, but an `https:`-hosted page would still
+     silently fail: browsers block an insecure `ws://` connection opened
+     from a secure `https:` page as mixed content, and the only feedback
+     was the generic (and here actively misleading) "is mesh-server.js
+     running?" message. `meshHttpsWarning()` now detects `location.protocol
+     === 'https:'` and surfaces the real limitation explicitly — both
+     proactively in the panel hint and in the WebSocket `error` handler —
+     rather than leaving mesh unusable with no explanation on any HTTPS
+     deployment. Separately, `meshServerHint()` was concatenating
+     `meshWsUrl()` — a value a real user can set via `#meshWsInput`/SET HOST
+     (validated only to *start* with `ws://`/`wss://`, nothing about the
+     rest of the string) — directly into `innerHTML`, an unescaped-HTML
+     bug: a URL like `ws://x"><img src=x onerror=...>` would inject and
+     execute. Now escaped via `escapeHtmlShared()` before interpolation.
+     Both verified in `test_hosting_portability.js`: a pure-logic test for
+     `meshHttpsWarning()` against `https:`/`http:`, and a live test that
+     types the injection payload into `#meshWsInput`, submits it through
+     the real SET HOST flow, and confirms no element is injected and its
+     `onerror` never fires.
 
 - **TDD Sandbox — `requirements.txt` was never installed.** The Pyodide
   Web Worker that runs a forged Python project's tests (`sandboxWorkerSrc()`)

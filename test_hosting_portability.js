@@ -53,6 +53,28 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     withHostname('') === 'ws://127.0.0.1:8770', withHostname(''));
 })();
 
+// ── Part 1b: meshHttpsWarning() — mesh-server.js has no TLS support, so an
+// https:-hosted page trying a ws:// signaling connection is a real dead end
+// (browsers block it as mixed content), not just a cosmetic mismatch. ──────
+(function testMeshHttpsWarning() {
+  console.log('\n── HTTPS-hosted page gets an explicit mesh mixed-content warning ──');
+  const m = html.match(/function meshHttpsWarning\(\) \{[\s\S]*?\n\}/);
+  assert.ok(m, 'meshHttpsWarning() not found in prompt-forge.html');
+
+  function withProtocol(protocol) {
+    const sandbox = { window: { location: { protocol } } };
+    vm.createContext(sandbox);
+    vm.runInContext(m[0] + '\nthis.__r = meshHttpsWarning();', sandbox);
+    return sandbox.__r;
+  }
+
+  const httpsResult = withProtocol('https:');
+  record('https: page gets a non-null warning', typeof httpsResult === 'string' && httpsResult.length > 0, httpsResult);
+  record('warning names the real cause (mesh-server.js has no TLS / mixed content)',
+    /mesh-server\.js/.test(httpsResult) && /mixed content|TLS/i.test(httpsResult), httpsResult);
+  record('http: page gets no warning', withProtocol('http:') === null, withProtocol('http:'));
+})();
+
 // ── Part 2: live-browser checks ──────────────────────────────────────────────
 (async () => {
   const browser = await chromium.launch();
@@ -91,6 +113,27 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     hint.includes('ws://example-remote-host.test:8770'), hint);
   record('hint no longer references the dead "PF_MESH_WS" env var',
     !/PF_MESH_WS/.test(hint), hint);
+
+  console.log('\n── Mesh panel: signaling URL is escaped before reaching innerHTML ──');
+  // meshServerHint() interpolates meshWsUrl() into innerHTML — that value can
+  // be attacker/user-controlled: meshApplyWsInput() only requires it START
+  // with ws:// or wss://, so "ws://x\"><img ...>" is a value a real user
+  // could type into #meshWsInput and have SET HOST accept. A prior version
+  // concatenated it into innerHTML raw; confirm it's HTML-escaped now, not
+  // just "happens not to contain a quote in this one test input".
+  await page.evaluate(() => { window.__meshXssFired = 0; });
+  await page.fill('#meshWsInput', 'ws://x"><img src=x id="mesh-xss-proof" onerror="window.__meshXssFired=1">');
+  await page.click('button[onclick="meshApplyWsInput()"]');
+  await page.waitForTimeout(100);
+  const injected = await page.evaluate(() => !!document.getElementById('mesh-xss-proof'));
+  const fired = await page.evaluate(() => window.__meshXssFired);
+  record('malicious signaling URL does not inject an element into the DOM',
+    injected === false, 'injected=' + injected);
+  record('malicious signaling URL\'s onerror never executes',
+    fired === 0, 'fired=' + fired);
+  const hintAfterInjection = await page.evaluate(() => document.getElementById('meshServerHint').textContent);
+  record('the raw payload still appears as literal text (feature not silently dropped, just escaped)',
+    hintAfterInjection.includes('ws://x'), hintAfterInjection);
 
   await browser.close();
 
