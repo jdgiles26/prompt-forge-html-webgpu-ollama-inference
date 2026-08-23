@@ -1938,6 +1938,10 @@
       <button class="btn btn-ghost btn-small" onclick="meshDisconnect()" title="Disconnect: leave the session and close all peer connections.">■ DISCONNECT</button>
       <label class="pf2026-hint" style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="meshSyncCfg" checked onchange="meshSavePref()" /> sync assembly config</label>
     </div>
+    <div class="mesh-btns">
+      <input type="text" id="meshWsInput" class="mesh-input" placeholder="ws://host:8770" aria-label="Signaling server URL" style="flex:1;" />
+      <button class="btn btn-ghost btn-small" onclick="meshApplyWsInput()" title="Point at a different mesh-server.js host — e.g. if this page and the signaling server aren't on the same machine.">SET HOST</button>
+    </div>
     <div class="pf2026-hint" id="meshServerHint">Signaling server: not started. Run <code>node mesh-server.js</code> in the repo, then host/join.</div>
   </div>
 </div>
@@ -3078,6 +3082,12 @@ window.setBackend = function(b) {
 // OLLAMA
 // ═════════════════════════════════════════════════════════════════════════════
 
+// Set whenever fetchOllamaModels() fails, so a later "Select a model" guard
+// (forge()/runOllama()) can surface the REAL reason instead of a bare
+// "select a model" dead end that discards the diagnosis forge()'s clearErr()
+// would otherwise wipe out.
+let ollamaUnreachableReason = null;
+
 window.fetchOllamaModels = async function() {
   const base = document.getElementById('ollamaUrl').value.trim();
   const sel  = document.getElementById('ollamaModel');
@@ -3094,22 +3104,27 @@ window.fetchOllamaModels = async function() {
     sel.innerHTML = models.length
       ? models.map(m => `<option value="${m.name}"${m.name === best ? ' selected' : ''}>${m.name}</option>`).join('')
       : '<option value="">— no models found —</option>';
+    ollamaUnreachableReason = models.length ? null : 'Ollama is reachable but has no models pulled. Run `ollama pull qwen2.5-coder:7b` (or any model) then click ↻ to refresh.';
     setStatus('live', 'OLLAMA OK · ' + (best || 'no model'));
   } catch (e) {
     sel.innerHTML = '<option value="">— cannot reach Ollama —</option>';
     setStatus('err', 'OLLAMA OFFLINE');
     if (window.location.protocol === 'file:') {
-      showErr('Cannot reach Ollama. Opening this file via file:// sends Origin: null, which Ollama blocks by default.\nFix: restart Ollama with OLLAMA_ORIGINS="*"\n  macOS app: launchctl setenv OLLAMA_ORIGINS "*"  then quit & relaunch the Ollama app.\n  CLI: OLLAMA_ORIGINS="*" ollama serve');
+      ollamaUnreachableReason = 'Cannot reach Ollama. Opening this file via file:// sends Origin: null, which Ollama blocks by default.\nFix: restart Ollama with OLLAMA_ORIGINS="*"\n  macOS app: launchctl setenv OLLAMA_ORIGINS "*"  then quit & relaunch the Ollama app.\n  CLI: OLLAMA_ORIGINS="*" ollama serve\nOr switch to the BROWSER (WebGPU) or HUGGING FACE backend above — neither needs a local Ollama server.';
     } else {
-      showErr('Cannot reach Ollama at ' + base + '. Is `ollama serve` running?');
+      ollamaUnreachableReason = 'Cannot reach Ollama at ' + base + '. Is `ollama serve` running and reachable from wherever this page is hosted?\nIf Prompt Forge itself is hosted remotely (not on the same machine as Ollama), point the Ollama base URL above at a host that can actually reach it, or switch to the BROWSER (WebGPU) or HUGGING FACE backend instead — neither needs a local Ollama server.';
     }
+    showErr(ollamaUnreachableReason);
   }
 };
 
 async function runOllama(userText) {
   const base  = document.getElementById('ollamaUrl').value.trim();
   const model = document.getElementById('ollamaModel').value;
-  if (!model) { showErr('Select an Ollama model first.'); return; }
+  if (!model) {
+    showErr(ollamaUnreachableReason || 'Select an Ollama model first.');
+    return;
+  }
 
   const p = getParams();
   setStatus('busy', 'GENERATING');
@@ -9230,7 +9245,34 @@ window.driftDiffLines = diffLines;
 // channels. Last-writer-wins with per-field timestamps + presence list.
 // Off by default. Degrades gracefully: no server → panel shows hint, no sync.
 // ═════════════════════════════════════════════════════════════════════════════
-const MESH_DEFAULT_WS = 'ws://127.0.0.1:8770';
+// mesh-server.js normally runs on the SAME machine that serves this page
+// (`node mesh-server.js` alongside `python3 serve.py`), so the signaling
+// server's real host is wherever the browser loaded this page from — not
+// necessarily 127.0.0.1. A hardcoded loopback default only ever worked when
+// Prompt Forge itself was opened from localhost; hosted anywhere else
+// (a LAN box, a remote dev server, file:// with a separately-hosted mesh
+// relay, ...) it silently tried to reach a signaling server on the VIEWER'S
+// OWN machine and never found one. Derive the default from location.hostname
+// instead, falling back to loopback only when there's no real hostname to
+// use (file://, about:blank).
+//
+// mesh-server.js (see the file) is a plain http.createServer + `ws` relay
+// with no TLS support at all — it can only ever speak ws://, never wss://.
+// On an HTTPS-hosted page that's a real dead end, not just a cosmetic
+// mismatch: browsers block an insecure ws:// connection opened from a
+// secure https: page as mixed content, so mesh would silently fail to
+// connect with no useful signal. meshHttpsWarning() lets the UI surface
+// that limitation explicitly instead of leaving the misleading "is
+// mesh-server.js running?" message as the only feedback.
+function meshHttpsWarning() {
+  return window.location.protocol === 'https:'
+    ? 'This page is served over HTTPS, but mesh-server.js only speaks plain ws:// (no TLS support) — browsers block that as mixed content from a secure page, so AutoNet Mesh cannot connect here. Run mesh-server.js behind a TLS-terminating proxy and set a wss:// URL below, or use AutoNet Mesh from a plain-HTTP / LAN deployment instead.'
+    : null;
+}
+function meshDefaultWs() {
+  const h = window.location.hostname;
+  return 'ws://' + (h || '127.0.0.1') + ':8770';
+}
 let _meshState = null;  // { ws, code, peerId, peers:Map, isHost, syncCfg }
 function meshState() { return _meshState || loadJSON(LS.MESH, { syncCfg: true }); }
 function meshSavePref() {
@@ -9249,21 +9291,41 @@ window.meshTogglePanel = function() {
 function meshInitPanel() {
   const s = meshState();
   const cb = $('meshSyncCfg'); if (cb) cb.checked = s.syncCfg !== false;
+  const wsInput = $('meshWsInput'); if (wsInput && !wsInput.value) wsInput.value = meshWsUrl();
   meshServerHint();
 }
+// Reconnect (if currently connected) using the URL typed into #meshWsInput.
+// This is the real, reachable path meshServerHint's "Set PF_MESH_WS" hint
+// used to point at without existing anywhere in the UI.
+window.meshApplyWsInput = function() {
+  const wsInput = $('meshWsInput'); if (!wsInput) return;
+  const u = wsInput.value.trim();
+  if (!u) return;
+  if (!/^wss?:\/\//i.test(u)) { meshLog('signaling URL must start with ws:// or wss://'); return; }
+  meshSetWsUrl(u);
+  meshLog('signaling host set to ' + u);
+  const wasConnected = _meshState && _meshState.ws && _meshState.ws.readyState === 1;
+  meshDisconnect();
+  meshServerHint();
+  if (wasConnected) meshConnect().catch(() => {});
+};
 function meshServerHint() {
   const el = $('meshServerHint'); if (!el) return;
-  const url = meshWsUrl();
+  const url = meshWsUrl();  // may be user-supplied (typed into #meshWsInput, persisted to localStorage) — never trust it into innerHTML unescaped.
+  const httpsWarning = meshHttpsWarning();
   if (_meshState && _meshState.ws && _meshState.ws.readyState === 1) {
     el.textContent = 'Connected to signaling server: ' + url;
     el.style.color = 'var(--green)';
+  } else if (httpsWarning) {
+    el.textContent = httpsWarning;
+    el.style.color = 'var(--red)';
   } else {
-    el.innerHTML = 'Signaling server not connected. Run <code>node mesh-server.js</code> in the repo (default ' + url + '), then host/join. Set PF_MESH_WS to override.';
+    el.innerHTML = 'Signaling server not connected. Run <code>node mesh-server.js</code> in the repo (default ' + escapeHtmlShared(url) + '), then host/join. Wrong host? Edit the URL field below and reconnect.';
     el.style.color = 'var(--muted)';
   }
 }
 function meshWsUrl() {
-  try { return localStorage.getItem('pf.mesh.ws') || MESH_DEFAULT_WS; } catch { return MESH_DEFAULT_WS; }
+  try { return localStorage.getItem('pf.mesh.ws') || meshDefaultWs(); } catch { return meshDefaultWs(); }
 }
 function meshLog(msg) {
   const el = $('meshLog'); if (!el) return;
@@ -9289,7 +9351,15 @@ function meshConnect() {
     _meshState.peerId = _meshState.peerId || meshRandId();
     _meshState.peers = _meshState.peers || new Map();
     ws.addEventListener('open', () => { meshLog('signaling connected'); meshServerHint(); resolve(ws); });
-    ws.addEventListener('error', () => { meshLog('signaling error — is mesh-server.js running?'); meshServerHint(); reject(new Error('ws error')); });
+    ws.addEventListener('error', () => {
+      // A ws:// connection opened from an https: page is blocked as mixed
+      // content in most browsers via this async error path, not a
+      // constructor-time throw — so this is the reliable place to surface
+      // the real reason instead of the generic "is it running?" guess.
+      meshLog(meshHttpsWarning() || 'signaling error — is mesh-server.js running?');
+      meshServerHint();
+      reject(new Error('ws error'));
+    });
     ws.addEventListener('close', () => { meshLog('signaling closed'); meshServerHint(); });
     ws.addEventListener('message', meshOnSignal);
   });
