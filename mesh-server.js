@@ -12,7 +12,16 @@
 //   PF_MESH_PORT=9000 node mesh-server.js
 //   PF_MESH_WS=ws://192.168.1.10:8770 node mesh-server.js   # advertised URL
 //
-// In the app: click ⤴ SHARE → HOST SESSION (or enter a code → JOIN).
+//   # TLS (required if Prompt Forge itself is served over https://; browsers
+//   # block a plain ws:// connection from a secure https: page as mixed
+//   # content, and Prompt Forge's mesh panel defaults to wss:// in that case):
+//   PF_MESH_TLS_CERT=/path/to/fullchain.pem PF_MESH_TLS_KEY=/path/to/privkey.pem \
+//     node mesh-server.js               # listens wss://0.0.0.0:8770
+//
+// In the app: click ⤴ SHARE → HOST SESSION (or enter a code → JOIN). If this
+// server runs with TLS, set the resulting wss://host:port URL in the mesh
+// panel's signaling-URL field (SET HOST) — or just let it default there,
+// since Prompt Forge already assumes wss:// on an https: page.
 // No external internet required. Graceful: the app hides/degrades the feature
 // when this server isn't reachable.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -20,16 +29,28 @@
 
 const PORT = parseInt(process.env.PF_MESH_PORT || '8770', 10);
 const HOST = process.env.PF_MESH_HOST || '0.0.0.0';
+const TLS_CERT_PATH = process.env.PF_MESH_TLS_CERT || '';
+const TLS_KEY_PATH = process.env.PF_MESH_TLS_KEY || '';
 
 // We avoid an external `ws` dependency: Node 21+ ships a global WebSocket, but
 // to support Node 18 we implement a minimal RFC6455 server frame layer on top
-// of the raw `http` + `net` modules. This is intentionally minimal — it only
-// handles text frames (signaling JSON), close, and ping/pong.
+// of the raw `http`/`https` + `net` modules. This is intentionally minimal —
+// it only handles text frames (signaling JSON), close, and ping/pong. The
+// frame layer works identically over TLS: `server.on('upgrade', ...)` hands
+// us the raw socket either way (a plain net.Socket for http, a tls.TLSSocket
+// for https), and both expose the same .write()/.on('data') API we use below.
 const http = require('http');
+const https = require('https');
+const fs = require('fs');
 const net = require('net');
 const crypto = require('crypto');
 
-const server = http.createServer((req, res) => {
+const useTls = !!(TLS_CERT_PATH && TLS_KEY_PATH);
+if ((TLS_CERT_PATH || TLS_KEY_PATH) && !useTls) {
+  console.error('[mesh] PF_MESH_TLS_CERT and PF_MESH_TLS_KEY must both be set to enable TLS — falling back to plain ws://');
+}
+
+const requestHandler = (req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, sessions: sessions.size, peers: peers.size }));
@@ -37,7 +58,11 @@ const server = http.createServer((req, res) => {
   }
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Prompt Forge AutoNet mesh signaling server. Connect via WebSocket.\n');
-});
+};
+
+const server = useTls
+  ? https.createServer({ cert: fs.readFileSync(TLS_CERT_PATH), key: fs.readFileSync(TLS_KEY_PATH) }, requestHandler)
+  : http.createServer(requestHandler);
 
 // session code -> Set(peerId)
 const sessions = new Map();
@@ -218,8 +243,9 @@ function handleMessage(peer, msg) {
 }
 
 server.listen(PORT, HOST, () => {
-  const advertised = process.env.PF_MESH_WS || `ws://${HOST === '0.0.0.0' ? '127.0.0.1' : HOST}:${PORT}`;
-  log('AutoNet mesh signaling server listening on', `ws://${HOST}:${PORT}`);
-  log('Set PF_MESH_WS=' + advertised + ' in the Prompt Forge app to connect.');
+  const scheme = useTls ? 'wss://' : 'ws://';
+  const advertised = process.env.PF_MESH_WS || `${scheme}${HOST === '0.0.0.0' ? '127.0.0.1' : HOST}:${PORT}`;
+  log('AutoNet mesh signaling server listening on', `${scheme}${HOST}:${PORT}`, useTls ? '(TLS)' : '(plain — no TLS)');
+  log('Set this URL in the Prompt Forge mesh panel\'s signaling-URL field (SET HOST): ' + advertised);
   log('Ctrl-C to stop.');
 });

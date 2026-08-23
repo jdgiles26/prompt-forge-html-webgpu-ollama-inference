@@ -9256,22 +9256,30 @@ window.driftDiffLines = diffLines;
 // instead, falling back to loopback only when there's no real hostname to
 // use (file://, about:blank).
 //
-// mesh-server.js (see the file) is a plain http.createServer + `ws` relay
-// with no TLS support at all — it can only ever speak ws://, never wss://.
-// On an HTTPS-hosted page that's a real dead end, not just a cosmetic
-// mismatch: browsers block an insecure ws:// connection opened from a
-// secure https: page as mixed content, so mesh would silently fail to
-// connect with no useful signal. meshHttpsWarning() lets the UI surface
-// that limitation explicitly instead of leaving the misleading "is
-// mesh-server.js running?" message as the only feedback.
+// mesh-server.js (see the file) defaults to a plain http.createServer + `ws`
+// relay — no TLS. On an HTTPS-hosted page, a plain ws:// connection is a real
+// dead end, not a cosmetic mismatch: browsers block insecure ws:// opened
+// from a secure https: page as mixed content. meshDefaultWs() below already
+// defaults to wss:// on an https: page so the browser doesn't hit that block
+// outright — but wss:// alone only works if mesh-server.js is ALSO actually
+// terminating TLS (PF_MESH_TLS_CERT/PF_MESH_TLS_KEY, or a reverse proxy in
+// front of it); against a default, TLS-less mesh-server.js the TLS handshake
+// itself will fail instead. meshHttpsWarning() surfaces that up front rather
+// than leaving the misleading "is mesh-server.js running?" message as the
+// only feedback either way.
 function meshHttpsWarning() {
   return window.location.protocol === 'https:'
-    ? 'This page is served over HTTPS, but mesh-server.js only speaks plain ws:// (no TLS support) — browsers block that as mixed content from a secure page, so AutoNet Mesh cannot connect here. Run mesh-server.js behind a TLS-terminating proxy and set a wss:// URL below, or use AutoNet Mesh from a plain-HTTP / LAN deployment instead.'
+    ? 'This page is served over HTTPS, so AutoNet Mesh defaults to a secure wss:// signaling URL — but that only connects if mesh-server.js is ALSO terminating TLS (run it with PF_MESH_TLS_CERT/PF_MESH_TLS_KEY set, or put a TLS-terminating reverse proxy in front of it). A default, plain mesh-server.js has no TLS listener, so the connection will still fail. Once you have a real wss:// endpoint, enter it below; otherwise use AutoNet Mesh from a plain-HTTP / LAN deployment instead.'
     : null;
 }
 function meshDefaultWs() {
   const h = window.location.hostname;
-  return 'ws://' + (h || '127.0.0.1') + ':8770';
+  // https: pages must use wss:// — browsers block a literal ws:// connection
+  // from a secure page as mixed content outright, so ws:// wouldn't even get
+  // a chance to fail cleanly. See meshHttpsWarning() above for why wss:// on
+  // its own doesn't guarantee a *working* connection, just a non-blocked one.
+  const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return proto + (h || '127.0.0.1') + ':8770';
 }
 let _meshState = null;  // { ws, code, peerId, peers:Map, isHost, syncCfg }
 function meshState() { return _meshState || loadJSON(LS.MESH, { syncCfg: true }); }
@@ -9325,7 +9333,15 @@ function meshServerHint() {
   }
 }
 function meshWsUrl() {
-  try { return localStorage.getItem('pf.mesh.ws') || meshDefaultWs(); } catch { return meshDefaultWs(); }
+  try {
+    const stored = localStorage.getItem('pf.mesh.ws');
+    // If on HTTPS and stored value is insecure ws://, clear it and use secure default
+    if (stored && window.location.protocol === 'https:' && stored.startsWith('ws://')) {
+      localStorage.removeItem('pf.mesh.ws');
+      return meshDefaultWs();
+    }
+    return stored || meshDefaultWs();
+  } catch { return meshDefaultWs(); }
 }
 function meshLog(msg) {
   const el = $('meshLog'); if (!el) return;

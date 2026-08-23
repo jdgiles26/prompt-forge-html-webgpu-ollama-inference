@@ -17,9 +17,11 @@
 //      backend needs no local Ollama at all.
 'use strict';
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const { execSync, spawn } = require('child_process');
 const { chromium } = require('playwright');
 
 let passed = 0, failed = 0;
@@ -39,7 +41,14 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
   assert.ok(m, 'meshDefaultWs() not found in prompt-forge.html');
 
   function withHostname(hostname) {
-    const sandbox = { window: { location: { hostname } } };
+    const sandbox = { window: { location: { hostname, protocol: 'http:' } } };
+    vm.createContext(sandbox);
+    vm.runInContext(m[0] + '\nthis.__r = meshDefaultWs();', sandbox);
+    return sandbox.__r;
+  }
+
+  function withHostnameAndProtocol(hostname, protocol) {
+    const sandbox = { window: { location: { hostname, protocol } } };
     vm.createContext(sandbox);
     vm.runInContext(m[0] + '\nthis.__r = meshDefaultWs();', sandbox);
     return sandbox.__r;
@@ -51,9 +60,52 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     withHostname('my-remote-box.example.com') === 'ws://my-remote-box.example.com:8770', withHostname('my-remote-box.example.com'));
   record('no hostname (file://) → falls back to loopback',
     withHostname('') === 'ws://127.0.0.1:8770', withHostname(''));
+  record('https: page → wss:// to avoid mixed-content blocking',
+    withHostnameAndProtocol('example.com', 'https:') === 'wss://example.com:8770', withHostnameAndProtocol('example.com', 'https:'));
+  record('http: page → ws:// (no TLS needed)',
+    withHostnameAndProtocol('example.com', 'http:') === 'ws://example.com:8770', withHostnameAndProtocol('example.com', 'http:'));
 })();
 
-// ── Part 1b: meshHttpsWarning() — mesh-server.js has no TLS support, so an
+// ── Part 1b: meshWsUrl() localStorage migration — stale insecure ws:// values
+// are cleared when page is on https: to avoid mixed-content dead end ──────
+(function testMeshWsUrlMigration() {
+  console.log('\n── meshWsUrl() migrates stale insecure ws:// on https: pages ──');
+  const mWsUrl = html.match(/function meshWsUrl\(\) \{[\s\S]*?\n\}/);
+  const mDefault = html.match(/function meshDefaultWs\(\) \{[\s\S]*?\n\}/);
+  assert.ok(mWsUrl, 'meshWsUrl() not found in prompt-forge.html');
+  assert.ok(mDefault, 'meshDefaultWs() not found in prompt-forge.html');
+
+  function testWithStoredValue(protocol, storedValue) {
+    const storage = { 'pf.mesh.ws': storedValue };
+    const sandbox = {
+      window: { location: { protocol, hostname: 'example.com' } },
+      localStorage: {
+        getItem: (k) => storage[k] || null,
+        removeItem: (k) => { delete storage[k]; }
+      }
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(mDefault[0] + '\n' + mWsUrl[0] + '\nthis.__r = meshWsUrl();', sandbox);
+    return { result: sandbox.__r, storageCleared: !storage['pf.mesh.ws'] };
+  }
+
+  const httpsWithWs = testWithStoredValue('https:', 'ws://stale-host:8770');
+  record('https: page with stale ws:// → clears storage and returns secure default',
+    httpsWithWs.storageCleared && httpsWithWs.result === 'wss://example.com:8770',
+    `cleared=${httpsWithWs.storageCleared} result=${httpsWithWs.result}`);
+
+  const httpsWithWss = testWithStoredValue('https:', 'wss://custom-host:8770');
+  record('https: page with valid wss:// → preserves the custom value',
+    !httpsWithWss.storageCleared && httpsWithWss.result === 'wss://custom-host:8770',
+    `cleared=${httpsWithWss.storageCleared} result=${httpsWithWss.result}`);
+
+  const httpWithWs = testWithStoredValue('http:', 'ws://custom-host:8770');
+  record('http: page with ws:// → preserves the value (no migration needed)',
+    !httpWithWs.storageCleared && httpWithWs.result === 'ws://custom-host:8770',
+    `cleared=${httpWithWs.storageCleared} result=${httpWithWs.result}`);
+})();
+
+// ── Part 1c: meshHttpsWarning() — mesh-server.js has no TLS support, so an
 // https:-hosted page trying a ws:// signaling connection is a real dead end
 // (browsers block it as mixed content), not just a cosmetic mismatch. ──────
 (function testMeshHttpsWarning() {
@@ -74,6 +126,63 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     /mesh-server\.js/.test(httpsResult) && /mixed content|TLS/i.test(httpsResult), httpsResult);
   record('http: page gets no warning', withProtocol('http:') === null, withProtocol('http:'));
 })();
+
+// ── Part 1d: mesh-server.js real TLS support — the completion of the
+// meshDefaultWs()/meshHttpsWarning() fixes above. Those made the CLIENT
+// default to wss:// and explain the limitation on an https: page, but
+// mesh-server.js itself needed to actually be ABLE to terminate TLS for
+// wss:// to ever really connect. This spins up the real server (not a
+// mock) with a self-signed cert via PF_MESH_TLS_CERT/PF_MESH_TLS_KEY and
+// drives a real wss:// WebSocket handshake through it, end to end. ────────
+async function testMeshServerTls() {
+  console.log('\n── mesh-server.js: real TLS support (wss://) ──');
+  let opensslAvailable = false;
+  try { execSync('openssl version', { stdio: 'pipe' }); opensslAvailable = true; } catch {}
+  if (!opensslAvailable) {
+    console.log('  ⊘ skipped (openssl not available in this environment) — meshDefaultWs()/meshHttpsWarning() logic above is still covered without it');
+    return;
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pf-mesh-tls-'));
+  const certPath = path.join(tmpDir, 'cert.pem');
+  const keyPath = path.join(tmpDir, 'key.pem');
+  execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 1 -nodes -subj "/CN=localhost"`, { stdio: 'pipe' });
+
+  const port = 18770 + (process.pid % 1000);
+  const serverProc = spawn('node', ['mesh-server.js'], {
+    cwd: __dirname,
+    env: { ...process.env, PF_MESH_TLS_CERT: certPath, PF_MESH_TLS_KEY: keyPath, PF_MESH_PORT: String(port) },
+  });
+  let serverLog = '';
+  serverProc.stdout.on('data', (d) => { serverLog += d.toString(); });
+  serverProc.stderr.on('data', (d) => { serverLog += d.toString(); });
+  await new Promise((r) => setTimeout(r, 800));
+
+  record('server advertises wss:// (TLS mode), not ws://', /wss:\/\//.test(serverLog) && /\(TLS\)/.test(serverLog), serverLog.trim());
+
+  const tlsBrowser = await chromium.launch({ args: ['--ignore-certificate-errors'] });
+  try {
+    const tlsPage = await tlsBrowser.newPage();
+    await tlsPage.goto('about:blank');
+    const handshake = await tlsPage.evaluate((p) => {
+      return new Promise((resolve) => {
+        let ws;
+        try { ws = new WebSocket('wss://127.0.0.1:' + p); } catch (e) { resolve('CONSTRUCTOR THREW: ' + e.message); return; }
+        const timeout = setTimeout(() => resolve('TIMEOUT'), 5000);
+        ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'host', peerId: 'tls-test-peer', code: 'TLS123' })));
+        ws.addEventListener('message', (e) => { clearTimeout(timeout); resolve(e.data); ws.close(); });
+        ws.addEventListener('error', () => { clearTimeout(timeout); resolve('WS ERROR'); });
+      });
+    }, port);
+    let parsed = null; try { parsed = JSON.parse(handshake); } catch {}
+    record('real wss:// WebSocket handshake succeeds against mesh-server.js with PF_MESH_TLS_CERT/KEY set',
+      !!parsed && parsed.type === 'host-ack' && parsed.code === 'TLS123', handshake);
+  } finally {
+    await tlsBrowser.close();
+    serverProc.kill();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
 
 // ── Part 2: live-browser checks ──────────────────────────────────────────────
 (async () => {
@@ -136,6 +245,8 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     hintAfterInjection.includes('ws://x'), hintAfterInjection);
 
   await browser.close();
+
+  await testMeshServerTls();
 
   console.log('\n══════════════════════════════════════');
   console.log(`RESULT: ${passed} passed · ${failed} failed`);
