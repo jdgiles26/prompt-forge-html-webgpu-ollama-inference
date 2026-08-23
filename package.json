@@ -11,7 +11,7 @@
   },
   "scripts": {
     "serve": "python3 serve.py",
-    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_zip_download.js && node test_pipeline_scaffold.js && node test_webgpu_local_http.js && node test_2026_features.js && node test_hallucination_guards.js && node test_agentic_features.js && node test_sandbox_requirements.js",
+    "test": "node test_features.js && node test_tabs.js && node test_e2e_project.js && node test_zip_runs_tdd.js && node test_zip_download.js && node test_pipeline_scaffold.js && node test_webgpu_local_http.js && node test_2026_features.js && node test_hallucination_guards.js && node test_agentic_features.js && node test_sandbox_requirements.js && node test_hosting_portability.js",
     "test:features": "node test_features.js",
     "test:e2e": "node test_e2e_project.js",
     "test:zip": "node test_zip_runs_tdd.js",
@@ -23,7 +23,8 @@
     "test:guards": "node test_hallucination_guards.js",
     "test:agentic": "node test_agentic_features.js",
     "test:2026": "node test_2026_features.js",
-    "test:sandbox-reqs": "node test_sandbox_requirements.js"
+    "test:sandbox-reqs": "node test_sandbox_requirements.js",
+    "test:hosting": "node test_hosting_portability.js"
   },
   "devDependencies": {
     "adm-zip": "^0.6.0",

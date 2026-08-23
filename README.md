@@ -175,6 +175,7 @@ self-contained — switching tabs never touches another tab's state:
 | `test_zip_download.js`     | 88 tests proving all three export entry points (Forge `#zipBtn`, Assembly `#asZipBtn`, Agent Forge `#afZipBtn`) trigger a real browser download and the archive contains the full required file list |
 | `list_webllm_models.js`    | Helper: enumerate WebLLM's prebuilt model list |
 | `test_sandbox_requirements.js` | Extracts the real `sandboxWorkerSrc()` (Pyodide TDD-sandbox worker) out of `prompt-forge.html` and verifies it installs `requirements.txt` packages before running pytest — no Playwright/network needed, pure Node `vm` |
+| `test_hosting_portability.js` | 10 tests for hosting Prompt Forge somewhere other than `127.0.0.1`: AutoNet Mesh's signaling URL derives from the page's own host (not a hardcoded loopback default) and has a real UI field to override it, and FORGE PROMPT's Ollama-unreachable error is actionable instead of a bare "select a model" dead end |
 
 No build step. The HTML imports WebLLM directly from `https://esm.run/@mlc-ai/web-llm`
 on first use and the browser caches it.
@@ -188,10 +189,11 @@ npm install         # install Playwright + adm-zip (dev only)
 npx playwright install chromium
 npm test            # runs every suite: features, tabs, e2e, zip-tdd, zip-download,
                      # pipeline-scaffold, webgpu, 2026-features, hallucination-guards,
-                     # agentic-features, sandbox-requirements
+                     # agentic-features, sandbox-requirements, hosting-portability
 npm run test:guards  # just the hallucination / Fact-Check Gate guard suite
 npm run test:agentic # just the new-features suite (tips panel, secret scanner, …)
 npm run test:sandbox-reqs # just the TDD-sandbox requirements.txt installer test (no browser needed)
+npm run test:hosting # just the mesh-host-detection / Ollama-unreachable-message suite
 ```
 
 Latest run (offline / mocked):
@@ -367,6 +369,40 @@ HTTP API. You just need to allow null origin once with
   companion test confirming a stage that loops on *every* attempt still gives
   up after exactly `1 + AS_REPETITION_RETRY_MAX` calls rather than retrying
   forever.
+
+- **Hosting away from `127.0.0.1` broke two things: AutoNet Mesh, and the
+  Ollama error path.** Reported after deploying Prompt Forge somewhere other
+  than a local `python3 serve.py` on the same machine as Ollama/mesh-server.js.
+  1. **AutoNet Mesh's default signaling URL was hardcoded to
+     `ws://127.0.0.1:8770`.** `mesh-server.js` is meant to run on the same
+     machine that serves the page — so the *right* default host is wherever
+     the page itself was loaded from, not always the viewer's own loopback
+     address. Hosted from anywhere but localhost, "HOST SESSION" silently
+     tried to reach a signaling server on the viewer's own machine and never
+     found one — `meshWsUrl()` now derives the default from
+     `window.location.hostname` (`meshDefaultWs()`), falling back to
+     loopback only when there's no real hostname (`file://`). The panel's
+     hint used to tell users to "Set PF_MESH_WS to override" — a variable
+     nothing in the codebase ever read; the only real override
+     (`window.meshSetWsUrl()`, writing `localStorage['pf.mesh.ws']`) had no
+     UI path to it. Added a real `#meshWsInput` field + SET HOST button,
+     prefilled with the current effective URL, wired to `meshSetWsUrl()`
+     with reconnect-if-connected behavior, and fixed the hint text.
+  2. **FORGE PROMPT's Ollama-unreachable error was a dead end.** When Ollama
+     can't be reached, `fetchOllamaModels()` (called on page init) already
+     produces a real diagnosis — the file:// CORS explanation, or "is
+     `ollama serve` running?" — but `forge()` → `runOllama()`'s "no model
+     selected" guard discarded it and showed a bare "Select an Ollama model
+     first.", giving no indication Ollama itself was the problem or that
+     the Browser (WebGPU) / Hugging Face backends need no local Ollama at
+     all. `ollamaUnreachableReason` now carries that diagnosis from
+     `fetchOllamaModels()` into the guard, and both messages explicitly
+     point at switching backends as a way out. Verified with
+     `test_hosting_portability.js` — pure-logic extraction test for
+     `meshDefaultWs()` against several hostnames (no browser needed), plus
+     live-Playwright checks that the actionable error text appears, the URL
+     field prefills and persists a custom host, and the hint updates
+     accordingly.
 
 - **TDD Sandbox — `requirements.txt` was never installed.** The Pyodide
   Web Worker that runs a forged Python project's tests (`sandboxWorkerSrc()`)
