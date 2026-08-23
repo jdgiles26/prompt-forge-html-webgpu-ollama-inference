@@ -1312,7 +1312,7 @@
 
               <div class="backend-config" id="hfConfig">
                 <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.55;margin-bottom:6px;">
-                  Route inference to the Hugging Face Inference API. <b>Optional</b> — public model lists work with no key. An API key (stored only in this browser's localStorage) enables authenticated / rate-limited models. Never logged.
+                  Route inference to the Hugging Face <b>Inference Providers</b> router (OpenAI-compatible <code>/v1/chat/completions</code>). Browsing the model list is keyless, but <b>generation now requires a free HF access token</b> (Settings → Access Tokens on huggingface.co; "Read" scope). The token is stored only in this browser's localStorage and never logged. Gated models (e.g. Llama) also need you to accept their license on the Hub.
                 </div>
                 <div class="row" style="margin-bottom:4px;">
                   <select id="hfModel" style="flex:1;">
@@ -1320,9 +1320,9 @@
                   </select>
                   <button class="btn btn-ghost btn-small" onclick="fetchHFModels()" title="Refresh the Hugging Face model list">↻</button>
                 </div>
-                <input type="password" id="hfApiKey" placeholder="HF API key (optional)" oninput="saveHfCreds()" autocomplete="off" />
+                <input type="password" id="hfApiKey" placeholder="HF access token (required to generate)" oninput="saveHfCreds()" autocomplete="off" />
                 <div class="row" style="margin-top:4px;">
-                  <input type="text" id="hfUrl" placeholder="Inference URL (default: https://api-inference.huggingface.co)" style="flex:1;" oninput="saveHfCreds()" />
+                  <input type="text" id="hfUrl" placeholder="Inference router (default: https://router.huggingface.co)" style="flex:1;" oninput="saveHfCreds()" />
                   <button class="btn btn-ghost btn-small" onclick="hfClearCreds()" title="Clear stored HF key + URL">✕ ERASE</button>
                 </div>
                 <div class="row" style="margin-top:4px;">
@@ -1498,11 +1498,11 @@
                   </div>
                   <div class="model-pool-source"><span class="src-dot src-browser"></span>Browser AI · WebGPU (in-browser)</div>
                   <div class="model-pool-list" id="asBrowserPool"></div>
-                  <div class="model-pool-source"><span class="src-dot src-ollama"></span>Hugging Face (cloud, optional key)</div>
+                  <div class="model-pool-source"><span class="src-dot src-ollama"></span>Hugging Face (cloud · token required to generate)</div>
                   <div class="model-pool-list" id="asHfPool" style="max-height:160px;"></div>
                   <div class="row" style="margin-top:2px;">
                     <button class="btn btn-ghost btn-small" onclick="asRefreshHfModels()" title="Refresh the Hugging Face model list">↻ refresh HF</button>
-                    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">live from HF Hub · public, no key needed</span>
+                    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">browsing keyless · generation needs a free HF token (set it in the Forge 🤗 panel)</span>
                   </div>
                 </div>
               </div>
@@ -5090,63 +5090,68 @@ async function loadLocalModelFile(file) {
 
 const HF_LS = { KEY: 'pf.hf.key.v1', URL: 'pf.hf.url.v1', MODEL: 'pf.hf.model.v1' };
 let hfModelsLoaded = false;
-// Leading OPEN-WEIGHT text-generation models surfaced as recommended
-// defaults (the live list still loads from the Hub; these are pinned so the
-// dropdown is useful even when offline). Every ID below was individually
-// verified to resolve on huggingface.co (hub_repo_details, Aug 2026) before
-// being pinned here — a prior revision of this list shipped three IDs
-// ('Qwen/Qwen3-235B-A22B-Instruct', '...-32B-Instruct', '...-14B-Instruct')
-// that do not exist on the Hub (Qwen3's non-MoE sizes ship without an
-// "-Instruct" suffix); those are corrected below. Deliberately excludes
-// "uncensored"/"abliterated" community re-finetunes surfaced by trending
-// searches — those strip safety/alignment training, which cuts against
-// this tool's no-bias goal rather than helping it. Re-verify before adding
-// more: an ID that 404s here silently breaks the HF backend for whoever
-// picks it.
+
+// Default HF inference base. The legacy serverless endpoint
+// (api-inference.huggingface.co/models/{id}) was RETIRED; HF inference now
+// routes through the Inference Providers router with an OpenAI-compatible
+// /v1/chat/completions API. Generation requires a (free) HF access token;
+// model *browsing* stays keyless. See hfGenerate below.
+const HF_ROUTER_DEFAULT = 'https://router.huggingface.co';
+
+// Recommended defaults surfaced in the dropdown (the live list still loads
+// from the Hub; these are pinned so the dropdown is useful even when the
+// Hub API is unreachable). Every ID below was verified via HF hub_repo_details
+// (Aug 2026) to be (a) a real repo, (b) a *text-generation* model — NOT a
+// multimodal image-text-to-text model — and (c) currently served by at least
+// one live Inference Provider. A prior revision listed IDs that were either
+// multimodal (`Qwen/Qwen3.5-9B`/`-4B`, `meta-llama/Llama-4-Scout-*`,
+// `google/gemma-3-27b-it` are all image-text-to-text and do not work as a
+// plain chat/text-generation backend) or flaky on providers
+// (`mistralai/Mistral-7B-Instruct-v0.3` had no text-generation pipeline tag
+// and a provider error); those are removed. Deliberately excludes
+// "uncensored"/"abliterated" re-finetunes. Re-verify task + provider before
+// adding more: a wrong-task or unserved ID silently breaks the HF backend.
 const HF_RECOMMENDED = [
-  // Qwen3 / Qwen3.5 (Alibaba, Apache-2.0) — verified real repo IDs.
-  'Qwen/Qwen3-235B-A22B-Instruct-2507',
-  'Qwen/Qwen3-32B',
-  'Qwen/Qwen3-14B',
-  'Qwen/Qwen3-Coder-30B-A3B-Instruct',
-  'Qwen/Qwen3.5-9B',
-  'Qwen/Qwen3.5-4B',
-  'Qwen/Qwen2.5-Coder-7B-Instruct',
+  // Ungated, text-generation, provider-served — work with just a free token.
+  // Qwen (Alibaba, Apache-2.0).
   'Qwen/Qwen2.5-7B-Instruct',
-  // DeepSeek (MIT license).
-  'deepseek-ai/DeepSeek-V3.2-Exp',
+  'Qwen/Qwen2.5-Coder-7B-Instruct',
+  'Qwen/Qwen3-14B',
+  'Qwen/Qwen3-32B',
+  'Qwen/Qwen3-Coder-30B-A3B-Instruct',
+  'Qwen/Qwen3-235B-A22B-Instruct-2507',
+  // DeepSeek (MIT).
   'deepseek-ai/DeepSeek-V3.1',
   'deepseek-ai/DeepSeek-R1',
-  // Meta Llama.
-  'meta-llama/Llama-4-Scout-17B-16E-Instruct',
-  'meta-llama/Llama-3.3-70B-Instruct',
-  'meta-llama/Llama-3.1-8B-Instruct',
-  // Mistral (Apache-2.0 / Mistral license).
-  'mistralai/Mistral-Small-3.2-24B-Instruct-2506',
-  'mistralai/Mistral-Large-Instruct-2411',
-  'mistralai/Mistral-7B-Instruct-v0.3',
-  // Google Gemma.
-  'google/gemma-3-27b-it',
-  // Small / permissively-licensed fallback.
+  // Small / permissively-licensed fallback (MIT).
   'HuggingFaceH4/zephyr-7b-beta',
 ];
 
+// Gated text-generation models: real + provider-served, but require the user
+// to accept the model license on the Hub AND supply a token with access.
+// Surfaced in a separate, clearly-labeled group so a keyless/new user is not
+// steered into a guaranteed 403.
+const HF_RECOMMENDED_GATED = [
+  'meta-llama/Llama-3.1-8B-Instruct',
+  'meta-llama/Llama-3.3-70B-Instruct',
+];
+
 function hfKey()   { try { return localStorage.getItem(HF_LS.KEY) || ''; } catch { return ''; } }
-function hfUrlVal(){ try { return localStorage.getItem(HF_LS.URL) || 'https://api-inference.huggingface.co'; } catch { return 'https://api-inference.huggingface.co'; } }
+function hfUrlVal(){ try { return localStorage.getItem(HF_LS.URL) || HF_ROUTER_DEFAULT; } catch { return HF_ROUTER_DEFAULT; } }
 
 window.saveHfCreds = function() {
   const k = document.getElementById('hfApiKey').value;
   const u = document.getElementById('hfUrl').value.trim();
   try {
     if (k) localStorage.setItem(HF_LS.KEY, k); else localStorage.removeItem(HF_LS.KEY);
-    if (u && u !== 'https://api-inference.huggingface.co')
+    if (u && u !== HF_ROUTER_DEFAULT)
       localStorage.setItem(HF_LS.URL, u); else localStorage.removeItem(HF_LS.URL);
   } catch {}
 };
 window.hfClearCreds = function() {
   try { localStorage.removeItem(HF_LS.KEY); localStorage.removeItem(HF_LS.URL); } catch {}
   const k = document.getElementById('hfApiKey'); if (k) k.value = '';
-  const u = document.getElementById('hfUrl'); if (u) u.value = 'https://api-inference.huggingface.co';
+  const u = document.getElementById('hfUrl'); if (u) u.value = HF_ROUTER_DEFAULT;
   toast('HF credentials cleared');
 };
 
@@ -5168,24 +5173,30 @@ window.fetchHFModels = async function() {
   sel.innerHTML = '<option value="">— loading… —</option>';
   let list = [];
   try {
-    const r = await fetch('https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1&limit=40', { headers: { 'Accept': 'application/json' } });
+    // `inference_provider=all` biases the live list toward models actually
+    // served by an Inference Provider — i.e. models the /v1/chat/completions
+    // router can run — instead of the entire (mostly unservable) Hub.
+    const r = await fetch('https://huggingface.co/api/models?pipeline_tag=text-generation&inference_provider=all&sort=downloads&direction=-1&limit=40', { headers: { 'Accept': 'application/json' } });
     if (r.ok) list = await r.json();
   } catch (e) {
     // offline / blocked — fall back to the recommended defaults only
   }
   const ids = list.length ? list.map(m => m.id) : HF_RECOMMENDED.slice();
-  // ensure recommended are present + marked
   const recommended = new Set(HF_RECOMMENDED);
+  const gated = new Set(HF_RECOMMENDED_GATED);
+  // ensure curated defaults are present even if the live list omits them
   for (const rid of HF_RECOMMENDED) if (!ids.includes(rid)) ids.unshift(rid);
   let html = '';
-  html += '<optgroup label="Recommended (leading open models, mid-2026)">';
-  for (const id of ids) {
-    if (recommended.has(id))
-      html += '<option value="' + escapeHtmlShared(id) + '" class="hf-model-opt">' + escapeHtmlShared(id) + ' · recommended</option>';
-  }
+  html += '<optgroup label="Recommended (open text-gen, provider-served, no license gate)">';
+  for (const id of HF_RECOMMENDED)
+    html += '<option value="' + escapeHtmlShared(id) + '" class="hf-model-opt">' + escapeHtmlShared(id) + ' · recommended</option>';
   html += '</optgroup>';
-  html += '<optgroup label="All (live from HF Hub, sorted by downloads)">';
-  for (const id of ids) if (!recommended.has(id))
+  html += '<optgroup label="Gated (needs license acceptance + token on huggingface.co)">';
+  for (const id of HF_RECOMMENDED_GATED)
+    html += '<option value="' + escapeHtmlShared(id) + '">' + escapeHtmlShared(id) + ' · gated</option>';
+  html += '</optgroup>';
+  html += '<optgroup label="All (live from HF Hub · provider-served, by downloads)">';
+  for (const id of ids) if (!recommended.has(id) && !gated.has(id))
     html += '<option value="' + escapeHtmlShared(id) + '">' + escapeHtmlShared(id) + '</option>';
   html += '</optgroup>';
   sel.innerHTML = html;
@@ -5197,18 +5208,23 @@ window.hfTestConnection = async function() {
   const out = document.getElementById('hfTestResult');
   if (out) { out.textContent = 'testing…'; out.style.color = 'var(--muted)'; }
   const key = hfKey();
-  const url = hfUrlVal();
   const headers = key ? { 'Authorization': 'Bearer ' + key } : {};
   try {
-    // Hit the /api/whoami-v2 endpoint with the key if present (verifies key),
-    // otherwise just probe the public models API.
-    const target = key ? (url.replace(/\/$/, '') + '/api/whoami-v2')
-                       : 'https://huggingface.co/api/models?filter=text-generation&limit=1';
+    // With a key: validate it against the account endpoint on huggingface.co
+    // (whoami-v2 lives on the Hub host, NOT on the inference router). Without
+    // a key: only the public model list is reachable — and inference itself
+    // will NOT work until a token is added, so say so.
+    const target = key ? 'https://huggingface.co/api/whoami-v2'
+                       : 'https://huggingface.co/api/models?pipeline_tag=text-generation&limit=1';
     const r = await fetch(target, { headers });
     if (r.ok) {
-      if (out) { out.textContent = '✓ reachable' + (key ? ' · key valid' : ' · no key (public)'); out.style.color = 'var(--green)'; }
+      if (out) {
+        out.textContent = key ? '✓ token valid · inference ready'
+                              : '✓ Hub reachable · add a token to generate (browsing only without one)';
+        out.style.color = key ? 'var(--green)' : 'var(--amber)';
+      }
     } else if (r.status === 401 || r.status === 403) {
-      if (out) { out.textContent = '✗ key rejected (' + r.status + ')'; out.style.color = 'var(--red)'; }
+      if (out) { out.textContent = '✗ token rejected (' + r.status + ')'; out.style.color = 'var(--red)'; }
     } else {
       if (out) { out.textContent = '⚠ HTTP ' + r.status; out.style.color = 'var(--amber)'; }
     }
@@ -5217,8 +5233,13 @@ window.hfTestConnection = async function() {
   }
 };
 
-// Run one HF inference generation. Uses the HF Inference API text-generation
-// route (SSE streaming when supported, falls back to a single JSON response).
+// Run one HF inference generation via the HF Inference Providers **router**
+// (OpenAI-compatible POST {base}/v1/chat/completions). The legacy serverless
+// route (POST {base}/models/{id} with {inputs, parameters}) was retired — it
+// now fails for every model, which is why the HF backend appeared broken
+// regardless of WebGPU. The router requires a (free) HF access token and
+// returns OpenAI-shaped payloads: streaming deltas at choices[].delta.content,
+// non-streaming text at choices[].message.content.
 async function hfGenerate({ model, system, prompt, temperature, maxTokens, topP, topK, onChunk, stopFlag, signal }) {
   // FEATURE 2: Zero-Trust Context Shield — sanitize before any cloud send.
   if (window.ctxShieldApply) {
@@ -5227,40 +5248,48 @@ async function hfGenerate({ model, system, prompt, temperature, maxTokens, topP,
     system = null; prompt = _r.clean;
   }
   const key = hfKey();
+  if (!key) {
+    // The router has no anonymous tier. Fail loudly and actionably instead of
+    // letting a keyless request 401 into a cryptic error.
+    throw new Error('Hugging Face inference now requires a free access token. Create one at huggingface.co (Settings → Access Tokens, "Read" scope is enough), paste it in the 🤗 panel, then retry. Model browsing stays keyless; generation does not.');
+  }
   const base = hfUrlVal().replace(/\/$/, '');
-  const inputs = (system ? system + '\n\n' : '') + prompt;
-  const body = JSON.stringify({
-    inputs,
-    parameters: {
-      temperature: temperature ?? 0.4,
-      max_new_tokens: maxTokens ?? 512,
-      top_p: topP ?? 0.9,
-      top_k: topK ?? 40,
-      return_full_text: false,
-    },
-    options: { wait_for_model: true },
-  });
-  const headers = { 'Content-Type': 'application/json' };
-  if (key) headers['Authorization'] = 'Bearer ' + key;   // key never logged
-  // Try streaming (SSE) first; HF router supports stream=true for text-generation.
+  const endpoint = base + '/v1/chat/completions';
+  const messages = [];
+  if (system) messages.push({ role: 'system', content: system });
+  messages.push({ role: 'user', content: prompt });
+  const params = {
+    model,
+    messages,
+    temperature: temperature ?? 0.4,
+    max_tokens: maxTokens ?? 512,
+    top_p: topP ?? 0.9,
+  };
+  const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }; // key never logged
+  // Try streaming (SSE) first; the router speaks OpenAI stream=true.
   let res;
   try {
-    res = await fetch(base + '/models/' + model, {
+    res = await fetch(endpoint, {
       method: 'POST', headers: { ...headers, 'Accept': 'text/event-stream' },
-      body: JSON.stringify({ inputs, parameters: { temperature: temperature ?? 0.4, max_new_tokens: maxTokens ?? 512, top_p: topP ?? 0.9, top_k: topK ?? 40, return_full_text: false }, options: { wait_for_model: true }, stream: true }),
+      body: JSON.stringify({ ...params, stream: true }),
       signal,
     });
   } catch (e) { if (e.name === 'AbortError') return ''; throw e; }
-  if (!res.ok) {
-    // Fall back to non-streaming request
-    res = await fetch(base + '/models/' + model, { method: 'POST', headers, body, signal });
-    if (!res.ok) throw new Error('HF HTTP ' + res.status + ' ' + (res.statusText || ''));
+  if (!res.ok || !res.body) {
+    // Fall back to a single non-streaming completion.
+    res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(params), signal });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = j.error?.message || j.error || (typeof j === 'string' ? j : ''); }
+      catch { try { detail = await res.text(); } catch {} }
+      throw new Error('HF HTTP ' + res.status + (detail ? ' — ' + String(detail).slice(0, 200) : ' ' + (res.statusText || '')));
+    }
     const obj = await res.json();
-    const txt = Array.isArray(obj) ? (obj[0]?.generated_text || '') : (obj?.generated_text || '');
+    const txt = obj?.choices?.[0]?.message?.content || '';
     if (txt && !(stopFlag && stopFlag())) onChunk && onChunk(txt);
     return txt;
   }
-  // Parse SSE stream
+  // Parse the OpenAI-style SSE stream.
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = '', full = '';
@@ -5277,13 +5306,20 @@ async function hfGenerate({ model, system, prompt, temperature, maxTokens, topP,
       if (payload === '[DONE]') return full;
       try {
         const obj = JSON.parse(payload);
-        const delta = obj.token?.text || obj.generated_text || '';
+        const delta = obj.choices?.[0]?.delta?.content || '';
         if (delta) { full += delta; onChunk && onChunk(delta); }
       } catch {}
     }
   }
   return full;
 }
+// Exposed for the headless test harness (test_hf_backend.js) — lets a test
+// stub window.fetch and assert the request shape + response parsing without a
+// network round-trip or WebGPU. Not part of the app's public surface.
+window.hfGenerate = hfGenerate;
+window.HF_ROUTER_DEFAULT = HF_ROUTER_DEFAULT;
+window.__HF_RECOMMENDED = HF_RECOMMENDED;
+window.__HF_RECOMMENDED_GATED = HF_RECOMMENDED_GATED;
 
 // Forge-view HF runner (mirrors runOllama / runBrowser shape).
 async function runHF(userText) {
@@ -6021,7 +6057,7 @@ let asHfModels = [];
 window.asRefreshHfModels = async function() {
   let list = [];
   try {
-    const r = await fetch('https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1&limit=30', { headers: { 'Accept': 'application/json' } });
+    const r = await fetch('https://huggingface.co/api/models?pipeline_tag=text-generation&inference_provider=all&sort=downloads&direction=-1&limit=30', { headers: { 'Accept': 'application/json' } });
     if (r.ok) list = await r.json();
   } catch (e) { /* offline — fall back to recommended defaults */ }
   const ids = list.length ? list.map(m => m.id) : HF_RECOMMENDED.slice();
@@ -7400,7 +7436,7 @@ const AF_QUESTIONS = [
   {
     id: 'power', label: 'Q9 · AI POWER SOURCE', type: 'multichips',
     prompt: 'What powers the agent\'s AI? (select all that apply)',
-    help: 'This is critical — the orchestration layer must know how to reach the model(s). HF cloud = Hugging Face Inference API (optional key, stored in env only).',
+    help: 'This is critical — the orchestration layer must know how to reach the model(s). HF cloud = Hugging Face Inference Providers router (OpenAI-compatible /v1/chat/completions; a free HF token is required to generate, stored in env only).',
     options: [
       { v: 'api_key',   t: 'API key (OpenAI / Anthropic / etc.)' },
       { v: 'hf',        t: 'Hugging Face cloud (Inference API)' },
