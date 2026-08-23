@@ -39,7 +39,14 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
   assert.ok(m, 'meshDefaultWs() not found in prompt-forge.html');
 
   function withHostname(hostname) {
-    const sandbox = { window: { location: { hostname } } };
+    const sandbox = { window: { location: { hostname, protocol: 'http:' } } };
+    vm.createContext(sandbox);
+    vm.runInContext(m[0] + '\nthis.__r = meshDefaultWs();', sandbox);
+    return sandbox.__r;
+  }
+
+  function withHostnameAndProtocol(hostname, protocol) {
+    const sandbox = { window: { location: { hostname, protocol } } };
     vm.createContext(sandbox);
     vm.runInContext(m[0] + '\nthis.__r = meshDefaultWs();', sandbox);
     return sandbox.__r;
@@ -51,9 +58,52 @@ const FILE = 'file://' + path.resolve(__dirname, 'prompt-forge.html');
     withHostname('my-remote-box.example.com') === 'ws://my-remote-box.example.com:8770', withHostname('my-remote-box.example.com'));
   record('no hostname (file://) → falls back to loopback',
     withHostname('') === 'ws://127.0.0.1:8770', withHostname(''));
+  record('https: page → wss:// to avoid mixed-content blocking',
+    withHostnameAndProtocol('example.com', 'https:') === 'wss://example.com:8770', withHostnameAndProtocol('example.com', 'https:'));
+  record('http: page → ws:// (no TLS needed)',
+    withHostnameAndProtocol('example.com', 'http:') === 'ws://example.com:8770', withHostnameAndProtocol('example.com', 'http:'));
 })();
 
-// ── Part 1b: meshHttpsWarning() — mesh-server.js has no TLS support, so an
+// ── Part 1b: meshWsUrl() localStorage migration — stale insecure ws:// values
+// are cleared when page is on https: to avoid mixed-content dead end ──────
+(function testMeshWsUrlMigration() {
+  console.log('\n── meshWsUrl() migrates stale insecure ws:// on https: pages ──');
+  const mWsUrl = html.match(/function meshWsUrl\(\) \{[\s\S]*?\n\}/);
+  const mDefault = html.match(/function meshDefaultWs\(\) \{[\s\S]*?\n\}/);
+  assert.ok(mWsUrl, 'meshWsUrl() not found in prompt-forge.html');
+  assert.ok(mDefault, 'meshDefaultWs() not found in prompt-forge.html');
+
+  function testWithStoredValue(protocol, storedValue) {
+    const storage = { 'pf.mesh.ws': storedValue };
+    const sandbox = {
+      window: { location: { protocol, hostname: 'example.com' } },
+      localStorage: {
+        getItem: (k) => storage[k] || null,
+        removeItem: (k) => { delete storage[k]; }
+      }
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(mDefault[0] + '\n' + mWsUrl[0] + '\nthis.__r = meshWsUrl();', sandbox);
+    return { result: sandbox.__r, storageCleared: !storage['pf.mesh.ws'] };
+  }
+
+  const httpsWithWs = testWithStoredValue('https:', 'ws://stale-host:8770');
+  record('https: page with stale ws:// → clears storage and returns secure default',
+    httpsWithWs.storageCleared && httpsWithWs.result === 'wss://example.com:8770',
+    `cleared=${httpsWithWs.storageCleared} result=${httpsWithWs.result}`);
+
+  const httpsWithWss = testWithStoredValue('https:', 'wss://custom-host:8770');
+  record('https: page with valid wss:// → preserves the custom value',
+    !httpsWithWss.storageCleared && httpsWithWss.result === 'wss://custom-host:8770',
+    `cleared=${httpsWithWss.storageCleared} result=${httpsWithWss.result}`);
+
+  const httpWithWs = testWithStoredValue('http:', 'ws://custom-host:8770');
+  record('http: page with ws:// → preserves the value (no migration needed)',
+    !httpWithWs.storageCleared && httpWithWs.result === 'ws://custom-host:8770',
+    `cleared=${httpWithWs.storageCleared} result=${httpWithWs.result}`);
+})();
+
+// ── Part 1c: meshHttpsWarning() — mesh-server.js has no TLS support, so an
 // https:-hosted page trying a ws:// signaling connection is a real dead end
 // (browsers block it as mixed content), not just a cosmetic mismatch. ──────
 (function testMeshHttpsWarning() {

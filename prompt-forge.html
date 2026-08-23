@@ -9271,7 +9271,8 @@ function meshHttpsWarning() {
 }
 function meshDefaultWs() {
   const h = window.location.hostname;
-  return 'ws://' + (h || '127.0.0.1') + ':8770';
+  const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return proto + (h || '127.0.0.1') + ':8770';
 }
 let _meshState = null;  // { ws, code, peerId, peers:Map, isHost, syncCfg }
 function meshState() { return _meshState || loadJSON(LS.MESH, { syncCfg: true }); }
@@ -9325,7 +9326,15 @@ function meshServerHint() {
   }
 }
 function meshWsUrl() {
-  try { return localStorage.getItem('pf.mesh.ws') || meshDefaultWs(); } catch { return meshDefaultWs(); }
+  try {
+    const stored = localStorage.getItem('pf.mesh.ws');
+    // If on HTTPS and stored value is insecure ws://, clear it and use secure default
+    if (stored && window.location.protocol === 'https:' && stored.startsWith('ws://')) {
+      localStorage.removeItem('pf.mesh.ws');
+      return meshDefaultWs();
+    }
+    return stored || meshDefaultWs();
+  } catch { return meshDefaultWs(); }
 }
 function meshLog(msg) {
   const el = $('meshLog'); if (!el) return;
