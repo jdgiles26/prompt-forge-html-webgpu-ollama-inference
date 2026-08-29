@@ -138,6 +138,26 @@
   .input-area::-webkit-scrollbar { width: 4px; }
   .input-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+  .quickstart-bar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+  }
+  .quickstart-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px;
+    color: var(--muted); text-transform: uppercase; white-space: nowrap;
+  }
+  .qs-btn {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.5px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 2px;
+    background: transparent; color: var(--muted-hi); cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .qs-btn:hover {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(0,200,255,0.06);
+  }
+  .qs-btn:active { transform: scale(0.96); }
+
   textarea {
     min-height: 180px;
     background: var(--panel); border: 1px solid var(--border); border-radius: 3px;
@@ -175,6 +195,65 @@
   .section.open .section-chev { transform: rotate(90deg); }
   .section-body { display: none; padding: 10px; gap: 8px; flex-direction: column; }
   .section.open .section-body { display: flex; }
+
+  /* Multi-Model Handoff */
+  .mm-switch-label {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--text); cursor: pointer;
+  }
+  .mm-switch-label input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer;
+  }
+  .mm-strategy-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  }
+  .mm-lbl {
+    font-family: var(--mono); font-size: 10px; color: var(--muted-hi);
+    letter-spacing: 1px; text-transform: uppercase; white-space: nowrap;
+  }
+  .mm-role-grid {
+    display: flex; flex-direction: column; gap: 6px;
+    border: 1px solid var(--border); border-radius: 3px; padding: 8px;
+    background: rgba(0,200,255,0.02);
+  }
+  .mm-role-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mm-role-name {
+    font-family: var(--mono); font-size: 10px; color: var(--text);
+    min-width: 140px; flex-shrink: 0;
+  }
+  .mm-role-select {
+    flex: 1; font-family: var(--mono); font-size: 10px;
+  }
+  .mm-backend-select {
+    width: 90px; flex-shrink: 0; font-family: var(--mono); font-size: 10px;
+  }
+  .mm-progress {
+    margin-top: 8px; border: 1px solid var(--border); border-radius: 3px; padding: 8px;
+    background: var(--bg);
+  }
+  .mm-progress-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+  }
+  .mm-progress-header span {
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+  }
+  .mm-progress-bar {
+    height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+  }
+  .mm-progress-fill {
+    height: 100%; background: var(--accent); width: 0%; transition: width 0.3s;
+    box-shadow: 0 0 8px rgba(0,200,255,0.4);
+  }
+  .mm-file-log {
+    margin-top: 6px; max-height: 120px; overflow-y: auto;
+    font-family: var(--mono); font-size: 9px; color: var(--muted); line-height: 1.6;
+  }
+  .mm-file-log .mm-log-entry { padding: 1px 0; }
+  .mm-file-log .mm-log-ok { color: var(--green); }
+  .mm-file-log .mm-log-err { color: var(--red); }
+  .mm-file-log .mm-log-busy { color: var(--amber); }
 
   .backend-toggle, .mode-toggle {
     display: flex; border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
@@ -1089,6 +1168,11 @@
     }
   }
 
+    /* Multi-model mobile */
+    .mm-role-row { flex-direction: column; align-items: stretch; gap: 3px; }
+    .mm-role-name { min-width: 0; }
+    .mm-backend-select { width: 100%; }
+
   /* Extra-small phones */
   @media (max-width: 420px) {
     html, body { font-size: 13px; }
@@ -1150,6 +1234,17 @@
           spellcheck="false"
         ></textarea>
 
+        <div class="quickstart-bar" id="quickstartBar">
+          <span class="quickstart-label">QUICK START:</span>
+          <button class="qs-btn" onclick="loadQuickStart('rest-api')" title="REST API with auth, validation, tests">REST API</button>
+          <button class="qs-btn" onclick="loadQuickStart('react-app')" title="React SPA with state, routing, tests">React App</button>
+          <button class="qs-btn" onclick="loadQuickStart('cli-tool')" title="CLI tool with flags, I/O, tests">CLI Tool</button>
+          <button class="qs-btn" onclick="loadQuickStart('data-pipeline')" title="ETL pipeline with schema, idempotency">Data Pipeline</button>
+          <button class="qs-btn" onclick="loadQuickStart('refactor')" title="Surgical refactor preserving API">Refactor</button>
+          <button class="qs-btn" onclick="loadQuickStart('bugfix')" title="Bug fix with root cause + regression test">Bug Fix</button>
+          <button class="qs-btn" onclick="loadQuickStart('ml-infer')" title="ML inference service with eval harness">ML Infer</button>
+        </div>
+
         <div class="controls">
 
           <!-- MODE -->
@@ -1198,8 +1293,8 @@
           </div>
 
           <!-- TEST TYPES (project mode only) -->
-          <div class="section open" id="sec-testtypes">
-            <button type="button" class="section-head" onclick="toggleSection('sec-testtypes')" aria-expanded="true" aria-controls="sec-testtypes-body">
+          <div class="section" id="sec-testtypes">
+            <button type="button" class="section-head" onclick="toggleSection('sec-testtypes')" aria-expanded="false" aria-controls="sec-testtypes-body">
               <span>PROGRAMMATIC TEST TYPES</span>
               <span id="testTypesBadge" class="testtype-badge">all</span>
               <span class="section-chev">›</span>
@@ -1220,8 +1315,8 @@
           </div>
 
           <!-- BACKEND -->
-          <div class="section open" id="sec-backend">
-            <button type="button" class="section-head" onclick="toggleSection('sec-backend')" aria-expanded="true" aria-controls="sec-backend-body">
+          <div class="section" id="sec-backend">
+            <button type="button" class="section-head" onclick="toggleSection('sec-backend')" aria-expanded="false" aria-controls="sec-backend-body">
               <span>INFERENCE BACKEND</span>
               <span id="backendBadge" style="color:var(--accent);font-size:10px;">OLLAMA</span>
               <span class="section-chev">›</span>
@@ -1388,6 +1483,89 @@
               </div>
               <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;margin-top:4px;">
                 Anti-loop: repeat_penalty / presence / frequency auto-scale up as context fills (&gt;70% ctx). Detected repetition loops auto-bump penalties.
+              </div>
+            </div>
+          </div>
+
+          <!-- MULTI-MODEL HANDOFF -->
+          <div class="section" id="sec-multimodel">
+            <button type="button" class="section-head" onclick="toggleSection('sec-multimodel')" aria-expanded="false" aria-controls="sec-multimodel-body">
+              <span>MULTI-MODEL HANDOFF</span>
+              <span id="mmBadge" style="color:var(--muted);font-size:10px;">off</span>
+              <span class="section-chev">"</span>
+            </button>
+            <div class="section-body" id="sec-multimodel-body">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.55;margin-bottom:8px;">
+                Splits Complete Project generation across multiple models: a stronger model writes docs/specs/tests, a faster model writes code files. Each file gets its own generation call — no truncation, no context overflow.
+              </div>
+
+              <div class="mm-toggle-row">
+                <label class="mm-switch-label">
+                  <input type="checkbox" id="mmEnable" onchange="onMultiModelToggle()" />
+                  <span>Enable multi-model handoff (project mode only)</span>
+                </label>
+              </div>
+
+              <div id="mmConfig" style="display:none;">
+                <div class="mm-strategy-row">
+                  <label class="mm-lbl">Strategy:</label>
+                  <select id="mmStrategy" onchange="onMmStrategyChange()">
+                    <option value="auto" selected>Auto (optimized — pick best available)</option>
+                    <option value="ollama-only">Ollama only (all files via Ollama)</option>
+                    <option value="webgpu-only">WebGPU only (all files via browser)</option>
+                    <option value="hybrid">Hybrid (docs via Ollama, code via WebGPU)</option>
+                    <option value="hybrid-rev">Hybrid reversed (docs via WebGPU, code via Ollama)</option>
+                    <option value="custom">Custom (assign roles manually below)</option>
+                  </select>
+                </div>
+
+                <div class="mm-role-grid" id="mmRoleGrid">
+                  <div class="mm-role-row">
+                    <span class="mm-role-name">Docs / Spec / PRD</span>
+                    <select id="mmModelDocs" class="mm-role-select"></select>
+                    <select id="mmBackendDocs" class="mm-backend-select" onchange="onMmRoleBackendChange('Docs')">
+                      <option value="ollama">Ollama</option>
+                      <option value="browser">WebGPU</option>
+                    </select>
+                  </div>
+                  <div class="mm-role-row">
+                    <span class="mm-role-name">Tests (RED phase)</span>
+                    <select id="mmModelTests" class="mm-role-select"></select>
+                    <select id="mmBackendTests" class="mm-backend-select" onchange="onMmRoleBackendChange('Tests')">
+                      <option value="ollama">Ollama</option>
+                      <option value="browser">WebGPU</option>
+                    </select>
+                  </div>
+                  <div class="mm-role-row">
+                    <span class="mm-role-name">Implementation (GREEN)</span>
+                    <select id="mmModelImpl" class="mm-role-select"></select>
+                    <select id="mmBackendImpl" class="mm-backend-select" onchange="onMmRoleBackendChange('Impl')">
+                      <option value="ollama">Ollama</option>
+                      <option value="browser">WebGPU</option>
+                    </select>
+                  </div>
+                  <div class="mm-role-row">
+                    <span class="mm-role-name">Build / Config</span>
+                    <select id="mmModelBuild" class="mm-role-select"></select>
+                    <select id="mmBackendBuild" class="mm-backend-select" onchange="onMmRoleBackendChange('Build')">
+                      <option value="ollama">Ollama</option>
+                      <option value="browser">WebGPU</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;margin-top:6px;">
+                  <b>Auto</b>: largest available Ollama coder model → docs/tests, fastest model → code. <b>Hybrid</b>: uses both backends in parallel where possible.
+                </div>
+
+                <div class="mm-progress" id="mmProgress" style="display:none;">
+                  <div class="mm-progress-header">
+                    <span id="mmProgressLabel">Preparing...</span>
+                    <span id="mmProgressCount">0 / 0</span>
+                  </div>
+                  <div class="mm-progress-bar"><div class="mm-progress-fill" id="mmProgressFill"></div></div>
+                  <div class="mm-file-log" id="mmFileLog"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -2786,6 +2964,148 @@ window.onTemplateChange = function() {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// QUICK START TEMPLATES — pre-filled example tasks
+// ═════════════════════════════════════════════════════════════════════════════
+
+const QUICK_START_TEMPLATES = {
+  'rest-api': {
+    mode: 'project',
+    template: 'api',
+    task: `Build a REST API service for a URL shortener.
+
+Requirements:
+- POST /shorten accepts a long URL and returns a short code
+- GET /:code redirects to the original URL (301)
+- GET /stats/:code returns click count and creation date
+- SQLite for storage (no external DB)
+- Input validation: reject malformed URLs, codes must be alphanumeric
+- Rate limiting: max 10 requests/second per IP
+- Python + FastAPI + uvicorn
+- Unit tests for URL validation, shortening, redirect, stats
+- Integration tests for the full request lifecycle`,
+  },
+  'react-app': {
+    mode: 'project',
+    template: 'greenfield',
+    task: `Build a React todo application with the following features:
+
+- Add, edit, delete, and toggle todos
+- Filter by all/active/completed
+- localStorage persistence (no backend)
+- Responsive design (mobile + desktop)
+- Vite + React 18 + TypeScript
+- Component tests with Vitest + Testing Library
+- E2E tests with Playwright for add/toggle/delete flows
+- Clean component separation: TodoList, TodoItem, FilterBar, AddForm`,
+  },
+  'cli-tool': {
+    mode: 'project',
+    template: 'greenfield',
+    task: `Build a CLI tool that converts CSV files to JSON.
+
+Requirements:
+- Accept input file path and optional output path as arguments
+- --delimiter flag (default: comma)
+- --pretty flag for formatted JSON output
+- --select flag to pick specific columns
+- Handle malformed CSV gracefully with line-number error messages
+- Node.js + TypeScript, compiled with tsup
+- Unit tests for parsing, column selection, error handling
+- Integration tests reading real CSV files from a fixtures/ directory
+- README with usage examples`,
+  },
+  'data-pipeline': {
+    mode: 'project',
+    template: 'datapipeline',
+    task: `Build an ETL pipeline that ingests daily sales CSVs into a SQLite warehouse.
+
+Requirements:
+- Extract: read CSV files from a given directory (glob pattern)
+- Transform: normalize currency to USD, validate date formats, deduplicate by order_id
+- Load: upsert into SQLite sales table (idempotent re-runs)
+- --dry-run flag: show what would be loaded without writing
+- --backfill flag: reprocess all files starting from a given date
+- Python + pandas + sqlite3
+- Unit tests for transform logic (currency conversion, dedup, validation)
+- Integration tests for extract→transform→load with temp directories
+- Property test: running the pipeline twice produces the same row count`,
+  },
+  'refactor': {
+    mode: 'single',
+    template: 'refactor',
+    task: `Refactor the authentication middleware in src/middleware/auth.py.
+
+Current state:
+- The middleware is 300 lines in a single function with deeply nested if/else
+- Token validation, rate limiting, and user lookup are all inline
+- No error handling — exceptions bubble up as 500s
+- Session storage uses a global dict (not thread-safe)
+
+Target:
+- Split into TokenValidator, RateLimiter, UserLookup classes
+- Each class has a single responsibility and is independently testable
+- Proper error responses (401, 429, 403) instead of 500s
+- Replace global dict with Redis-backed session store
+- Preserve the public API: authenticate(request) -> Response
+- All existing tests must pass without modification`,
+  },
+  'bugfix': {
+    mode: 'single',
+    template: 'bugfix',
+    task: `Fix a race condition in the order processing service.
+
+Symptoms:
+- Concurrent orders for the same product sometimes double-decrement inventory
+- Happens under high load (>50 req/s) but not in normal traffic
+- No error is logged — the inventory just goes negative silently
+
+Suspected cause:
+- src/services/order.py: process_order() reads inventory, checks stock, decrements — not atomic
+- SQLite with WAL mode, no explicit transactions around the read-check-decrement
+
+Required:
+- Write a regression test that reproduces the race (concurrent process_order calls)
+- Fix with proper transaction isolation (SELECT ... FOR UPDATE or retry-on-conflict)
+- Test must fail before the fix and pass after
+- No changes to the public API or return values`,
+  },
+  'ml-infer': {
+    mode: 'project',
+    template: 'ml',
+    task: `Build a text classification inference service using a pre-trained model.
+
+Requirements:
+- Load a HuggingFace transformer model (distilbert-base-uncased-finetuned-sst-2-english)
+- POST /classify accepts {text: string} and returns {label: string, score: float}
+- Batch endpoint: POST /classify/batch accepts {texts: string[]}
+- Model loaded once at startup, not per-request
+- Response time <200ms per single request on CPU
+- Python + FastAPI + transformers + torch
+- Unit tests for input validation and response shape
+- Integration tests with a mocked model (no real inference in CI)
+- Eval test: classification accuracy >90% on a 100-sample SST-2 test fixture`,
+  },
+};
+
+window.loadQuickStart = function(key) {
+  const tpl = QUICK_START_TEMPLATES[key];
+  if (!tpl) return;
+  setMode(tpl.mode);
+  const sel = document.getElementById('templateSel');
+  sel.value = tpl.template;
+  onTemplateChange();
+  taskInput.value = tpl.task;
+  updateInputMeter();
+  if (systemPromptEditor.dataset.dirty !== '1') {
+    systemPromptEditor.value = baseSystemPrompt();
+  }
+  toast('Quick start loaded — click FORGE PROMPT');
+  if (window.innerWidth <= 768) {
+    document.getElementById('forgeBtn').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // SYSTEM PROMPT EDITOR
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -3490,6 +3810,461 @@ window.importWorkspace = async function(ev) {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
+// MULTI-MODEL HANDOFF — split project file generation across multiple models
+// ═════════════════════════════════════════════════════════════════════════════
+
+// File-role classification: each project file is assigned to one of 4 roles.
+// This determines which model/backend generates it.
+const MM_FILE_ROLES = {
+  docs: [
+    'README.md', 'prd.md', 'spec.md', 'tdd.md', 'agent.md', 'drift.md',
+    'capabilities.md', 'architectural.md', 'prompt-sequence.md',
+    'CLAUDE.md', 'AGENTS.md', 'DONE.md',
+  ],
+  tests: [
+    'tests/', 'tests/test_main', 'tests/conftest', 'tests/README.md',
+  ],
+  impl: [
+    'src/after/', 'src/before/', 'src/after/main', 'src/before/main',
+    'src/after/__init__', 'src/after/README.md', 'src/before/README.md',
+  ],
+  build: [
+    'Makefile', '.gitignore', 'requirements.txt', 'package.json',
+  ],
+};
+
+// Classify a file path into a role: docs, tests, impl, build
+function mmClassifyFile(path) {
+  const p = path.toLowerCase();
+  if (MM_FILE_ROLES.docs.some(f => p === f.toLowerCase() || p.startsWith(f.toLowerCase()))) return 'docs';
+  if (MM_FILE_ROLES.tests.some(f => p.startsWith(f.toLowerCase()))) return 'tests';
+  if (MM_FILE_ROLES.impl.some(f => p.startsWith(f.toLowerCase()))) return 'impl';
+  if (MM_FILE_ROLES.build.some(f => p === f.toLowerCase())) return 'build';
+  return 'docs';
+}
+
+// The file manifest that the model must generate, in generation order.
+// Docs first (sets the spec), then tests (RED), then implementation (GREEN), then build.
+const MM_FILE_MANIFEST = [
+  'README.md',
+  'prd.md',
+  'spec.md',
+  'CLAUDE.md',
+  'AGENTS.md',
+  'DONE.md',
+  'tdd.md',
+  'agent.md',
+  'drift.md',
+  'capabilities.md',
+  'architectural.md',
+  'prompt-sequence.md',
+  'Makefile',
+  '.gitignore',
+  'requirements.txt',
+  'src/before/README.md',
+  'src/before/main',
+  'src/after/README.md',
+  'src/after/__init__.py',
+  'src/after/main',
+  'tests/README.md',
+  'tests/test_main',
+  'tests/conftest',
+];
+
+// Build the per-file generation prompt.
+function mmBuildFilePrompt(filePath, userTask, allFiles, priorContext) {
+  const role = mmClassifyFile(filePath);
+  const fileList = allFiles.join(', ');
+  let roleInstructions = '';
+  switch (role) {
+    case 'docs':
+      roleInstructions = 'Write complete, detailed documentation. Fill every section with task-specific content. No placeholders. No [TBD].';
+      break;
+    case 'tests':
+      roleInstructions = 'Write tests that import from src.after. Tests MUST currently FAIL because the implementation is stubbed with NotImplementedError. Tests assert behavior from the spec, never mirror the implementation. Write 8-12 specific, named test cases.';
+      break;
+    case 'impl':
+      roleInstructions = filePath.includes('before')
+        ? 'Write the CURRENT/BROKEN version of the code as described by the user. If greenfield, write a minimal stub with inline comments showing what is wrong.'
+        : 'Write the TARGET implementation. Function/class signatures with raise NotImplementedError("...") bodies. Public surface must match what tests import.';
+      break;
+    case 'build':
+      roleInstructions = 'Write valid build configuration. Makefile targets must work. requirements.txt/package.json must have real, pinned dependencies.';
+      break;
+  }
+
+  return `PROJECT TASK:
+${userTask}
+
+FILE TO GENERATE: ${filePath}
+
+This file is part of a larger project with these files: ${fileList}
+
+ROLE-SPECIFIC INSTRUCTIONS:
+${roleInstructions}
+
+${priorContext ? 'CONTEXT FROM PRIOR FILES:\n' + priorContext + '\n' : ''}
+
+OUTPUT FORMAT — output ONLY the file contents. No preamble. No "Here is the file". No code fences around the whole output. No === FILE: === markers. Just the raw file content, starting immediately.`;
+}
+
+// Get the system prompt for a specific file role
+function mmGetSystemPrompt(role) {
+  const base = getActiveSystemPrompt();
+  const roleSystem = {
+    docs: 'You are a technical writer and systems architect. You produce precise, complete documentation and specifications. Every section filled. No generic filler.',
+    tests: 'You are a test engineer practicing strict TDD. Tests are written FIRST (RED phase) and must fail against stub implementations. Tests assert behavior from the spec, never internal implementation details.',
+    impl: 'You are a software engineer. You write clean, correct code. Stubs use raise NotImplementedError. Implementation matches the spec and passes all tests.',
+    build: 'You are a DevOps engineer. You produce working build files with correct syntax and real dependencies.',
+  };
+  return roleSystem[role] + '\n\n' + base.split('\n').slice(0, 5).join('\n');
+}
+
+// Determine model/backend for each role based on strategy
+function mmResolveRoles() {
+  const strategy = document.getElementById('mmStrategy').value;
+  const ollamaModels = Array.from(document.getElementById('ollamaModel').options)
+    .map(o => o.value).filter(v => v);
+  const browserModel = document.getElementById('browserModel').value;
+
+  const ollamaPref = ['qwen2.5-coder:7b', 'qwen2.5-coder:3b', 'qwen2.5-coder:1.5b',
+    'qwen2.5:7b', 'qwen2.5:3b', 'llama3.1:8b', 'llama3.2:3b', 'qwen3:8b', 'qwen3:4b'];
+  const bestOllama = ollamaPref.find(p => ollamaModels.includes(p)) || ollamaModels[0] || '';
+  const fastOllama = ollamaPref.slice().reverse().find(p => ollamaModels.includes(p)) || ollamaModels[0] || '';
+
+  const result = { docs: {}, tests: {}, impl: {}, build: {} };
+
+  if (strategy === 'auto') {
+    // Auto: use the best available coder model. On CPU-only setups, 3B is the
+    // sweet spot — 7B is too slow for 23 files. Prefer 3B coder for all roles.
+    const coderPref = ['qwen2.5-coder:3b', 'qwen2.5-coder:7b', 'qwen2.5-coder:1.5b', 'qwen2.5:3b', 'llama3.2:3b'];
+    const bestCoder = coderPref.find(p => ollamaModels.includes(p)) || ollamaModels[0] || '';
+    const useBackend = bestCoder ? 'ollama' : (browserModel ? 'browser' : 'ollama');
+    const useModel = bestCoder || browserModel || '';
+    result.docs = { backend: useBackend, model: useModel };
+    result.tests = { backend: useBackend, model: useModel };
+    result.impl = { backend: useBackend, model: useModel };
+    result.build = { backend: useBackend, model: useModel };
+  } else if (strategy === 'ollama-only') {
+    // Use the fastest available coder model for all roles on CPU-only setups.
+    // The 7B model is too slow for 23 files on 2 CPUs — 3B is the sweet spot.
+    const coderFast = ['qwen2.5-coder:3b', 'qwen2.5-coder:7b', 'qwen2.5-coder:1.5b', 'qwen2.5:3b', 'llama3.2:3b'];
+    const fastModel = coderFast.find(p => ollamaModels.includes(p)) || ollamaModels[0] || '';
+    result.docs = { backend: 'ollama', model: fastModel };
+    result.tests = { backend: 'ollama', model: fastModel };
+    result.impl = { backend: 'ollama', model: fastModel };
+    result.build = { backend: 'ollama', model: fastModel };
+  } else if (strategy === 'webgpu-only') {
+    result.docs = { backend: 'browser', model: browserModel };
+    result.tests = { backend: 'browser', model: browserModel };
+    result.impl = { backend: 'browser', model: browserModel };
+    result.build = { backend: 'browser', model: browserModel };
+  } else if (strategy === 'hybrid') {
+    result.docs = { backend: 'ollama', model: bestOllama };
+    result.tests = { backend: 'ollama', model: bestOllama };
+    result.impl = { backend: 'browser', model: browserModel };
+    result.build = { backend: 'browser', model: browserModel };
+  } else if (strategy === 'hybrid-rev') {
+    result.docs = { backend: 'browser', model: browserModel };
+    result.tests = { backend: 'browser', model: browserModel };
+    result.impl = { backend: 'ollama', model: bestOllama };
+    result.build = { backend: 'ollama', model: bestOllama };
+  } else if (strategy === 'custom') {
+    ['Docs', 'Tests', 'Impl', 'Build'].forEach(roleKey => {
+      const roleLower = roleKey.toLowerCase();
+      const backend = document.getElementById('mmBackend' + roleKey).value;
+      const modelSel = document.getElementById('mmModel' + roleKey);
+      const model = modelSel ? modelSel.value : '';
+      result[roleLower] = { backend, model };
+    });
+  }
+
+  return result;
+}
+
+// Populate the custom role selects with available models
+function mmPopulateCustomSelects() {
+  const ollamaModels = Array.from(document.getElementById('ollamaModel').options)
+    .map(o => o.value).filter(v => v);
+  const browserOpts = Array.from(document.getElementById('browserModel').options)
+    .filter(o => o.value).map(o => ({ value: o.value, text: o.text }));
+
+  ['Docs', 'Tests', 'Impl', 'Build'].forEach(roleKey => {
+    const sel = document.getElementById('mmModel' + roleKey);
+    const backendSel = document.getElementById('mmBackend' + roleKey);
+    if (!sel) return;
+    const currentBackend = backendSel.value;
+    const currentVal = sel.value;
+    sel.innerHTML = '';
+    if (currentBackend === 'ollama') {
+      ollamaModels.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        if (m === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } else {
+      browserOpts.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.text;
+        if (o.value === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+  });
+}
+
+window.onMmRoleBackendChange = function(roleKey) {
+  mmPopulateCustomSelects();
+};
+
+window.onMmStrategyChange = function() {
+  const strategy = document.getElementById('mmStrategy').value;
+  const roleGrid = document.getElementById('mmRoleGrid');
+  roleGrid.style.display = strategy === 'custom' ? 'flex' : 'none';
+};
+
+window.onMultiModelToggle = function() {
+  const enabled = document.getElementById('mmEnable').checked;
+  document.getElementById('mmConfig').style.display = enabled ? 'block' : 'none';
+  document.getElementById('mmBadge').textContent = enabled ? 'ON' : 'off';
+  document.getElementById('mmBadge').style.color = enabled ? 'var(--green)' : 'var(--muted)';
+  if (enabled) {
+    mmPopulateCustomSelects();
+    const sec = document.getElementById('sec-multimodel');
+    if (!sec.classList.contains('open')) toggleSection('sec-multimodel');
+  }
+};
+
+// Check if multi-model is enabled and applicable
+function isMultiModelActive() {
+  const enabled = document.getElementById('mmEnable') && document.getElementById('mmEnable').checked;
+  return enabled && mode === 'project';
+}
+
+// Generate a single file via Ollama
+// Per-file params are smaller than the full-project params — each file is
+// a focused generation, not a 20-file marathon. This keeps CPU inference fast.
+async function mmGenerateFileOllama(base, model, system, prompt, signal) {
+  return ollamaGenerate({
+    base, model, system, prompt,
+    temperature: 0.3,
+    maxTokens: 1536,      // per-file — enough for a README or a source file
+    numCtx: 4096,         // small ctx = fast load + fast inference on CPU
+    topP: 0.9, topK: 40, repeatPenalty: 1.1, repeatLastN: 256,
+    presencePenalty: 0, frequencyPenalty: 0, minP: 0.05,
+    onChunk: () => {}, stopFlag: () => stopRequested, signal,
+  });
+}
+
+// Generate a single file via WebGPU
+async function mmGenerateFileBrowser(modelId, system, prompt, signal) {
+  return browserGenerate({
+    modelId, system, prompt,
+    temperature: 0.3, maxTokens: 1536,
+    topP: 0.9, topK: 40, repeatPenalty: 1.1,
+    presencePenalty: 0, frequencyPenalty: 0,
+    onChunk: () => {}, stopFlag: () => stopRequested, progressCb: () => {},
+  });
+}
+
+// Log a file generation event to the progress UI
+function mmLog(filePath, status, detail) {
+  const log = document.getElementById('mmFileLog');
+  if (!log) return;
+  const entry = document.createElement('div');
+  entry.className = 'mm-log-entry mm-log-' + status;
+  const icon = status === 'ok' ? '✓' : status === 'err' ? '✗' : '⟳';
+  entry.textContent = icon + ' ' + filePath + (detail ? ' — ' + detail : '');
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Update progress bar
+function mmUpdateProgress(done, total) {
+  const fill = document.getElementById('mmProgressFill');
+  const count = document.getElementById('mmProgressCount');
+  if (fill) fill.style.width = (total > 0 ? (done / total * 100) : 0) + '%';
+  if (count) count.textContent = done + ' / ' + total;
+}
+
+// Main multi-model forge function
+// Unload an Ollama model from memory (frees RAM for the next model)
+async function mmUnloadOllamaModel(base, model) {
+  try {
+    await fetch(base + '/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, keep_alive: 0 }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {}
+}
+
+// Main multi-model forge function.
+// Groups files by model/backend, loads each model once, generates all its files,
+// then unloads before loading the next. This avoids RAM contention on
+// memory-constrained CPU-only setups.
+async function forgeMultiModel(userText) {
+  const roles = mmResolveRoles();
+  const ollamaBase = document.getElementById('ollamaUrl').value.trim();
+
+  // Show progress UI
+  const progDiv = document.getElementById('mmProgress');
+  progDiv.style.display = 'block';
+  const log = document.getElementById('mmFileLog');
+  log.innerHTML = '';
+
+  // Determine the file extension based on the task
+  const task = userText.toLowerCase();
+  let ext = 'py';
+  if (/typescript|\bts\b|\.ts/.test(task)) ext = 'ts';
+  else if (/javascript|node|\bjs\b|\.js/.test(task)) ext = 'js';
+  else if (/rust|cargo/.test(task)) ext = 'rs';
+  else if (/\bgo\b|golang/.test(task)) ext = 'go';
+  else if (/java|maven|spring/.test(task)) ext = 'java';
+
+  // Build the actual file list with extensions, in generation order
+  const files = MM_FILE_MANIFEST.map(f => {
+    if (f === 'src/before/main') return 'src/before/main.' + ext;
+    if (f === 'src/after/main') return 'src/after/main.' + ext;
+    if (f === 'tests/test_main') return 'tests/test_main.' + ext;
+    if (f === 'tests/conftest') return 'tests/conftest.' + ext;
+    return f;
+  });
+  const isJs = (ext === 'js' || ext === 'ts');
+  const finalFiles = files.map(f => (f === 'requirements.txt' && isJs) ? 'package.json' : f);
+  const total = finalFiles.length;
+
+  // Group files by (backend, model) — each group = one model lifecycle
+  // Order groups: docs first, then tests, then impl, then build
+  const roleOrder = ['docs', 'tests', 'impl', 'build'];
+  const groups = []; // [{key, backend, model, files: [{path, role, idx}]}]
+  const seenKeys = new Set();
+  for (const role of roleOrder) {
+    const cfg = roles[role] || roles.docs;
+    const key = cfg.backend + ':' + (cfg.model || 'none');
+    let group = groups.find(g => g.key === key);
+    if (!group) {
+      group = { key, backend: cfg.backend, model: cfg.model, files: [] };
+      groups.push(group);
+    }
+    for (let i = 0; i < finalFiles.length; i++) {
+      if (mmClassifyFile(finalFiles[i]) === role) {
+        group.files.push({ path: finalFiles[i], role, idx: i });
+      }
+    }
+  }
+  // Remove empty groups
+  const activeGroups = groups.filter(g => g.files.length > 0);
+
+  document.getElementById('mmProgressLabel').textContent =
+    'Pipeline: ' + activeGroups.length + ' model stage(s) · ' + total + ' files';
+  mmUpdateProgress(0, total);
+  mmLog('PIPELINE', 'busy', activeGroups.map(g => g.backend + '/' + (g.model || '?')).join(' → '));
+
+  const results = new Array(total);
+  let done = 0;
+
+  // Process each model group: load → generate all files → unload
+  for (let gi = 0; gi < activeGroups.length; gi++) {
+    if (stopRequested) break;
+    const group = activeGroups[gi];
+    const stageLabel = 'Stage ' + (gi + 1) + '/' + activeGroups.length + ': ' +
+      group.backend + '/' + (group.model || '?') + ' (' + group.files.length + ' files)';
+    mmLog('STAGE ' + (gi + 1), 'busy', stageLabel);
+    document.getElementById('mmProgressLabel').textContent = stageLabel;
+
+    // For browser backend, the model is loaded on first generate call
+    // For ollama, the model loads on first generate call too — no pre-load needed
+
+    for (const fileEntry of group.files) {
+      if (stopRequested) break;
+      const filePath = fileEntry.path;
+      const role = fileEntry.role;
+
+      // Build context from prior docs for impl/tests
+      let priorContext = '';
+      if (role === 'impl' || role === 'tests') {
+        const docsGenerated = results.filter(r => r && mmClassifyFile(r.path) === 'docs');
+        if (docsGenerated.length > 0) {
+          const spec = docsGenerated.find(r => r.path === 'spec.md');
+          const prd = docsGenerated.find(r => r.path === 'prd.md');
+          if (prd) priorContext += '--- prd.md ---\n' + prd.body.substring(0, 1500) + '\n';
+          if (spec) priorContext += '--- spec.md ---\n' + spec.body.substring(0, 1500) + '\n';
+        }
+      }
+
+      const filePrompt = mmBuildFilePrompt(filePath, userText, finalFiles, priorContext);
+      const fileSystem = mmGetSystemPrompt(role);
+
+      mmLog(filePath, 'busy', group.backend + '/' + (group.model || '?'));
+      document.getElementById('mmProgressLabel').textContent =
+        'Stage ' + (gi + 1) + ' · ' + filePath;
+
+      let content = '';
+      try {
+        if (group.backend === 'ollama') {
+          if (!group.model) throw new Error('No Ollama model for stage ' + (gi + 1));
+          content = await mmGenerateFileOllama(ollamaBase, group.model, fileSystem, filePrompt, abortCtl.signal);
+        } else if (group.backend === 'browser') {
+          if (!group.model) throw new Error('No WebGPU model for stage ' + (gi + 1));
+          content = await mmGenerateFileBrowser(group.model, fileSystem, filePrompt, abortCtl.signal);
+        }
+        // Clean stray FILE markers
+        content = content.replace(/^===\s*FILE:.*?===\s*$/gm, '')
+                         .replace(/^===\s*END FILE\s*===\s*$/gm, '').trim();
+
+        results[fileEntry.idx] = { path: filePath, body: content };
+        done++;
+        mmLog(filePath, 'ok', content.length + ' chars');
+        mmUpdateProgress(done, total);
+      } catch (e) {
+        if (e.name === 'AbortError') { stopRequested = true; break; }
+        mmLog(filePath, 'err', e.message || String(e));
+        results[fileEntry.idx] = {
+          path: filePath,
+          body: '# Generation failed: ' + (e.message || String(e)) + '\n# Re-forge or generate manually.',
+        };
+        done++;
+        mmUpdateProgress(done, total);
+      }
+    }
+
+    // Unload the Ollama model to free RAM for the next stage
+    if (group.backend === 'ollama' && group.model) {
+      mmLog('UNLOAD ' + group.model, 'ok', 'freeing RAM');
+      await mmUnloadOllamaModel(ollamaBase, group.model);
+    }
+
+    if (stopRequested) break;
+  }
+
+  if (stopRequested) {
+    document.getElementById('mmProgressLabel').textContent =
+      'Stopped (' + done + '/' + total + ' files)';
+    setStatus('err', 'STOPPED');
+    return;
+  }
+
+  // Assemble the final output in FILE block format (in original order)
+  let assembled = '';
+  for (const r of results) {
+    if (!r) continue;
+    assembled += '=== FILE: ' + r.path + ' ===\n';
+    assembled += r.body + '\n';
+    assembled += '=== END FILE ===\n\n';
+  }
+
+  showOutput(assembled.trim());
+  applyTint();
+  updateViewToggleVisibility();
+
+  document.getElementById('mmProgressLabel').textContent =
+    'Complete: ' + done + ' files generated';
+  mmLog('ALL FILES', 'ok', done + ' files, ' + assembled.length + ' chars total');
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // FORGE
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -3510,7 +4285,11 @@ window.forge = async function() {
 
   const startTs = Date.now();
   try {
-    if (backend === 'ollama') await runOllama(userText);
+    // Multi-Model Handoff: if enabled and in project mode, use the multi-model path
+    if (isMultiModelActive()) {
+      abortCtl = new AbortController();
+      await forgeMultiModel(userText);
+    } else if (backend === 'ollama') await runOllama(userText);
     else if (backend === 'hf') await runHF(userText);
     else                       await runBrowser(userText);
     // If the repetition detector tripped or a FILE block was malformed, do
