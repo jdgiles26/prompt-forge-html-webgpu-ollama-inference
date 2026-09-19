@@ -27,7 +27,7 @@
     "test:hf": "node test_hf_backend.js"
   },
   "devDependencies": {
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "playwright": "^1.60.0"
   }
 }
